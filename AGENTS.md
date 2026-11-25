@@ -60,3 +60,4 @@ Ce document définit les règles strictes applicables à tous les agents IA et d
   1. Migration ou suppression de données en production.
   2. Publication npm réelle hors workflow CI (`npm publish`) ou poussée de tags de release.
   3. Déploiement en production, rotation de secrets réels ou modification des règles de protection GitHub.
+
