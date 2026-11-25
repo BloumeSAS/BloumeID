@@ -85,3 +85,18 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - **Décisions et caveats** :
   - Correction de la police Georgia : définie via `--font-serif: Georgia, "Times New Roman", serif` dans `globals.css` tandis qu'`Inter` et `JetBrains_Mono` sont chargées via `next/font/google`.
 - **Statut de vérification** : build OK / typecheck OK / tests 5/5 OK / lint OK
+
+## [2026-11-26 00:45] Phase 4 : SDK `@bloumeid/sdk` (Collecteurs, Sondes Anti-Spoof, Thumbmark API & BloumeIDServer)
+- **Résumé des changements** :
+  - Implémentation de 48+ signaux déterministes zéro dépendance dans `packages/bloumeid/src/collectors.ts` : Canvas 2D (avec double rendu anti-bruit), WebGL 1/2 (vendor, renderer, unmasked GPU, extensions, précision des shaders), WebGPU, `OfflineAudioContext` (triangle + compresseur dynamique + double rendu), matériel/écran (HDR, gamut, orientation, touch), énumération de 85+ polices OS par mesure DOM, `Intl` & timezone, `navigator.languages`, `userAgentData` haute entropie, quotas de stockage, `speechSynthesis`, constantes mathématiques (`V8`, `SpiderMonkey`, `JavaScriptCore`), WebRTC ICE (désactivable via `exclude: ['webrtc']`) et `navigator.connection`.
+  - Implémentation des sondes anti-spoof et détection de bots (`packages/bloumeid/src/probes.ts`) : `navigator.webdriver`, artefacts globaux CDP/Playwright/Puppeteer/Selenium (`$cdc_`, `$wdc_`), `window.chrome` malformé, `Permissions.query` incohérent, sonde Web Worker Blob comparée au thread principal, double rendu Canvas/Audio (Brave, Multilogin, Dolphin, AdsPower) et détection du mode navigation privée via `navigator.storage.estimate()`.
+  - Implémentation de l'API 100 % compatible ThumbmarkJS Pro (`new BloumeID({ apiKey, endpoint, options })`, `get()`, `getFingerprint()`, `getFingerprintData()`, `setOption()`) et du client serveur `BloumeIDServer` (`@bloumeid/sdk/server` : `verifyRequest(requestId)`, `getVisitor(visitorId)`).
+  - Génération des bundles `dist/index.mjs`, `dist/index.cjs`, `dist/bloumeid.global.js` (28.38 Ko brut, ~9 Ko gzip < 150 Ko, copié automatiquement dans `apps/web/public/sdk/v1/bloumeid.js`) et déclarations `.d.ts`/`.d.cts`.
+- **Fichiers clés touchés** :
+  - `packages/bloumeid/src/{types,crypto,collectors,probes,index,server,umd}.ts`
+  - `packages/bloumeid/src/index.test.ts`
+  - `packages/bloumeid/package.json`, `packages/bloumeid/vitest.config.ts`
+  - `apps/web/public/sdk/v1/bloumeid.js`
+- **Décisions et caveats** :
+  - Implémentation pure TypeScript de SHA-256 et HMAC-SHA256 (`src/crypto.ts`) pour garantir zéro dépendance runtime et un fonctionnement synchrone/asynchrone uniforme entre navigateur, Worker et tests Vitest/JSDOM.
+- **Statut de vérification** : build OK (UMD 28.4 Ko < 150 Ko) / typecheck OK / tests 9/9 (couverture 86% > 80%) / lint OK / publint OK / attw OK
