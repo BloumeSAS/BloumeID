@@ -100,3 +100,21 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - **Décisions et caveats** :
   - Implémentation pure TypeScript de SHA-256 et HMAC-SHA256 (`src/crypto.ts`) pour garantir zéro dépendance runtime et un fonctionnement synchrone/asynchrone uniforme entre navigateur, Worker et tests Vitest/JSDOM.
 - **Statut de vérification** : build OK (UMD 28.4 Ko < 150 Ko) / typecheck OK / tests 9/9 (couverture 86% > 80%) / lint OK / publint OK / attw OK
+
+## [2026-11-26 00:52] Phase 5 : Moteur Backend, Prisma, Snowflake, Trie CIDR, Scoring, Webhooks & API v1
+- **Résumé des changements** :
+  - Création du schéma Prisma `apps/web/prisma/schema.prisma` (`Site`, `Visitor`, `FingerprintEvent`, `ThreatFeedStatus`) où chaque modèle possède un `id Int` interne et un `publicId String @unique` Snowflake jamais confondu, accompagné de la migration initiale versionnée `prisma/migrations/20261126000000_init/migration.sql`.
+  - Implémentation du générateur Snowflake (`src/lib/engine/snowflake.ts`) prenant en compte `WORKER_ID`, des clés `bid_pub_` et `bid_sec_` (hashées SHA-256), et des comparaisons en temps constant (`crypto.timingSafeEqual`).
+  - Implémentation de l'arbre Patricia/Radix CIDR en mémoire (`src/lib/engine/cidr-trie.ts`) et de la synchronisation des flux X4BNet VPN/Datacenter + Tor Bulk Exit List (`src/lib/engine/feeds.ts`), du classifieur ASN par mots-clés (OVH, Hetzner, DigitalOcean, AWS, GCP, Azure, Scaleway, Vultr, Linode, M247, Leaseweb...) et du lecteur automatique MaxMind GeoLite2 `.mmdb` dans `/app/data/geoip/` (`src/lib/engine/geoip.ts`).
+  - Implémentation du moteur de réconciliation 3 niveaux (`src/lib/engine/reconcile.ts` : Niveau 1 `fullHash` exact -> 0.99, Niveau 2 `hardwareHash` + `ipSubnet` /24 sur 30j -> 0.88 `crossBrowserMatched: true`, Niveau 3 nouveau `vis_` -> 0.95).
+  - Implémentation du scoring `dangerLevel` 0–5 (`src/lib/engine/scoring.ts`), de la détection d'anomalies de vélocité et rate-limiting en fenêtre glissante Redis (`src/lib/engine/redis.ts`), et de l'envoi de webhooks signés `X-BloumeID-Signature` avec retry exponentiel (`src/lib/engine/webhooks.ts`).
+  - Création des routes publiques `POST /api/v1/fingerprint`, `GET /api/v1/requests/[requestId]`, `GET /api/v1/visitors/[visitorId]`, `GET /api/health` et `GET /sdk/v1/bloumeid.js` (avec ETag et `Cache-Control`).
+- **Fichiers clés touchés** :
+  - `apps/web/prisma/schema.prisma`, `apps/web/prisma/migrations/20261126000000_init/migration.sql`
+  - `apps/web/src/types/index.ts`, `apps/web/src/lib/prisma.ts`
+  - `apps/web/src/lib/engine/{snowflake,network,cidr-trie,redis,geoip,feeds,scoring,webhooks,reconcile,repository}.ts`
+  - `apps/web/src/app/api/v1/**`, `apps/web/src/app/api/health/route.ts`, `apps/web/src/app/sdk/v1/bloumeid.js/route.ts`
+  - `apps/web/tests/engine.test.ts`
+- **Décisions et caveats** :
+  - Couche `repository.ts` résiliente supportant à la fois PostgreSQL via Prisma et un store mémoire pré-seedé lorsque `DATABASE_URL` n'est pas joignable (permettant d'exécuter les tests unitaires, le build Next.js et le playground de manière autonome sans dépendre d'un démon externe).
+- **Statut de vérification** : build OK / typecheck OK / tests 11/11 OK / lint OK
