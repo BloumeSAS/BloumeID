@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Site {
+  id             Int                @id @default(autoincrement())
+  publicId       String             @unique
+  name           String
+  domains        String[]
+  publicKey      String             @unique
+  secretKeyHash  String             @unique
+  secretKeyHint  String             @default("bid_sec_***")
+  webhookUrl     String?
+  webhookSecret  String?
+  riskThreshold  Int                @default(3)
+  config         Json               @default("{}")
+  isActive       Boolean            @default(true)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  visitors       Visitor[]
+  events         FingerprintEvent[]
+
+  @@index([publicKey])
+  @@index([secretKeyHash])
+}
+
+model Visitor {
+  id             Int                @id @default(autoincrement())
+  publicId       String             @unique
+  siteId         Int
+  site           Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  hardwareHash   String
+  firstSeenAt    DateTime           @default(now())
+  lastSeenAt     DateTime           @default(now())
+  visitCount     Int                @default(1)
+  maxDangerLevel Int                @default(0)
+  tags           String[]
+  notes          String?
+  metadata       Json?
+  events         FingerprintEvent[]
+
+  @@index([siteId, hardwareHash])
+  @@index([hardwareHash])
+  @@index([lastSeenAt])
+}
+
+model FingerprintEvent {
+  id                  Int      @id @default(autoincrement())
+  publicId            String   @unique
+  siteId              Int
+  site                Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitorId           Int
+  visitor             Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  fullHash            String
+  hardwareHash        String
+  ipAddress           String
+  ipSubnet            String
+  ja4Hash             String?
+  asnNumber           Int?
+  asnOrg              String?
+  country             String?
+  city                String?
+  isVpn               Boolean  @default(false)
+  isProxy             Boolean  @default(false)
+  isTor               Boolean  @default(false)
+  isDatacenter        Boolean  @default(false)
+  isBot               Boolean  @default(false)
+  isSpoofed           Boolean  @default(false)
+  isIncognito         Boolean  @default(false)
+  crossBrowserMatched Boolean  @default(false)
+  dangerLevel         Int      @default(0)
+  confidence          Float    @default(0.95)
+  browser             String?
+  os                  String?
+  device              String?
+  userAgent           String
+  origin              String?
+  components          Json
+  createdAt           DateTime @default(now())
+
+  @@index([siteId, fullHash])
+  @@index([siteId, hardwareHash, ipSubnet, createdAt])
+  @@index([ipAddress])
+  @@index([ipSubnet])
+  @@index([createdAt])
+}
+
+model ThreatFeedStatus {
+  id           Int       @id @default(autoincrement())
+  publicId     String    @unique
+  feedName     String    @unique
+  recordCount  Int       @default(0)
+  lastSyncedAt DateTime?
+  status       String    @default("idle")
+  errorMessage String?
+}
