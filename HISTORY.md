@@ -118,3 +118,23 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - **Décisions et caveats** :
   - Couche `repository.ts` résiliente supportant à la fois PostgreSQL via Prisma et un store mémoire pré-seedé lorsque `DATABASE_URL` n'est pas joignable (permettant d'exécuter les tests unitaires, le build Next.js et le playground de manière autonome sans dépendre d'un démon externe).
 - **Statut de vérification** : build OK / typecheck OK / tests 11/11 OK / lint OK
+
+## [2026-11-26 00:58] Phase 6 : Panneau Admin, Authentification `ADMIN_MASTER_KEY`, i18n & Playground Live
+- **Résumé des changements** :
+  - Implémentation de l'authentification administrateur par `ADMIN_MASTER_KEY` uniquement (`src/lib/auth.ts`, `src/app/api/admin/auth/login/route.ts`) avec comparaison en temps constant (`crypto.timingSafeEqual`), rate limiting Redis en fenêtre glissante, et cookie `HttpOnly`, `Secure` (en prod), `SameSite=Strict` signé HMAC-SHA256.
+  - Implémentation du middleware Next.js (`src/middleware.ts`) protégeant `/dashboard`, `/sites`, `/visitors`, `/playground` et `/settings`.
+  - Création des pages d'administration dans `src/app/(dashboard)/` :
+    - `/dashboard` : KPI avec deltas (`24h`, `7d`, `30d`), graphiques `recharts` (AreaChart & BarChart), flux temps réel des détections à risque et tiroir d'inspection forensique (`Sheet`).
+    - `/sites` : CRUD complet, rotation des clés `bid_pub_` / `bid_sec_`, configuration des domaines CORS (avec wildcards `*.domaine.tld`), bascule des collecteurs, seuil de risque, test de webhook signé et modale d'intégration (`npm`, `React`, `<script>`, `Node.js` utilisant `BLOUMEID_PUBLIC_URL`).
+    - `/visitors` et `/visitors/[visitorId]` : table filtrable, graphe de réconciliation cross-browser, timeline chronologique, édition des tags/notes et visualiseur JSON repliable (`CollapsibleJsonViewer`).
+    - `/playground` : exécution en direct du SDK `@bloumeid/sdk` dans le navigateur avec `visitorId`, `thumbmark`, jauge de risque `0–5`, flags, durée en ms et JSON brut.
+    - `/settings` : statut de l'arbre CIDR Radix en mémoire, état des bases `.mmdb` GeoLite2 (`/app/data/geoip`), bouton « Synchroniser maintenant », purge par ancienneté et export JSON/CSV.
+  - Configuration de la suite E2E Playwright (`apps/web/playwright.config.ts`, `apps/web/e2e/admin.spec.ts`) et des tests d'intégration Admin + contrôle d'absence de chaînes en dur (`apps/web/tests/admin.test.ts`).
+- **Fichiers clés touchés** :
+  - `apps/web/src/lib/auth.ts`, `apps/web/src/middleware.ts`, `apps/web/src/i18n/provider.tsx`
+  - `apps/web/src/app/api/admin/**`
+  - `apps/web/src/app/login/page.tsx`, `apps/web/src/app/(dashboard)/**`
+  - `apps/web/tests/admin.test.ts`, `apps/web/playwright.config.ts`, `apps/web/e2e/admin.spec.ts`
+- **Décisions et caveats** :
+  - Toutes les chaînes UI proviennent de `useI18n()` (`en.json` / `fr.json`) avec bascule instantanée FR/EN dans l'interface.
+- **Statut de vérification** : build OK / typecheck OK / tests 14/14 OK / lint OK

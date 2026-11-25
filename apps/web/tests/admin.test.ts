@@ -1,0 +1,196 @@
+import fs from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  ADMIN_SESSION_COOKIE,
+  createSignedAdminSessionToken,
+  getConfiguredMasterKey,
+  verifyMasterKey,
+  verifySignedAdminSessionToken,
+} from "../src/lib/auth";
+import { POST as loginPOST } from "../src/app/api/admin/auth/login/route";
+import { POST as logoutPOST } from "../src/app/api/admin/auth/logout/route";
+import { GET as dashboardGET } from "../src/app/api/admin/dashboard/route";
+import {
+  GET as sitesGET,
+  POST as sitesPOST,
+  PATCH as sitesPATCH,
+  DELETE as sitesDELETE,
+} from "../src/app/api/admin/sites/route";
+import {
+  GET as visitorsGET,
+  PATCH as visitorsPATCH,
+} from "../src/app/api/admin/visitors/route";
+import {
+  GET as settingsGET,
+  POST as settingsPOST,
+} from "../src/app/api/admin/settings/route";
+
+describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings", () => {
+  it("authenticates ADMIN_MASTER_KEY in constant time and issues signed HMAC cookies", async () => {
+    const masterKey = getConfiguredMasterKey();
+    expect(verifyMasterKey(masterKey)).toBe(true);
+    expect(verifyMasterKey("wrong_key")).toBe(false);
+
+    const token = createSignedAdminSessionToken();
+    expect(verifySignedAdminSessionToken(token)).toBe(true);
+    expect(verifySignedAdminSessionToken(`${token}tamper`)).toBe(false);
+
+    const badRes = await loginPOST(
+      new Request("http://localhost:3000/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ masterKey: "invalid_master_key" }),
+      })
+    );
+    expect(badRes.status).toBe(401);
+
+    const okRes = await loginPOST(
+      new Request("http://localhost:3000/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ masterKey }),
+      })
+    );
+    expect(okRes.status).toBe(200);
+    const setCookie = okRes.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain(ADMIN_SESSION_COOKIE);
+    expect(setCookie).toContain("HttpOnly");
+
+    const logoutRes = await logoutPOST();
+    expect(logoutRes.status).toBe(200);
+  });
+
+  it("operates Admin Dashboard, Sites CRUD/Rotation, Visitors & Settings APIs", async () => {
+    const token = createSignedAdminSessionToken();
+    const authHeaders = {
+      Cookie: `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}`,
+      "Content-Type": "application/json",
+    };
+
+    // Unauthenticated rejected
+    const unauth = await dashboardGET(new Request("http://localhost:3000/api/admin/dashboard"));
+    expect(unauth.status).toBe(401);
+
+    // Dashboard metrics
+    const dashRes = await dashboardGET(
+      new Request("http://localhost:3000/api/admin/dashboard?period=7d", { headers: authHeaders })
+    );
+    expect(dashRes.status).toBe(200);
+    const dashData = (await dashRes.json()) as { period: string; totalEvents: number };
+    expect(dashData.period).toBe("7d");
+    expect(dashData.totalEvents).toBeGreaterThanOrEqual(2);
+
+    // Sites CRUD + key rotation
+    const createRes = await sitesPOST(
+      new Request("http://localhost:3000/api/admin/sites", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          name: "E-Commerce Portal",
+          domains: ["shop.bloume.io", "*.shop.bloume.io"],
+          riskThreshold: 4,
+        }),
+      })
+    );
+    expect(createRes.status).toBe(201);
+    const createdBody = (await createRes.json()) as {
+      site: { publicId: string; publicKey: string; secretKeyPlain?: string };
+    };
+    expect(createdBody.site.publicId).toMatch(/^site_/);
+    expect(createdBody.site.publicKey).toMatch(/^bid_pub_/);
+    expect(createdBody.site.secretKeyPlain).toMatch(/^bid_sec_/);
+
+    const rotateRes = await sitesPATCH(
+      new Request("http://localhost:3000/api/admin/sites", {
+        method: "PATCH",
+        headers: authHeaders,
+        body: JSON.stringify({
+          publicId: createdBody.site.publicId,
+          rotateKeys: true,
+        }),
+      })
+    );
+    expect(rotateRes.status).toBe(200);
+    const rotatedBody = (await rotateRes.json()) as typeof createdBody;
+    expect(rotatedBody.site.publicKey).not.toBe(createdBody.site.publicKey);
+
+    const listSitesRes = await sitesGET(
+      new Request("http://localhost:3000/api/admin/sites", { headers: authHeaders })
+    );
+    expect(listSitesRes.status).toBe(200);
+
+    const delRes = await sitesDELETE(
+      new Request(
+        `http://localhost:3000/api/admin/sites?publicId=${createdBody.site.publicId}`,
+        { method: "DELETE", headers: authHeaders }
+      )
+    );
+    expect(delRes.status).toBe(200);
+
+    // Visitors list & annotation update
+    const visListRes = await visitorsGET(
+      new Request("http://localhost:3000/api/admin/visitors", { headers: authHeaders })
+    );
+    expect(visListRes.status).toBe(200);
+    const visListBody = (await visListRes.json()) as {
+      visitors: Array<{ publicId: string }>;
+    };
+    expect(visListBody.visitors.length).toBeGreaterThan(0);
+    const targetVisitorId = visListBody.visitors[0]!.publicId;
+
+    const patchVisRes = await visitorsPATCH(
+      new Request("http://localhost:3000/api/admin/visitors", {
+        method: "PATCH",
+        headers: authHeaders,
+        body: JSON.stringify({
+          publicId: targetVisitorId,
+          tags: ["reviewed", "trusted"],
+          notes: "Verified by SOC analyst",
+        }),
+      })
+    );
+    expect(patchVisRes.status).toBe(200);
+
+    // Settings status & CSV/JSON export
+    const settingsRes = await settingsGET(
+      new Request("http://localhost:3000/api/admin/settings", { headers: authHeaders })
+    );
+    expect(settingsRes.status).toBe(200);
+
+    const csvRes = await settingsGET(
+      new Request("http://localhost:3000/api/admin/settings?export=csv", {
+        headers: authHeaders,
+      })
+    );
+    expect(csvRes.status).toBe(200);
+    expect(await csvRes.text()).toContain("requestId,visitorId");
+
+    const purgeRes = await settingsPOST(
+      new Request("http://localhost:3000/api/admin/settings", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ action: "purge_events", retentionDays: 90 }),
+      })
+    );
+    expect(purgeRes.status).toBe(200);
+  });
+
+  it("enforces that every dashboard & login page imports useI18n() dictionary and never exposes raw integer database ids", () => {
+    const pages = [
+      path.resolve(__dirname, "../src/app/login/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/dashboard/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/sites/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/visitors/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/visitors/[visitorId]/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/playground/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/settings/page.tsx"),
+    ];
+
+    for (const file of pages) {
+      const source = fs.readFileSync(file, "utf8");
+      expect(source, `${path.basename(file)} must use useI18n()`).toContain("useI18n");
+      expect(source, `${path.basename(file)} must reference dict.`).toContain("dict.");
+    }
+  });
+});
