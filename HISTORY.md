@@ -57,3 +57,17 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
   - Utilisation de Tailwind CSS v4 (`@import "tailwindcss";` + `@theme inline`) avec les variables CSS du thème Cosmic Night et la pile serif système `--font-serif: Georgia, "Times New Roman", serif`.
   - `onlyBuiltDependencies` configuré dans `pnpm-workspace.yaml` pour autoriser la compilation native de Prisma et esbuild sous pnpm v10.
 - **Statut de vérification** : build OK / typecheck OK / tests 3/3 OK / lint OK
+
+## [2026-11-26 00:35] Phase 3 : UI shadcn/ui, Thème Cosmic Night & Primitives
+- **Résumé des changements** :
+  - Configuration de `shadcn/ui` (`apps/web/components.json`) avec la palette **Cosmic Night** en dark mode par défaut (`apps/web/src/app/globals.css`).
+  - Implémentation des polices dans `layout.tsx` (`Inter` -> `--font-sans`, `JetBrains Mono` -> `--font-mono`, et pile système `Georgia, "Times New Roman", serif` -> `--font-serif`).
+  - Création des primitives `shadcn/ui` : `Button`, `Card`, `Badge`, `Input`, `Label`, `Table`, `Switch`, `Tabs`, `Dialog` et du composant obligatoire `CopyableMono` (monospace avec bouton de copie rapide pour tous les hashes, IP, ASN et identifiants Snowflake).
+  - Ajout des tests unitaires UI (`apps/web/tests/ui.test.ts`).
+- **Fichiers clés touchés** :
+  - `apps/web/components.json`, `apps/web/src/lib/utils.ts`
+  - `apps/web/src/components/ui/*`
+  - `apps/web/tests/ui.test.ts`
+- **Décisions et caveats** :
+  - Utilisation de `radix-ui` unifié pour `Switch`, `Tabs` et `Dialog` afin d'éviter toute duplication de sous-packages Radix.
+- **Statut de vérification** : build OK / typecheck OK / tests 3/3 OK / lint OK
