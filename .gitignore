@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.pnpm-debug.log*
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Tarballs
+*.tgz
+
+# Environment variables & Secrets (NEVER COMMIT)
+.env
+.env.*
+!.env.example
+
+# GeoIP & Threat Intel data files / DB dumps (NEVER COMMIT)
+*.mmdb
+data/
+dumps/
+*.sql
+*.sql.gz
+*.dump
+
+# Testing & Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+*.swo
