@@ -71,3 +71,17 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - **Décisions et caveats** :
   - Utilisation de `radix-ui` unifié pour `Switch`, `Tabs` et `Dialog` afin d'éviter toute duplication de sous-packages Radix.
 - **Statut de vérification** : build OK / typecheck OK / tests 3/3 OK / lint OK
+
+## [2026-11-26 00:36] Phase 3 : UI shadcn/ui, Thème Cosmic Night & Dictionnaires i18n
+- **Résumé des changements** :
+  - Configuration de `components.json` (shadcn/ui, style New York, icônes Lucide) et application du thème dark-first **Cosmic Night** dans `apps/web/src/app/globals.css`.
+  - Implémentation des primitives UI : `Button`, `Card`, `Badge`, `Input`, `Label`, `Table`, `Switch`, `Textarea`, `Separator`, `Tabs`, `Dialog`, `Sheet`, ainsi que le composant `CopyableMono` (police monospace `JetBrains Mono` + bouton de copie rapide pour hashes, IP, ASN, clés API et identifiants Snowflake).
+  - Création des dictionnaires d'internationalisation complets `apps/web/src/i18n/dictionaries/en.json` et `fr.json` avec le test automatisé de parité stricte `apps/web/tests/i18n.test.ts`.
+- **Fichiers clés touchés** :
+  - `apps/web/components.json`
+  - `apps/web/src/components/ui/*`
+  - `apps/web/src/i18n/dictionaries/{en,fr}.json`, `apps/web/src/i18n/index.ts`
+  - `apps/web/tests/i18n.test.ts`
+- **Décisions et caveats** :
+  - Correction de la police Georgia : définie via `--font-serif: Georgia, "Times New Roman", serif` dans `globals.css` tandis qu'`Inter` et `JetBrains_Mono` sont chargées via `next/font/google`.
+- **Statut de vérification** : build OK / typecheck OK / tests 5/5 OK / lint OK
