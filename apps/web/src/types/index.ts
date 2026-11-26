@@ -1,4 +1,4 @@
-import type { FingerprintComponents, SecurityRuleAction } from "@bloumeid/sdk";
+import type { FingerprintComponents, SecurityRuleAction } from "@bloume/id";
 import type { SecurityRuleCondition } from "@/lib/engine/rules";
 
 export type SnowflakePrefix = "site" | "vis" | "req" | "feed" | "rule" | "whd";

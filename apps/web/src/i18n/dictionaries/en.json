@@ -54,19 +54,26 @@
   },
   "nav": {
     "home": "Open-Source Home",
+    "backHome": "Back to Home",
+    "createSite": "Create Site",
     "getStarted": "Get Started",
-    "dashboard": "Usage & Analytics",
-    "events": "Live Audit Log",
-    "rules": "Security Rules",
-    "sites": "API Keys",
+    "dashboard": "Overview",
+    "events": "Identifications",
+    "smartSignals": "Smart Signals",
+    "rules": "Rule Engine",
+    "sites": "Sites & API Keys",
     "webhooks": "Webhooks",
+    "health": "Health",
+    "security": "Security",
+    "usage": "Usage",
     "visitors": "Visitors & Team",
     "playground": "Management API",
-    "settings": "GeoLite2 & Feeds",
+    "settings": "Settings",
     "releases": "Release Notes",
-    "catOverview": "Analytics & Telemetry",
-    "catSecurity": "Identity & Protection",
-    "catDeveloper": "Platform & Infra"
+    "catOverview": "Control & Telemetry",
+    "catSecurity": "Intelligence & Protection",
+    "catDeveloper": "Integration & Developers",
+    "catInfra": "Infrastructure & Admin"
   },
   "landing": {
     "navFeatures": "70+ Signals",
@@ -84,7 +91,7 @@
     "ctaSecondary": "Star on GitHub",
     "ctaTryLive": "Inspect Your Browser Below",
     "installCommand": "docker compose up -d --build",
-    "npmCommand": "pnpm add @bloumeid/sdk",
+    "npmCommand": "pnpm add @bloume/id",
     "statCollectors": "72+",
     "statCollectorsLabel": "Hardware, GPU, Audio & Prototype Signals",
     "statCidrs": "54,133",
@@ -95,7 +102,7 @@
     "statLatencyLabel": "Local GeoLite2 + O(32) Radix Trie",
     "liveWidgetBadge": "LIVE IN-BROWSER TELEMETRY (v1.0.0)",
     "liveWidgetTitle": "Your Real-Time Browser, ASN, OS & Risk Score",
-    "liveWidgetSubtitle": "Executed locally right now by @bloumeid/sdk v1.0.0 with zero cookies and zero third-party calls.",
+    "liveWidgetSubtitle": "Executed locally right now by @bloume/id v1.0.0 with zero cookies and zero third-party calls.",
     "liveRescan": "Re-Scan 70+ Signals",
     "liveCanvas": "Canvas Winding & Emoji Subpixel",
     "liveWebgl": "WebGL2 / WebGPU & Pixel Hash",
@@ -437,5 +444,45 @@
     "v1Item2": "72 Deterministic Collectors & Anti-Spoof Probes: WebGL 3D pixel hash, WebGPU adapter limits, Unicode/Emoji subpixel TextMetrics, CSS Media matrix, Function.prototype.toString hook detection and VM GPU detection.",
     "v1Item3": "Automatic Dual-Mode MaxMind GeoLite2 (.mmdb) Downloader + 54,134 CIDR Radix Trie (< 1 ms in-memory lookups, 0 external API calls per request).",
     "v1Item4": "TryCap-Style 176-Country Choropleth World Map, ISP/ASN Network Leaderboard, Custom Security Rules Engine (allow/challenge/block/flag) and 1-Click Coolify Docker Compose."
+  },
+  "smartSignals": {
+    "title": "Smart Signals & AI/Bot Intelligence",
+    "subtitle": "Real-time detection vectors across 104 deterministic signals: Bots & AI Agents, Fraud Score, VPN/Tor/Datacenter, Anti-Detect & Incognito.",
+    "botsTitle": "Bots & AI Agents",
+    "botsDesc": "Playwright, Puppeteer, Selenium, CDP globals & HeadlessChrome detection.",
+    "fraudTitle": "Fraud & Danger Score (0-5)",
+    "fraudDesc": "Multi-factor risk scoring combining network, velocity & TLS JA4 coherence.",
+    "networkTitle": "VPN / Proxy / Tor / Datacenter",
+    "networkDesc": "In-memory 54k+ CIDR Radix Trie + GeoLite2 ASN classification (< 1 ms).",
+    "spoofTitle": "Anti-Detect, Spoof & VM",
+    "spoofDesc": "Function.prototype.toString hooks, SwiftShader/llvmpipe VMs & double-render noise.",
+    "incognitoTitle": "Incognito & Private Mode",
+    "incognitoDesc": "Storage quota & IndexedDB persistence heuristics across browsers.",
+    "activeSignals": "Active"
+  },
+  "healthPage": {
+    "title": "System Health & Infrastructure",
+    "subtitle": "Real-time status of PostgreSQL 17, Valkey/Redis 8, CIDR Radix Trie, GeoLite2 MMDB & @bloume/id UMD bundle.",
+    "dbCard": "PostgreSQL 17 & Prisma",
+    "redisCard": "Valkey / Redis 8 Cache",
+    "trieCard": "CIDR Radix Trie Memory",
+    "geoipCard": "MaxMind GeoLite2 MMDB",
+    "sdkCard": "@bloume/id UMD Bundle",
+    "healthy": "Healthy / Online"
+  },
+  "securityPage": {
+    "title": "Security Center & Policy Enforcement",
+    "subtitle": "Manage blocked/trusted visitors, CORS & anti-replay protections, and ADMIN_MASTER_KEY session security.",
+    "blockedVisitors": "Blocked Visitors",
+    "trustedVisitors": "Trusted / Whitelisted",
+    "corsProtection": "Strict Per-Site CORS & HMAC Anti-Replay",
+    "masterKeyStatus": "ADMIN_MASTER_KEY Timing-Safe Auth"
+  },
+  "usagePage": {
+    "title": "API Usage & Dual-SDK Quotas",
+    "subtitle": "Detailed request volume per site, ThumbmarkJS vs. Fingerprint.com API split, and CSV/JSON exports.",
+    "thumbmarkCalls": "ThumbmarkJS Mode Calls",
+    "fpProCalls": "Fingerprint.com Mode Calls",
+    "totalRequests30d": "30d Total Requests"
   }
 }

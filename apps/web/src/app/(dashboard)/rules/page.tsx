@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Play, Plus, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
-import type { SecurityRuleAction } from "@bloumeid/sdk";
+import type { SecurityRuleAction } from "@bloume/id";
 import {
   evaluateSecurityRules,
   type RuleConditionField,

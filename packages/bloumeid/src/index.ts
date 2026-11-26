@@ -139,6 +139,7 @@ export class BloumeID {
     hardwareHash: string;
     durationMs: number;
     collectorCount: number;
+    signalsCount: number;
     components: FingerprintComponents;
   }> {
     const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -421,7 +422,8 @@ export class BloumeID {
       fullHash,
       hardwareHash,
       durationMs,
-      collectorCount: 72,
+      collectorCount: 104,
+      signalsCount: 104,
       components,
     };
   }

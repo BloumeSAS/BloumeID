@@ -54,19 +54,26 @@
   },
   "nav": {
     "home": "Accueil Open-Source",
+    "backHome": "Retour à l'accueil",
+    "createSite": "Créer un site",
     "getStarted": "Get Started",
-    "dashboard": "Usage & Analytique",
-    "events": "Journal d'Audit Live",
-    "rules": "Règles de Sécurité",
-    "sites": "API Keys",
+    "dashboard": "Overview",
+    "events": "Identifications",
+    "smartSignals": "Smart Signals",
+    "rules": "Rule Engine",
+    "sites": "Sites Web & API Keys",
     "webhooks": "Webhooks",
+    "health": "Health",
+    "security": "Security",
+    "usage": "Usage",
     "visitors": "Visiteurs & Équipe",
     "playground": "Management API",
-    "settings": "GeoLite2 & Flux CIDR",
+    "settings": "Settings",
     "releases": "Release Notes",
-    "catOverview": "Analytique & Télémétrie",
-    "catSecurity": "Identité & Protection",
-    "catDeveloper": "Plateforme & Infra"
+    "catOverview": "Pilotage & Télémétrie",
+    "catSecurity": "Intelligence & Protection",
+    "catDeveloper": "Intégration & Développeurs",
+    "catInfra": "Infrastructure & Admin"
   },
   "landing": {
     "navFeatures": "70+ Signaux",
@@ -84,7 +91,7 @@
     "ctaSecondary": "Star sur GitHub",
     "ctaTryLive": "Inspecter Votre Navigateur",
     "installCommand": "docker compose up -d --build",
-    "npmCommand": "pnpm add @bloumeid/sdk",
+    "npmCommand": "pnpm add @bloume/id",
     "statCollectors": "72+",
     "statCollectorsLabel": "Signaux Matériels, GPU, Audio & Prototypes",
     "statCidrs": "54 133",
@@ -95,7 +102,7 @@
     "statLatencyLabel": "GeoLite2 Local + Radix Trie O(32)",
     "liveWidgetBadge": "TÉLÉMÉTRIE NAVIGATEUR EN DIRECT (v1.0.0)",
     "liveWidgetTitle": "Votre Empreinte Navigateur, ASN, OS & Score de Risque",
-    "liveWidgetSubtitle": "Exécuté localement à l'instant par @bloumeid/sdk v1.0.0 sans cookie ni appel tiers.",
+    "liveWidgetSubtitle": "Exécuté localement à l'instant par @bloume/id v1.0.0 sans cookie ni appel tiers.",
     "liveRescan": "Relancer les 70+ Signaux",
     "liveCanvas": "Canvas Winding & Sous-Pixels Emoji",
     "liveWebgl": "WebGL2 / WebGPU & Hash Pixels",
@@ -437,5 +444,45 @@
     "v1Item2": "72 Collecteurs Déterministes & Sondes Anti-Spoof : Hash de pixels 3D WebGL, limites d'adaptateur WebGPU, sous-pixels Unicode/Emoji TextMetrics, matrice CSS Media, détection de hooks Function.prototype.toString et GPU virtuels.",
     "v1Item3": "Téléchargeur Automatique Bi-Mode MaxMind GeoLite2 (.mmdb) + Arbre Radix 54 134 CIDR (résolution mémoire < 1 ms, 0 appel API externe par requête).",
     "v1Item4": "Carte Mondiale Choroplèthe 176 Pays style TryCap, classement des réseaux FAI/ASN, moteur de règles personnalisées (allow/challenge/block/flag) et déploiement Coolify 1-Click Docker."
+  },
+  "smartSignals": {
+    "title": "Smart Signals & Détection Bots / IA",
+    "subtitle": "Vecteurs de détection temps réel sur 104 signaux déterministes : Bots & Agents IA, Score de Fraude, VPN/Tor/Datacenter, Anti-Detect & Incognito.",
+    "botsTitle": "Bots & Agents IA",
+    "botsDesc": "Détection Playwright, Puppeteer, Selenium, variables CDP & HeadlessChrome.",
+    "fraudTitle": "Score de Fraude & Danger (0-5)",
+    "fraudDesc": "Scoring multi-facteurs combinant réseau, vélocité & cohérence TLS JA4.",
+    "networkTitle": "VPN / Proxy / Tor / Datacenter",
+    "networkDesc": "Arbre Radix 54k+ CIDR en mémoire + classification ASN GeoLite2 (< 1 ms).",
+    "spoofTitle": "Anti-Detect, Spoofing & VM",
+    "spoofDesc": "Hooks Function.prototype.toString, GPU virtuels SwiftShader/llvmpipe & bruit double-rendu.",
+    "incognitoTitle": "Navigation Privée & Incognito",
+    "incognitoDesc": "Heuristiques de quota de stockage & persistance IndexedDB multi-navigateurs.",
+    "activeSignals": "Actif"
+  },
+  "healthPage": {
+    "title": "Santé Système & Infrastructure",
+    "subtitle": "État en temps réel de PostgreSQL 17, Valkey/Redis 8, arbre CIDR Radix, bases GeoLite2 MMDB & bundle UMD @bloume/id.",
+    "dbCard": "PostgreSQL 17 & Prisma",
+    "redisCard": "Cache Valkey / Redis 8",
+    "trieCard": "Mémoire Arbre CIDR Radix",
+    "geoipCard": "MaxMind GeoLite2 MMDB",
+    "sdkCard": "Bundle UMD @bloume/id",
+    "healthy": "Opérationnel / En ligne"
+  },
+  "securityPage": {
+    "title": "Centre de Sécurité & Politiques",
+    "subtitle": "Gestion des visiteurs bloqués/approuvés, protections CORS & anti-rejeu, et sécurité de session ADMIN_MASTER_KEY.",
+    "blockedVisitors": "Visiteurs Bloqués",
+    "trustedVisitors": "Approuvés / Whitelist",
+    "corsProtection": "CORS Strict par Site & Anti-Rejeu HMAC",
+    "masterKeyStatus": "Auth Timing-Safe ADMIN_MASTER_KEY"
+  },
+  "usagePage": {
+    "title": "Consommation API & Quotas Dual-SDK",
+    "subtitle": "Volume détaillé des requêtes par site, répartition ThumbmarkJS vs. Fingerprint.com et exports CSV/JSON.",
+    "thumbmarkCalls": "Appels Mode ThumbmarkJS",
+    "fpProCalls": "Appels Mode Fingerprint.com",
+    "totalRequests30d": "Total Requêtes 30j"
   }
 }

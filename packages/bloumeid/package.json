@@ -1,9 +1,13 @@
 {
-  "name": "@bloumeid/sdk",
+  "name": "@bloume/id",
   "version": "1.0.0",
   "description": "Self-hosted browser fingerprinting, anti-spoofing and visitor identity SDK by Bloume SAS",
   "license": "MIT",
   "author": "Bloume SAS",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bloume-sas/bloumeid.git",

@@ -20,7 +20,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@bloumeid/sdk':
+      '@bloume/id':
         specifier: workspace:*
         version: link:../../packages/bloumeid
       '@prisma/client':

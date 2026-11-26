@@ -1,4 +1,4 @@
-import type { SecurityRuleAction } from "@bloumeid/sdk";
+import type { SecurityRuleAction } from "@bloume/id";
 
 export type RuleConditionField =
   | "isTor"

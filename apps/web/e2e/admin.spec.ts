@@ -32,7 +32,7 @@ test.describe("BloumeID Admin Panel & Live SDK Playground E2E", () => {
     await page.getByTestId("create-site-btn").click();
     await expect(page.getByText("Playwright E2E Site")).toBeVisible();
 
-    // Navigate to Live Playground and execute @bloumeid/sdk probe
+    // Navigate to Live Playground and execute @bloume/id probe
     await page.goto("/playground");
     await expect(page.getByTestId("run-playground-probe")).toBeVisible();
     await expect(page.getByText(/vis_/)).toBeVisible({ timeout: 15000 });

@@ -15,7 +15,7 @@ Ce document définit les règles strictes applicables à tous les agents IA et d
 - **Gestionnaire de paquets** : `pnpm` (workspaces).
 - **Applications & Packages** :
   - `apps/web` : Application Next.js 16 (App Router, `output: "standalone"`), hébergeant le panneau d'administration, l'API REST publique/interne, le moteur de réconciliation & threat intelligence, et la distribution du bundle UMD (`/sdk/v1/bloumeid.js`).
-  - `packages/bloumeid` : Package npm publiable `@bloumeid/sdk` (compilé avec `tsup` en ESM, CJS, UMD global `window.BloumeID`, et déclarations `.d.ts`). **Zéro dépendance runtime** (`dependencies` vide).
+  - `packages/bloumeid` : Package npm publiable `@bloume/id` (compilé avec `tsup` en ESM, CJS, UMD global `window.BloumeID`, et déclarations `.d.ts`). **Zéro dépendance runtime** (`dependencies` vide).
 - **Configuration partagée** : TypeScript strict et ESLint partagés à l'échelle du workspace.
 
 ---

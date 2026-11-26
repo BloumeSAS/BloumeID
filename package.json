@@ -7,12 +7,13 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "pnpm --filter @bloumeid/sdk build && pnpm --filter @bloumeid/web build",
+    "build": "pnpm --filter @bloume/id build && pnpm --filter @bloumeid/web build",
     "dev": "pnpm --parallel -r dev",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",
+    "release:sdk": "pnpm --filter @bloume/id test && pnpm --filter @bloume/id build && pnpm --filter @bloume/id publish --access public --no-git-checks",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md}\""
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BloumeID, type BloumeIDResult } from "@bloumeid/sdk";
+import { BloumeID, type BloumeIDResult } from "@bloume/id";
 import {
   CheckCircle2,
   KeyRound,
@@ -129,9 +129,9 @@ export default function GetStartedPage() {
 
             <TabsContent value="thumbmark">
               <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
-{`pnpm add @bloumeid/sdk
+{`pnpm add @bloume/id
 
-import { BloumeID } from "@bloumeid/sdk";
+import { BloumeID } from "@bloume/id";
 
 const tm = new BloumeID({
   apiKey: "${pubKey}",
@@ -145,7 +145,7 @@ console.log(result.visitorId, result.thumbmark, result.info.dangerLevel);`}
 
             <TabsContent value="fp">
               <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
-{`import FingerprintJS from "@bloumeid/sdk";
+{`import FingerprintJS from "@bloume/id";
 
 const fpPromise = FingerprintJS.load({
   apiKey: "${pubKey}",
@@ -183,7 +183,7 @@ console.log(result.visitorId, result.requestId, result.ipLocation);`}
           </CardHeader>
           <CardContent>
             <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
-{`import { BloumeIDServer } from "@bloumeid/sdk/server";
+{`import { BloumeIDServer } from "@bloume/id/server";
 
 const server = new BloumeIDServer({
   secretKey: process.env.BLOUMEID_SECRET_KEY!,

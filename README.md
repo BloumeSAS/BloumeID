@@ -1,6 +1,6 @@
 # BloumeID v1.0.0 — Self-Hosted Fingerprinting, Threat Intelligence & Visitor Identity
 
-**BloumeID v1.0.0** (by **Bloume SAS**) is a self-hosted, open-source visitor identification, anti-spoofing, bot detection, and network threat intelligence platform. It combines a zero-dependency browser & server SDK (`@bloumeid/sdk` v1.0.0) with a Next.js 16 control plane, an in-memory Patricia/Radix CIDR threat trie, automatic dual-mode GeoLite2 `.mmdb` management, a Custom Security Rules Engine, and 100% drop-in **Dual API compatibility** for both **ThumbmarkJS Pro** and **Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`)**.
+**BloumeID v1.0.0** (by **Bloume SAS**) is a self-hosted, open-source visitor identification, anti-spoofing, bot detection, and network threat intelligence platform. It combines a zero-dependency browser & server SDK (`@bloume/id` v1.0.0) with a Next.js 16 control plane, an in-memory Patricia/Radix CIDR threat trie, automatic dual-mode GeoLite2 `.mmdb` management, a Custom Security Rules Engine, and 100% drop-in **Dual API compatibility** for both **ThumbmarkJS Pro** and **Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`)**.
 
 ---
 
@@ -9,14 +9,14 @@
 ```
 bloumeid/
 ├── apps/web/                         # Next.js 16 (App Router, standalone) — Clean Slate Pro Admin, REST API v1 & UMD CDN
-├── packages/bloumeid/                # @bloumeid/sdk v1.0.0 (tsup: ESM, CJS, UMD global window.BloumeID & window.FingerprintJS)
+├── packages/bloumeid/                # @bloume/id v1.0.0 (tsup: ESM, CJS, UMD global window.BloumeID & window.FingerprintJS)
 ├── packages/config/                  # Shared strict TypeScript & ESLint flat configs
 ├── Dockerfile                        # Root multi-stage Node 22 Alpine Dockerfile (Coolify 1-Click compatible)
 ├── docker/                           # Docker build mirror & PID-1 entrypoint (automatic prisma migrate deploy)
 ├── docker-compose.yml                # Option 1: All-in-One Self-Hosted Stack (bloumeid-web + PostgreSQL 17 + Valkey 8)
 ├── docker-compose.external-db.yml    # Option 2: External DB & Redis Stack (bloumeid-web only)
 ├── .github/workflows/                # ci.yml, release-sdk.yml, docker-publish.yml, deploy.yml, history-check.yml
-├── .changeset/                       # Automated versioning & changelog management for @bloumeid/sdk
+├── .changeset/                       # Automated versioning & changelog management for @bloume/id
 ├── AGENTS.md                         # Non-negotiable engineering & security governance rules
 ├── HISTORY.md                        # Append-only execution & architectural decision log
 └── .env.example                      # Documented environment configuration template
@@ -26,7 +26,7 @@ bloumeid/
 
 ## Core Capabilities (v1.0.0)
 
-1. **`@bloumeid/sdk` v1.0.0 (72 Deterministic Signals & Anti-Spoof Probes)**:
+1. **`@bloume/id` v1.0.0 (72 Deterministic Signals & Anti-Spoof Probes)**:
    - **72 Hardware, Graphics & Browser Signals**: Canvas 2D (winding rule, geometry & Unicode/Emoji subpixel `TextMetrics`), WebGL 1/2 (vendor, renderer, unmasked GPU, 17 extended parameters, shader precision formats & deterministic 3D pixel hash), WebGPU adapter limits & feature count, `OfflineAudioContext` compressor dynamics, 85+ OS font DOM metrics, CSS `@media` hardware query matrix (`pointer`, `hover`, `color-gamut`, `hdr`, `forced-colors`, `prefers-reduced-motion`), Media codecs (`videoCapabilities`, `audioCapabilities`, `enumerateDevices`), Keyboard layout map (`navigator.keyboard.getLayoutMap`), `Intl` & DST offset consistency, high-entropy `userAgentData`, storage quota, `speechSynthesis`, JS engine math constants (`V8` / `SpiderMonkey` / `JavaScriptCore`), WebRTC ICE candidates, and `navigator.connection`.
    - **Anti-Spoof & Bot Probes**: `navigator.webdriver`, Playwright/Puppeteer/Selenium/CDP globals, `Function.prototype.toString` native prototype tampering detection on Canvas/WebGL/Audio/Navigator getters, VM/Software GPU renderer detection (`SwiftShader`, `llvmpipe`, `Mesa OffScreen`, `VirtualBox`, `VMware`), `outerWidth === 0` headless check, `Error.stack` engine vs `User-Agent` consistency, Web Worker Blob vs Main Thread comparison, and Canvas/Audio double-render noise injection detection.
    - **Dual API Drop-In Compatibility**:
@@ -74,11 +74,11 @@ If you use Coolify's **Dockerfile** buildpack (or Railway / Render / Fly.io), po
 
 ---
 
-## Dual SDK Integration Guide (`@bloumeid/sdk` v1.0.0)
+## Dual SDK Integration Guide (`@bloume/id` v1.0.0)
 
 ### 1. ThumbmarkJS Pro Mode
 ```typescript
-import { BloumeID } from "@bloumeid/sdk";
+import { BloumeID } from "@bloume/id";
 
 const bloumeid = new BloumeID({
   apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY,
@@ -91,7 +91,7 @@ console.log(result.visitorId, result.thumbmark, result.info.dangerLevel, result.
 
 ### 2. Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`) Drop-in Mode
 ```typescript
-import FingerprintJS from "@bloumeid/sdk";
+import FingerprintJS from "@bloume/id";
 
 const fpPromise = FingerprintJS.load({
   apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY!,
@@ -135,7 +135,7 @@ console.log(
 ### 4. Server-Side Verification & REST API (`bid_sec_...`)
 - **ThumbmarkJS / BloumeID Server SDK**:
   ```typescript
-  import { BloumeIDServer } from "@bloumeid/sdk/server";
+  import { BloumeIDServer } from "@bloume/id/server";
 
   const server = new BloumeIDServer({
     secretKey: process.env.BLOUMEID_SECRET_KEY!,
@@ -158,7 +158,7 @@ console.log(
 
 ```bash
 pnpm install
-pnpm --filter @bloumeid/sdk build
+pnpm --filter @bloume/id build
 pnpm --filter @bloumeid/web prisma:generate
 pnpm -r typecheck
 pnpm -r lint

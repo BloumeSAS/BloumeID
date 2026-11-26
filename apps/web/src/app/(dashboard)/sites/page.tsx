@@ -375,7 +375,7 @@ export default function SitesPage() {
 
             <TabsContent value="npm">
               <pre className="overflow-x-auto rounded-lg border border-border bg-secondary/40 p-4 font-mono text-xs">
-{`import { BloumeID } from "@bloumeid/sdk";
+{`import { BloumeID } from "@bloume/id";
 
 const bloumeid = new BloumeID({
   apiKey: "${modalSite.publicKey}",
@@ -389,7 +389,7 @@ console.log(result.visitorId, result.thumbmark, result.info.dangerLevel);`}
 
             <TabsContent value="fp">
               <pre className="overflow-x-auto rounded-lg border border-border bg-secondary/40 p-4 font-mono text-xs">
-{`import FingerprintJS from "@bloumeid/sdk";
+{`import FingerprintJS from "@bloume/id";
 
 // 100% Drop-in Fingerprint.com (FingerprintJS Pro) replacement
 const fpPromise = FingerprintJS.load({
@@ -406,7 +406,7 @@ console.log(result.visitorId, result.visitorFound, result.ipLocation);`}
             <TabsContent value="react">
               <pre className="overflow-x-auto rounded-lg border border-border bg-secondary/40 p-4 font-mono text-xs">
 {`import { useEffect, useState } from "react";
-import { BloumeID, type BloumeIDResult } from "@bloumeid/sdk";
+import { BloumeID, type BloumeIDResult } from "@bloume/id";
 
 export function useBloumeID() {
   const [identity, setIdentity] = useState<BloumeIDResult | null>(null);
@@ -437,7 +437,7 @@ export function useBloumeID() {
 
             <TabsContent value="node">
               <pre className="overflow-x-auto rounded-lg border border-border bg-secondary/40 p-4 font-mono text-xs">
-{`import { BloumeIDServer } from "@bloumeid/sdk/server";
+{`import { BloumeIDServer } from "@bloume/id/server";
 
 const server = new BloumeIDServer({
   secretKey: process.env.BLOUMEID_SECRET_KEY!,

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BloumeID, FingerprintJS, type BloumeIDResult } from "@bloumeid/sdk";
+import { BloumeID, FingerprintJS, type BloumeIDResult } from "@bloume/id";
 import { Cpu, Layers, Play, ShieldCheck, Volume2 } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";

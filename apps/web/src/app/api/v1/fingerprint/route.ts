@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { computeAntiReplaySignature, type FingerprintComponents } from "@bloumeid/sdk";
+import { computeAntiReplaySignature, type FingerprintComponents } from "@bloume/id";
 import { constantTimeEqual, generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
   evaluateClientHintsConsistency,

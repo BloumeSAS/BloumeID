@@ -1,6 +1,6 @@
 import zlib from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
-import { computeAntiReplaySignature } from "@bloumeid/sdk";
+import { computeAntiReplaySignature } from "@bloume/id";
 import {
   SnowflakeGenerator,
   constantTimeEqual,

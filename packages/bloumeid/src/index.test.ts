@@ -33,7 +33,7 @@ import {
 } from "./collectors";
 import { runAntiSpoofProbes } from "./probes";
 
-describe("@bloumeid/sdk v1.0.0 — 70+ Signals, Anti-Spoof, Dual API (ThumbmarkJS + Fingerprint.com) & Server Client", () => {
+describe("@bloume/id v1.0.0 — 70+ Signals, Anti-Spoof, Dual API (ThumbmarkJS + Fingerprint.com) & Server Client", () => {
   it("reports v1.0.0 and instantiates with default and custom options", () => {
     expect(SDK_VERSION).toBe("1.0.0");
     const client = new BloumeID({

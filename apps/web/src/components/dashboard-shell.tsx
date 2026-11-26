@@ -4,39 +4,36 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Activity,
+  ArrowLeft,
   BarChart3,
   ChevronLeft,
   ChevronRight,
   Command,
-  Database,
-  FileText,
   Fingerprint,
   Globe,
+  HeartPulse,
   KeyRound,
-  LayoutList,
   ListFilter,
   LogOut,
   Menu,
   Moon,
-  RefreshCw,
-  Rocket,
-  Rows3,
+  Plus,
   Search,
+  Settings,
   Shield,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
   Sun,
-  TerminalSquare,
-  Users,
   Webhook,
 } from "lucide-react";
-import {
-  useI18n,
-  type AutoRefreshInterval,
-  type GlobalTimeRange,
-} from "@/i18n/provider";
+import { useI18n, type GlobalTimeRange } from "@/i18n/provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { PublicSiteDTO } from "@/types";
@@ -55,10 +52,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     timeRange,
     setTimeRange,
     viewDensity,
-    setViewDensity,
-    autoRefreshSec,
-    setAutoRefreshSec,
-    triggerManualRefresh,
   } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
@@ -67,9 +60,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [commandOpen, setCommandOpen] = React.useState(false);
   const [commandQuery, setCommandQuery] = React.useState("");
+  const [createSiteOpen, setCreateSiteOpen] = React.useState(false);
+  const [newSiteName, setNewSiteName] = React.useState("");
+  const [newSiteDomains, setNewSiteDomains] = React.useState("localhost, *.example.com");
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
+  const [adminUsername, setAdminUsername] = React.useState("Jules");
 
-  React.useEffect(() => {
+  const loadSites = React.useCallback(() => {
     fetch("/api/admin/sites")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sites?: PublicSiteDTO[] } | null) => {
@@ -77,6 +74,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       })
       .catch(() => undefined);
   }, []);
+
+  React.useEffect(() => {
+    loadSites();
+    fetch("/api/admin/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { username?: string } | null) => {
+        if (data?.username) setAdminUsername(data.username);
+      })
+      .catch(() => undefined);
+  }, [loadSites]);
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -89,23 +96,47 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // ThumbmarkJS Pro flat navigation structure & icons, fully localized via dict.nav.*
-  const navItems = [
-    { href: "/get-started", label: dict.nav.getStarted, icon: Rocket, exact: false },
-    { href: "/sites", label: dict.nav.sites, icon: KeyRound, exact: false },
-    { href: "/webhooks", label: dict.nav.webhooks, icon: Webhook, exact: false },
-    { href: "/playground", label: dict.nav.playground, icon: TerminalSquare, exact: false },
-    { href: "/dashboard", label: dict.nav.dashboard, icon: BarChart3, exact: false },
-    { href: "/events", label: dict.nav.events, icon: ListFilter, exact: false },
-    { href: "/rules", label: dict.nav.rules, icon: ShieldCheck, exact: false },
-    { href: "/visitors", label: dict.nav.visitors, icon: Users, exact: false },
-    { href: "/settings", label: dict.nav.settings, icon: Database, exact: false },
-    { href: "/releases", label: dict.nav.releases, icon: FileText, exact: false },
+  const navCategories = [
+    {
+      category: dict.nav.catOverview,
+      items: [
+        { href: "/dashboard", label: dict.nav.dashboard, icon: Activity, badge: null },
+        { href: "/events", label: dict.nav.events, icon: ListFilter, badge: null },
+      ],
+    },
+    {
+      category: dict.nav.catSecurity,
+      items: [
+        { href: "/smart-signals", label: dict.nav.smartSignals, icon: Sparkles, badge: null },
+        { href: "/rules", label: dict.nav.rules, icon: ShieldCheck, badge: null },
+      ],
+    },
+    {
+      category: dict.nav.catDeveloper,
+      items: [
+        { href: "/sites", label: dict.nav.sites, icon: KeyRound, badge: null },
+        { href: "/webhooks", label: dict.nav.webhooks, icon: Webhook, badge: dict.webhooksPage.optionalBadge },
+      ],
+    },
+    {
+      category: dict.nav.catInfra,
+      items: [
+        { href: "/health", label: dict.nav.health, icon: HeartPulse, badge: null },
+        { href: "/security", label: dict.nav.security, icon: ShieldAlert, badge: null },
+        { href: "/usage", label: dict.nav.usage, icon: BarChart3, badge: null },
+        { href: "/settings", label: dict.nav.settings, icon: Settings, badge: null },
+      ],
+    },
   ];
+
+  const allNavItems = navCategories.flatMap((c) => c.items);
+  const activeNav = allNavItems.find(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+  );
 
   const filteredCommands = React.useMemo(() => {
     const q = commandQuery.trim().toLowerCase();
-    const base = navItems.map((item) => ({
+    const base = allNavItems.map((item) => ({
       id: `nav:${item.href}`,
       title: item.label,
       subtitle: item.href,
@@ -135,12 +166,32 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       (item) =>
         item.title.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q)
     );
-  }, [navItems, commandQuery, sites, router, setSelectedSiteId]);
+  }, [allNavItems, commandQuery, sites, router, setSelectedSiteId]);
 
   const handleLogout = async () => {
     await fetch("/api/admin/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
+  };
+
+  const handleCreateSiteModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const domains = newSiteDomains
+      .split(",")
+      .map((d) => d.trim())
+      .filter(Boolean);
+    const res = await fetch("/api/admin/sites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newSiteName, domains, riskThreshold: 3 }),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { site: PublicSiteDTO };
+      setSites((prev) => [data.site, ...prev]);
+      setSelectedSiteId(data.site.publicId);
+      setNewSiteName("");
+      setCreateSiteOpen(false);
+    }
   };
 
   const getTimeLabel = (r: GlobalTimeRange): string => {
@@ -152,45 +203,63 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   const renderNavLinks = (isMobile = false) => (
-    <nav className="flex-1 space-y-1.5 overflow-y-auto px-3.5 py-5">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const active = item.exact
-          ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(`${item.href}/`);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => isMobile && setMobileMenuOpen(false)}
-            className={cn(
-              "group relative flex items-center gap-3.5 overflow-hidden rounded-xl px-4 py-2.5 text-[14px] font-medium transition-all duration-150",
-              active
-                ? "bg-primary/15 font-semibold text-foreground shadow-xs ring-1 ring-primary/30 dark:bg-gradient-to-r dark:from-primary/25 dark:via-primary/15 dark:to-primary/5 dark:text-white"
-                : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
-              collapsed && !isMobile ? "mx-auto h-11 w-11 justify-center px-0" : ""
-            )}
-            title={collapsed && !isMobile ? item.label : undefined}
-          >
-            {/* ThumbmarkJS-style Glowing Vertical Left Bar on Active Item */}
-            {active ? (
-              <span className="absolute inset-y-1.5 left-0 w-[3.5px] rounded-r-full bg-gradient-to-b from-fuchsia-400 via-fuchsia-500 to-primary shadow-[0_0_12px_rgba(217,70,239,0.85)]" />
-            ) : null}
+    <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+      {navCategories.map((group, gIdx) => (
+        <div key={group.category} className="space-y-1">
+          {!collapsed || isMobile ? (
+            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/80">
+              {group.category}
+            </p>
+          ) : gIdx > 0 ? (
+            <div className="mx-auto my-2 h-px w-8 bg-border" />
+          ) : null}
 
-            <Icon
-              className={cn(
-                "h-[18px] w-[18px] shrink-0 transition-colors",
-                active
-                  ? "text-primary dark:text-white"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            {!collapsed || isMobile ? (
-              <span className="truncate tracking-[-0.01em]">{item.label}</span>
-            ) : null}
-          </Link>
-        );
-      })}
+          {group.items.map((item) => {
+            const Icon = item.icon;
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => isMobile && setMobileMenuOpen(false)}
+                className={cn(
+                  "group relative flex items-center justify-between gap-2.5 overflow-hidden rounded-xl px-3.5 py-2 text-[13.5px] font-medium transition-all duration-150",
+                  active
+                    ? "bg-primary/15 font-semibold text-foreground shadow-xs ring-1 ring-primary/30 dark:bg-gradient-to-r dark:from-primary/25 dark:via-primary/15 dark:to-primary/5 dark:text-white"
+                    : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
+                  collapsed && !isMobile ? "mx-auto h-10 w-10 justify-center px-0" : ""
+                )}
+                title={collapsed && !isMobile ? item.label : undefined}
+              >
+                {active ? (
+                  <span className="absolute inset-y-1.5 left-0 w-[3.5px] rounded-r-full bg-gradient-to-b from-fuchsia-400 via-fuchsia-500 to-primary shadow-[0_0_12px_rgba(217,70,239,0.85)]" />
+                ) : null}
+
+                <span className="flex min-w-0 items-center gap-3">
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0 transition-colors",
+                      active
+                        ? "text-primary dark:text-white"
+                        : "text-muted-foreground group-hover:text-foreground"
+                    )}
+                  />
+                  {!collapsed || isMobile ? (
+                    <span className="truncate">{item.label}</span>
+                  ) : null}
+                </span>
+
+                {(!collapsed || isMobile) && item.badge ? (
+                  <Badge variant="outline" className="px-1.5 py-0 text-[9px] text-primary">
+                    {item.badge.split(" ")[0]}
+                  </Badge>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 
@@ -201,19 +270,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         viewDensity === "compact" ? "text-[13px]" : ""
       )}
     >
-      {/* ThumbmarkJS-style Sidebar using Clean Slate theme tokens (Light & Dark compatible) */}
+      {/* Desktop Sidebar (Fingerprint x ThumbmarkJS Pro) */}
       <aside
         className={cn(
           "relative hidden shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-200 lg:flex",
-          collapsed ? "w-[76px]" : "w-[252px]"
+          collapsed ? "w-[76px]" : "w-[260px]"
         )}
       >
-        {/* Floating collapse toggle on right border */}
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           aria-label={dict.common.collapseSidebar}
-          className="absolute -right-3 top-7 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-foreground"
+          className="absolute -right-3 top-6 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-foreground"
         >
           {collapsed ? (
             <ChevronRight className="h-3.5 w-3.5" />
@@ -222,96 +290,100 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         </button>
 
-        {/* Top Brand Header — ThumbmarkJS style with Clean Slate Primary Accent */}
+        {/* Brand Header + Subtle Back to Home */}
         <div
           className={cn(
-            "flex h-20 items-center border-b border-border px-6",
-            collapsed ? "justify-center px-0" : "justify-start"
+            "flex flex-col gap-2 border-b border-border px-4 py-4",
+            collapsed ? "items-center px-0" : ""
           )}
         >
-          <Link href="/" className="flex items-center gap-3.5 overflow-hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/40">
-              <Fingerprint className="h-6 w-6 stroke-[2.2]" />
-            </div>
-            {!collapsed ? (
-              <span className="truncate text-[21px] font-extrabold lowercase tracking-tight text-primary">
-                {dict.common.brandName}
-              </span>
-            ) : null}
-          </Link>
+          <div className="flex items-center justify-between gap-2">
+            <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                <Fingerprint className="h-5 w-5" />
+              </div>
+              {!collapsed ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-lg font-extrabold lowercase tracking-tight text-primary">
+                    {dict.common.brandName}
+                  </span>
+                  <Badge variant="outline" className="px-1.5 py-0 font-mono text-[10px]">
+                    v1.0.0
+                  </Badge>
+                </div>
+              ) : null}
+            </Link>
+          </div>
+
+          {!collapsed ? (
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-primary"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              <span>{dict.nav.backHome}</span>
+            </Link>
+          ) : null}
         </div>
+
+        {/* Workspace / Site Selector + Quick "+ Create Site" */}
+        {!collapsed ? (
+          <div className="space-y-2 border-b border-border p-3.5">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-1.5">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+              <select
+                aria-label={dict.common.allSites}
+                value={selectedSiteId}
+                onChange={(e) => setSelectedSiteId(e.target.value)}
+                className="min-w-0 flex-1 truncate bg-transparent text-xs font-semibold text-foreground focus:outline-none"
+              >
+                <option value="all" className="bg-card text-foreground">
+                  {dict.common.allSites}
+                </option>
+                {sites.map((s) => (
+                  <option
+                    key={s.publicId}
+                    value={s.publicId}
+                    className="bg-card text-foreground"
+                  >
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 w-full justify-center gap-1.5 text-[11px]"
+              onClick={() => setCreateSiteOpen(true)}
+            >
+              <Plus className="h-3 w-3 text-primary" />
+              <span>{dict.nav.createSite}</span>
+            </Button>
+          </div>
+        ) : null}
 
         {renderNavLinks(false)}
 
-        {/* Bottom Status & Theme / Language / Logout Controls */}
-        <div className="space-y-3 border-t border-border p-4">
+        <div className="border-t border-border p-3">
           {!collapsed ? (
-            <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                <span className="truncate font-medium text-foreground">
-                  {dict.common.engineOnline}
-                </span>
+            <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-3 py-1.5 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="font-medium text-foreground">{dict.common.engineOnline}</span>
               </span>
-              <span className="font-mono text-[10px] font-semibold text-primary">v1.0.0</span>
+              <span className="font-mono text-primary">@bloume/id</span>
             </div>
           ) : null}
-
-          <div
-            className={cn(
-              "flex items-center gap-1.5",
-              collapsed ? "flex-col" : "justify-between"
-            )}
-          >
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-testid="locale-switcher"
-              onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-              className={cn(collapsed ? "h-8 w-10 px-0" : "flex-1")}
-            >
-              <Globe className="h-3.5 w-3.5" />
-              {!collapsed ? <span>{locale.toUpperCase()}</span> : null}
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-testid="theme-switcher"
-              onClick={toggleTheme}
-              className={cn(collapsed ? "h-8 w-10 px-0" : "")}
-              title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
-            >
-              {theme === "dark" ? (
-                <Sun className="h-3.5 w-3.5" />
-              ) : (
-                <Moon className="h-3.5 w-3.5" />
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              data-testid="logout-button"
-              onClick={handleLogout}
-              className={cn(
-                "text-muted-foreground hover:bg-destructive/15 hover:text-destructive",
-                collapsed ? "h-8 w-10 px-0" : ""
-              )}
-              title={dict.common.logout}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
       </aside>
 
-      {/* Main Content Area with Responsive Clean Slate Topbar */}
+      {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col bg-background">
-        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-3 backdrop-blur-xl lg:px-8">
+        {/* Top Navbar — Strict Top-Right Order: Theme + Lang | Username Pill | Logout */}
+        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-2.5 backdrop-blur-xl lg:px-8">
+          {/* Left: Mobile Menu + Breadcrumb + Time Range + Ctrl+K */}
           <div className="flex flex-wrap items-center gap-2.5">
             <Button
               type="button"
@@ -324,110 +396,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Menu className="h-4 w-4" />
             </Button>
 
-            <Link href="/" className="flex items-center gap-2 lg:hidden">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Fingerprint className="h-4 w-4" />
-              </div>
-              <span className="font-extrabold lowercase text-primary">
-                {dict.common.brandName}
+            <div className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
+              <span className="font-semibold text-foreground">{dict.common.brandName}</span>
+              <span>/</span>
+              <span className="font-medium text-primary">
+                {activeNav?.label ?? dict.nav.dashboard}
               </span>
-            </Link>
-
-            {/* Global Site Selector */}
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-1">
-              <Shield className="h-3.5 w-3.5 text-primary" />
-              <select
-                aria-label={dict.common.allSites}
-                value={selectedSiteId}
-                onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="max-w-[160px] truncate bg-transparent text-xs font-medium text-foreground focus:outline-none sm:max-w-none"
-              >
-                <option value="all" className="bg-card text-foreground">
-                  {dict.common.allSites}
-                </option>
-                {sites.map((s) => (
-                  <option
-                    key={s.publicId}
-                    value={s.publicId}
-                    className="bg-card text-foreground"
-                  >
-                    {s.name} ({s.publicId.slice(0, 12)})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* PRO View Density Switcher */}
-            <div className="hidden items-center rounded-xl border border-border bg-background p-0.5 sm:inline-flex">
-              <button
-                type="button"
-                onClick={() => setViewDensity("comfort")}
-                title={dict.common.densityComfort}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  viewDensity === "comfort"
-                    ? "bg-secondary text-foreground shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <LayoutList className="h-3 w-3" />
-                <span className="hidden xl:inline">{dict.common.densityComfort}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewDensity("compact")}
-                title={dict.common.densityCompact}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  viewDensity === "compact"
-                    ? "bg-secondary text-foreground shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Rows3 className="h-3 w-3" />
-                <span className="hidden xl:inline">{dict.common.densityCompact}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Right Toolbar: Auto-Refresh + Time Range + Command Palette + Mobile Locale/Theme */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="hidden items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1 md:flex">
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5 text-primary",
-                  autoRefreshSec > 0 ? "animate-spin" : ""
-                )}
-              />
-              <select
-                aria-label={dict.common.refresh}
-                value={autoRefreshSec}
-                onChange={(e) =>
-                  setAutoRefreshSec(Number(e.target.value) as AutoRefreshInterval)
-                }
-                className="bg-transparent text-xs font-medium text-foreground focus:outline-none"
-              >
-                <option value={0} className="bg-card text-foreground">
-                  {dict.common.autoRefreshOff}
-                </option>
-                <option value={5} className="bg-card text-foreground">
-                  {dict.common.autoRefresh5s}
-                </option>
-                <option value={15} className="bg-card text-foreground">
-                  {dict.common.autoRefresh15s}
-                </option>
-                <option value={60} className="bg-card text-foreground">
-                  {dict.common.autoRefresh60s}
-                </option>
-              </select>
-              <button
-                type="button"
-                onClick={triggerManualRefresh}
-                title={dict.common.refresh}
-                className="ml-1 rounded p-0.5 text-muted-foreground hover:text-foreground"
-              >
-                <RefreshCw className="h-3 w-3" />
-              </button>
             </div>
 
             <div className="inline-flex rounded-xl border border-border bg-background p-0.5">
@@ -437,7 +411,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   type="button"
                   onClick={() => setTimeRange(r)}
                   className={cn(
-                    "rounded-lg px-2 py-1 text-xs font-medium transition-all sm:px-2.5",
+                    "rounded-lg px-2 py-1 text-xs font-medium transition-all",
                     timeRange === r
                       ? "bg-primary text-primary-foreground shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
@@ -451,29 +425,62 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="hidden h-8 items-center gap-2 rounded-xl border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground sm:inline-flex"
+              className="hidden h-8 items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground md:inline-flex"
             >
               <Command className="h-3.5 w-3.5 text-primary" />
               <span>{dict.common.commandShortcut}</span>
             </button>
+          </div>
 
-            <div className="flex items-center gap-1 lg:hidden">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-              >
-                {locale.toUpperCase()}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={toggleTheme}>
-                {theme === "dark" ? (
-                  <Sun className="h-3.5 w-3.5" />
-                ) : (
-                  <Moon className="h-3.5 w-3.5" />
-                )}
-              </Button>
+          {/* Strict Top-Right Order: 1. Theme + Lang | 2. Username Pill | 3. Logout */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid="theme-switcher"
+              onClick={toggleTheme}
+              title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
+            >
+              {theme === "dark" ? (
+                <Sun className="h-3.5 w-3.5" />
+              ) : (
+                <Moon className="h-3.5 w-3.5" />
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid="locale-switcher"
+              onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              <span>{locale.toUpperCase()}</span>
+            </Button>
+
+            {/* Admin Username Pill */}
+            <div className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 py-1 pl-1.5 pr-3 text-xs font-semibold text-foreground">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                {adminUsername.slice(0, 2).toUpperCase()}
+              </span>
+              <span className="hidden sm:inline">{adminUsername}</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </div>
+
+            {/* Logout Button right next to Username */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-testid="logout-button"
+              onClick={handleLogout}
+              className="text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+              title={dict.common.logout}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </header>
 
@@ -487,7 +494,45 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* PRO Command Palette Dialog (Ctrl+K / Cmd+K) */}
+      {/* Quick Create Site Modal */}
+      <Dialog
+        open={createSiteOpen}
+        onOpenChange={setCreateSiteOpen}
+        title={dict.sites.createSite}
+        description={dict.sites.subtitle}
+        closeLabel={dict.common.close}
+      >
+        <form onSubmit={handleCreateSiteModal} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="modal-site-name">{dict.sites.siteName}</Label>
+            <Input
+              id="modal-site-name"
+              value={newSiteName}
+              onChange={(e) => setNewSiteName(e.target.value)}
+              placeholder={dict.sites.siteNamePlaceholder}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="modal-site-domains">{dict.sites.allowedDomains}</Label>
+            <Input
+              id="modal-site-domains"
+              value={newSiteDomains}
+              onChange={(e) => setNewSiteDomains(e.target.value)}
+              placeholder={dict.sites.allowedDomainsPlaceholder}
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setCreateSiteOpen(false)}>
+              {dict.common.cancel}
+            </Button>
+            <Button type="submit">{dict.common.create}</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* PRO Command Palette Dialog (Ctrl+K) */}
       <Dialog
         open={commandOpen}
         onOpenChange={setCommandOpen}
@@ -531,7 +576,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </Dialog>
 
-      {/* Mobile & Tablet Slide-Over Sheet Menu */}
+      {/* Mobile Slide-Over Sheet Menu */}
       <Sheet
         open={mobileMenuOpen}
         onOpenChange={setMobileMenuOpen}
@@ -541,7 +586,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex h-full flex-col justify-between bg-sidebar text-sidebar-foreground">
           {renderNavLinks(true)}
-          <div className="mt-6 border-t border-border pt-4">
+          <div className="mt-4 space-y-2 border-t border-border pt-4">
+            <Link
+              href="/"
+              className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>{dict.nav.backHome}</span>
+            </Link>
             <Button
               type="button"
               variant="destructive"

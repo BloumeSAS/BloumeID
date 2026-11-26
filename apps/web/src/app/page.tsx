@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BloumeID, type BloumeIDResult } from "@bloumeid/sdk";
+import { BloumeID, type BloumeIDResult } from "@bloume/id";
 import {
   ArrowRight,
   CheckCircle2,
@@ -749,7 +749,7 @@ export default function OpenSourceHomePage() {
 
               <TabsContent value="thumbmark">
                 <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
-{`import { BloumeID } from "@bloumeid/sdk";
+{`import { BloumeID } from "@bloume/id";
 
 const tm = new BloumeID({
   apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY,
@@ -763,7 +763,7 @@ console.log({ visitorId, thumbmark, dangerLevel: info.dangerLevel, action: info.
 
               <TabsContent value="fppro">
                 <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
-{`import FingerprintJS from "@bloumeid/sdk";
+{`import FingerprintJS from "@bloume/id";
 
 // 100% Drop-in replacement for @fingerprintjs/fingerprintjs-pro
 const fpPromise = FingerprintJS.load({

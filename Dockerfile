@@ -28,8 +28,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# 1. Build @bloumeid/sdk (outputs dist/* and copies UMD to apps/web/public/sdk/v1/bloumeid.js)
-RUN pnpm --filter @bloumeid/sdk build
+# 1. Build @bloume/id (outputs dist/* and copies UMD to apps/web/public/sdk/v1/bloumeid.js)
+RUN pnpm --filter @bloume/id build
 
 # 2. Generate Prisma Client
 RUN pnpm --filter @bloumeid/web exec prisma generate
