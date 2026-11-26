@@ -14,7 +14,7 @@ permissions:
 jobs:
   history-check:
     name: Verify HISTORY.md Updated on Code Changes
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
