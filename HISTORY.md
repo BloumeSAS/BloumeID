@@ -274,3 +274,12 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
     - Carte **Systèmes (`OS`) & Navigateurs (`Browsers`)** : Barres horizontales ombrées avec icônes (`iOS`, `Windows`, `Android`, `macOS`, `Linux`, `iPadOS`) et sélecteur intégré `OS / Navigateurs`.
 - Fichiers clés touchés : `apps/web/src/app/page.tsx`, `apps/web/src/components/dashboard-shell.tsx`, `apps/web/src/app/(dashboard)/dashboard/page.tsx`, `apps/web/src/lib/engine/repository.ts`, `apps/web/src/lib/engine/geoip.ts`, `apps/web/src/types/index.ts`, `apps/web/src/i18n/dictionaries/en.json`, `apps/web/src/i18n/dictionaries/fr.json`, `HISTORY.md`.
 - Statut de vérification : build OK / typecheck OK / tests 26/26 / lint OK / Docker Live Stack reconstruite et active
+
+## [2026-11-26 03:22] Phase 17 : Authentic Natural Earth 110m World Map Choropleth & Inline SVG Country Flags
+- Résumé des changements :
+  - Remplacement de la carte schématique par la véritable topologie mondiale **Natural Earth 110m (`world-atlas`)** comprenant **176 vrais polygones de pays** projetés en SVG haute précision (`apps/web/src/components/world-map-data.ts` et `apps/web/src/components/world-map.tsx`).
+  - Coloration choroplèthe par intensité de trafic (exactement comme `trycap.dev` : France en bleu lumineux `#60a5fa`, pays actifs en dégradés `#3b82f6` / `#2563eb`, autres pays en `#1e293b` avec frontières `#0f172a` et infobulle interactive au survol avec drapeau, nom du pays, volume et `%`).
+  - Création du composant `CountryFlag` (`apps/web/src/components/ui/country-flag.tsx`) dessinant de vrais drapeaux vectoriels SVG (`FR`, `CH`, `US`, `DE`, `NL`, `GB`, `CA`, `IT`, `MA`, `PT`, `IN`, `BE`, `SN`, `ES`) au lieu des emojis Unicode qui s'affichent sous forme de lettres `FR FR` sous Windows.
+  - Ajout des vraies icônes vectorielles de systèmes d'exploitation (`Apple iOS/macOS/iPadOS`, `Windows`, `Android`, `Linux`) dans la carte `Systèmes (OS)`.
+- Fichiers clés touchés : `apps/web/src/components/world-map-data.ts`, `apps/web/src/components/world-map.tsx`, `apps/web/src/components/ui/country-flag.tsx`, `apps/web/src/app/(dashboard)/dashboard/page.tsx`, `HISTORY.md`.
+- Statut de vérification : build OK / typecheck OK / tests 26/26 / lint OK / Docker Live Stack reconstruite et active

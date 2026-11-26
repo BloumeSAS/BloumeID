@@ -47,10 +47,38 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CollapsibleJsonViewer } from "@/components/collapsible-json";
+import { CountryFlag } from "@/components/ui/country-flag";
+import { InteractiveWorldMap } from "@/components/world-map";
 import { cn } from "@/lib/utils";
 import type { DashboardMetricsDTO, PublicFingerprintEventDTO } from "@/types";
 
 const PLATFORM_COLORS = ["#86efac", "#60a5fa", "#c084fc"] as const;
+
+function OsBrandIcon({ name }: { name: string }) {
+  const n = name.toLowerCase();
+  if (n.includes("ios") || n.includes("macos") || n.includes("ipados") || n.includes("apple")) {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current text-zinc-200">
+        <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" />
+      </svg>
+    );
+  }
+  if (n.includes("windows")) {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current text-sky-400">
+        <path d="M3 5.557L10.355 4.5v7.105H3V5.557zm0 12.886l7.355 1.057v-7.03H3v5.973zm8.148 1.167L21 21v-8.53h-9.852v7.14zm0-15.22v7.215H21V3l-9.852 1.39z" />
+      </svg>
+    );
+  }
+  if (n.includes("android")) {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current text-emerald-400">
+        <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.1185-9.4396" />
+      </svg>
+    );
+  }
+  return <Laptop className="h-4 w-4 shrink-0 text-amber-400" />;
+}
 
 function formatCompactCount(n: number): string {
   if (n >= 1000) {
@@ -386,7 +414,7 @@ export default function DashboardPage() {
                         style={{ width: `${widthPct}%` }}
                       />
                       <div className="relative z-10 flex items-center gap-2.5">
-                        <span className="text-base leading-none">{c.flag ?? "🌐"}</span>
+                        <CountryFlag code={c.code ?? c.country.slice(0, 2)} />
                         <span className="font-medium text-foreground">{c.country}</span>
                       </div>
                       <div className="relative z-10 flex items-center gap-4 font-mono text-xs">
@@ -402,66 +430,8 @@ export default function DashboardPage() {
                 })}
               </div>
             ) : (
-              /* Interactive Stylized World Map SVG with glowing hotspots */
-              <div className="flex h-[360px] flex-col items-center justify-center rounded-xl border border-border/50 bg-secondary/15 p-4">
-                <svg
-                  viewBox="0 0 800 380"
-                  className="h-full w-full max-w-[640px]"
-                  role="img"
-                  aria-label={dict.dashboard.viewMap}
-                >
-                  {/* Continents Silhouette Paths */}
-                  <g fill="currentColor" className="text-secondary">
-                    {/* North America */}
-                    <path d="M95,60 L215,52 L248,105 L210,168 L155,182 L115,140 Z" opacity="0.7" />
-                    {/* South America */}
-                    <path d="M210,205 L268,225 L252,335 L212,350 L195,265 Z" opacity="0.7" />
-                    {/* Europe */}
-                    <path d="M365,68 L465,62 L478,128 L392,142 L358,112 Z" opacity="0.85" />
-                    {/* France Highlight (TryCap style glowing blue region) */}
-                    <path
-                      d="M378,102 L398,99 L403,118 L382,123 Z"
-                      fill="#60a5fa"
-                      stroke="#93c5fd"
-                      strokeWidth="1.5"
-                    />
-                    {/* Africa */}
-                    <path d="M362,155 L462,158 L480,248 L435,328 L385,305 L355,212 Z" opacity="0.7" />
-                    {/* Asia */}
-                    <path d="M482,65 L685,72 L712,175 L615,215 L505,172 Z" opacity="0.7" />
-                    {/* Australia */}
-                    <path d="M620,258 L710,255 L718,322 L632,328 Z" opacity="0.7" />
-                  </g>
-
-                  {/* Glowing Traffic Hotspots */}
-                  {[
-                    { cx: 390, cy: 110, label: "FR (67%)", r: 8, color: "#60a5fa" },
-                    { cx: 408, cy: 104, label: "DE / CH", r: 5, color: "#818cf8" },
-                    { cx: 185, cy: 120, label: "US", r: 5.5, color: "#38bdf8" },
-                    { cx: 395, cy: 94, label: "NL / GB", r: 4.5, color: "#a78bfa" },
-                    { cx: 580, cy: 165, label: "IN", r: 4, color: "#34d399" },
-                    { cx: 372, cy: 165, label: "MA", r: 4, color: "#fbbf24" },
-                  ].map((pt) => (
-                    <g key={pt.label}>
-                      <circle cx={pt.cx} cy={pt.cy} r={pt.r * 2.2} fill={pt.color} opacity="0.22" />
-                      <circle cx={pt.cx} cy={pt.cy} r={pt.r} fill={pt.color} />
-                    </g>
-                  ))}
-                </svg>
-
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
-                  {(metrics?.topCountries ?? []).slice(0, 5).map((c) => (
-                    <span
-                      key={c.country}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 font-mono text-[11px]"
-                    >
-                      <span>{c.flag ?? "🌐"}</span>
-                      <span className="font-semibold text-foreground">{c.code ?? c.country}</span>
-                      <span className="text-primary">{c.share ?? 1}%</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
+              /* Authentic Natural Earth 110m Choropleth World Map (TryCap style) */
+              <InteractiveWorldMap countries={metrics?.topCountries ?? []} />
             )}
           </CardContent>
         </Card>
@@ -663,7 +633,7 @@ export default function DashboardPage() {
                         style={{ width: `${widthPct}%` }}
                       />
                       <div className="relative z-10 flex items-center gap-2.5">
-                        <Laptop className="h-4 w-4 text-primary" />
+                        <OsBrandIcon name={os.name} />
                         <span className="font-medium text-foreground">{os.name}</span>
                       </div>
                       <div className="relative z-10 flex items-center gap-4 font-mono text-xs">
