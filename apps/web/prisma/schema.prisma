@@ -95,6 +95,8 @@ model FingerprintEvent {
   createdAt           DateTime @default(now())
 
   @@index([siteId, fullHash])
+  @@index([siteId, createdAt])
+  @@index([siteId, dangerLevel, createdAt])
   @@index([siteId, hardwareHash, ipSubnet, createdAt])
   @@index([ipAddress])
   @@index([ipSubnet])

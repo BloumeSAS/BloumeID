@@ -19,6 +19,23 @@ export const metadata: Metadata = {
   title: "BloumeID — Self-Hosted Fingerprinting & Threat Intelligence",
   description:
     "Deterministic visitor fingerprinting, bot & anti-spoof detection, and network threat intelligence by Bloume SAS.",
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
+  },
+  openGraph: {
+    title: "BloumeID — Self-Hosted Fingerprinting & Threat Intelligence",
+    description:
+      "Deterministic visitor fingerprinting, bot & anti-spoof detection, and network threat intelligence by Bloume SAS.",
+    images: ["/opengraph-image.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BloumeID — Self-Hosted Fingerprinting & Threat Intelligence",
+    description:
+      "Deterministic visitor fingerprinting, bot & anti-spoof detection, and network threat intelligence by Bloume SAS.",
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function RootLayout({

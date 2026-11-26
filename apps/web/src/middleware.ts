@@ -59,12 +59,36 @@ const PROTECTED_PATHS = [
   "/rules",
   "/sites",
   "/visitors",
-  "/playground",
   "/settings",
+  "/get-started",
+  "/webhooks",
+  "/releases",
+  "/smart-signals",
+  "/health",
+  "/security",
+  "/usage",
+  "/migrate",
 ];
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
+
+  if (
+    pathname.startsWith("/api/admin/") &&
+    pathname !== "/api/admin/auth/login" &&
+    pathname !== "/api/admin/auth/logout"
+  ) {
+    const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
+    const validCookie = await verifySessionTokenEdge(token);
+    const headerKey = request.headers.get("x-admin-master-key")?.trim();
+    const validHeader =
+      Boolean(headerKey) && constantTimeHexEqual(headerKey ?? "", getConfiguredMasterKey().trim());
+
+    if (!validCookie && !validHeader) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return NextResponse.next();
+  }
 
   const isProtectedPage = PROTECTED_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
@@ -88,13 +112,21 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
+    "/api/admin/:path*",
     "/dashboard/:path*",
     "/events/:path*",
     "/rules/:path*",
     "/sites/:path*",
     "/visitors/:path*",
-    "/playground/:path*",
     "/settings/:path*",
+    "/get-started/:path*",
+    "/webhooks/:path*",
+    "/releases/:path*",
+    "/smart-signals/:path*",
+    "/health/:path*",
+    "/security/:path*",
+    "/usage/:path*",
+    "/migrate/:path*",
   ],
 };
 

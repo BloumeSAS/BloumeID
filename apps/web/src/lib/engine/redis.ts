@@ -169,14 +169,21 @@ export async function recordAndCheckVelocity(params: {
 
   if (client && redisHealthy) {
     try {
-      await client.sadd(ipKey, params.visitorPublicId);
-      await client.expire(ipKey, 600);
-      visitorsPerIp10m = await client.scard(ipKey);
+      const pipeline = client.pipeline();
+      pipeline.sadd(ipKey, params.visitorPublicId);
+      pipeline.expire(ipKey, 600);
+      pipeline.scard(ipKey);
 
       if (params.country) {
-        await client.sadd(geoKey, params.country);
-        await client.expire(geoKey, 3600);
-        countriesPerVisitor1h = await client.scard(geoKey);
+        pipeline.sadd(geoKey, params.country);
+        pipeline.expire(geoKey, 3600);
+        pipeline.scard(geoKey);
+      }
+
+      const results = await pipeline.exec();
+      visitorsPerIp10m = Number(results?.[2]?.[1] ?? 1);
+      if (params.country) {
+        countriesPerVisitor1h = Number(results?.[5]?.[1] ?? 1);
       }
       return {
         visitorsPerIp10m,

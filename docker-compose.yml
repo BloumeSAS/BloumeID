@@ -10,7 +10,7 @@ services:
     volumes:
       - bloumeid_pgdata:/var/lib/postgresql/data
     networks:
-      - bloumeid_internal
+      - bloumeid_backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bloumeid} -d ${POSTGRES_DB:-bloumeid}"]
       interval: 10s
@@ -26,7 +26,7 @@ services:
     volumes:
       - bloumeid_valkeydata:/data
     networks:
-      - bloumeid_internal
+      - bloumeid_backend
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
@@ -64,7 +64,8 @@ services:
       bloumeid-redis:
         condition: service_healthy
     networks:
-      - bloumeid_internal
+      - bloumeid_backend
+      - bloumeid_public
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health || exit 1"]
       interval: 15s
@@ -77,5 +78,8 @@ volumes:
   bloumeid_valkeydata:
 
 networks:
-  bloumeid_internal:
+  bloumeid_backend:
+    driver: bridge
+    internal: true
+  bloumeid_public:
     driver: bridge
