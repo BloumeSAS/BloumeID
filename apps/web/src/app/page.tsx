@@ -35,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
 const GITHUB_REPO_URL = "https://github.com/BloumeSAS/BloumeID";
 const NPM_URL = "https://www.npmjs.com/package/@bloume/id";
-const JULES_URL = "https://julesb.dev";
+const BLOUME_URL = "https://bloume.fr";
 
 export default function LandingPage() {
   const { locale, setLocale, theme, toggleTheme, dict } = useI18n();
@@ -865,7 +865,17 @@ const res = await client.get({ tag: "checkout" });`;
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
             <BrandLogo variant="full" size="sm" showVersion />
-            <span>· © 2026 Bloume SAS</span>
+            <span>
+              · © 2026 Dev by{" "}
+              <a
+                href={BLOUME_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                Bloume SAS
+              </a>
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-5">
             <a href="#preview" className="transition-colors hover:text-foreground">
@@ -896,14 +906,6 @@ const res = await client.get({ tag: "checkout" });`;
               className="transition-colors hover:text-foreground"
             >
               GitHub
-            </a>
-            <a
-              href={JULES_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="transition-colors hover:text-foreground"
-            >
-              julesb.dev
             </a>
           </div>
         </div>
