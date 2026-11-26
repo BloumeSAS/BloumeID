@@ -54,13 +54,16 @@
   },
   "nav": {
     "home": "Open-Source Home",
-    "dashboard": "Threat Analytics",
+    "getStarted": "Get Started",
+    "dashboard": "Usage & Analytics",
     "events": "Live Audit Log",
     "rules": "Security Rules",
-    "sites": "Sites & Webhooks",
-    "visitors": "Visitors & Identity",
-    "playground": "Dual SDK Playground",
+    "sites": "API Keys",
+    "webhooks": "Webhooks",
+    "visitors": "Visitors & Team",
+    "playground": "Management API",
     "settings": "GeoLite2 & Feeds",
+    "releases": "Release Notes",
     "catOverview": "Analytics & Telemetry",
     "catSecurity": "Identity & Protection",
     "catDeveloper": "Platform & Infra"
@@ -395,5 +398,40 @@
     "crossBrowser": "Cross-Browser Match",
     "vm": "VM / Software GPU",
     "clean": "Clean Residential"
+  },
+  "getStarted": {
+    "title": "Get Started with BloumeID v1.0.0",
+    "subtitle": "Integrate 72+ signal visitor identification, anti-spoofing and threat intelligence in under 3 minutes.",
+    "step1Title": "1. Select or Create Your Site API Keys",
+    "step1Desc": "Use your public key (bid_pub_...) in the browser and your secret key (bid_sec_...) on your backend server.",
+    "step2Title": "2. Install the Client SDK (ThumbmarkJS or Fingerprint.com Mode)",
+    "step2Desc": "Drop-in replacement for both @thumbmarkjs/thumbmarkjs and @fingerprintjs/fingerprintjs-pro.",
+    "step3Title": "3. Verify Request & Enforce Security Rules on Your Backend",
+    "step3Desc": "Call verifyRequest(requestId) or GET /api/v1/events/:requestId with your secret key to block bots, Tor and spoofed browsers.",
+    "step4Title": "4. Live Verification Check",
+    "step4Desc": "Send a live test event right now to verify your database, Redis/Valkey and CIDR threat trie pipeline.",
+    "sendTestBtn": "Send Test Fingerprint Event",
+    "testSuccess": "Live event verified and stored in pipeline!",
+    "manageKeysBtn": "Manage API Keys",
+    "openPlaygroundBtn": "Open Management API Explorer"
+  },
+  "webhooksPage": {
+    "title": "Webhooks & HMAC Event Streams",
+    "subtitle": "Real-time HTTP POST notifications signed with X-BloumeID-Signature (HMAC-SHA256) whenever high-risk or bot traffic is detected.",
+    "endpointConfigTitle": "Site Webhook Endpoints & Signing Secrets",
+    "signatureHeader": "Signature Header",
+    "eventPayloadTitle": "Webhook JSON Payload Schema",
+    "deliveriesTitle": "Recent Webhook Delivery Logs",
+    "triggerTest": "Dispatch Test Event"
+  },
+  "releasesPage": {
+    "title": "Release Notes & System Changelog",
+    "subtitle": "Self-hosted platform updates, collector expansions and security engine improvements.",
+    "v1Title": "BloumeID v1.0.0 — Clean Slate Enterprise Release",
+    "v1Date": "November 2026 • Latest Stable",
+    "v1Item1": "Dual API Drop-in Compatibility: Native support for both ThumbmarkJS Pro (new BloumeID().get()) and Fingerprint.com (FingerprintJS.load().then(fp => fp.get())).",
+    "v1Item2": "72 Deterministic Collectors & Anti-Spoof Probes: WebGL 3D pixel hash, WebGPU adapter limits, Unicode/Emoji subpixel TextMetrics, CSS Media matrix, Function.prototype.toString hook detection and VM GPU detection.",
+    "v1Item3": "Automatic Dual-Mode MaxMind GeoLite2 (.mmdb) Downloader + 54,134 CIDR Radix Trie (< 1 ms in-memory lookups, 0 external API calls per request).",
+    "v1Item4": "TryCap-Style 176-Country Choropleth World Map, ISP/ASN Network Leaderboard, Custom Security Rules Engine (allow/challenge/block/flag) and 1-Click Coolify Docker Compose."
   }
 }

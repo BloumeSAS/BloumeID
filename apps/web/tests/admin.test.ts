@@ -250,14 +250,17 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     const pages = [
       path.resolve(__dirname, "../src/app/page.tsx"),
       path.resolve(__dirname, "../src/app/login/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/get-started/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/dashboard/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/events/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/rules/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/sites/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/webhooks/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/visitors/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/visitors/[visitorId]/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/playground/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/settings/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/releases/page.tsx"),
     ];
 
     for (const file of pages) {

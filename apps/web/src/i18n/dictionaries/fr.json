@@ -54,13 +54,16 @@
   },
   "nav": {
     "home": "Accueil Open-Source",
-    "dashboard": "Analytique Menaces",
+    "getStarted": "Get Started",
+    "dashboard": "Usage & Analytique",
     "events": "Journal d'Audit Live",
     "rules": "Règles de Sécurité",
-    "sites": "Sites & Webhooks",
-    "visitors": "Visiteurs & Identités",
-    "playground": "Playground Dual SDK",
+    "sites": "API Keys",
+    "webhooks": "Webhooks",
+    "visitors": "Visiteurs & Équipe",
+    "playground": "Management API",
     "settings": "GeoLite2 & Flux CIDR",
+    "releases": "Release Notes",
     "catOverview": "Analytique & Télémétrie",
     "catSecurity": "Identité & Protection",
     "catDeveloper": "Plateforme & Infra"
@@ -395,5 +398,40 @@
     "crossBrowser": "Rattachement Cross-Browser",
     "vm": "VM / GPU Logiciel",
     "clean": "Résidentiel Légitime"
+  },
+  "getStarted": {
+    "title": "Démarrage Rapide — BloumeID v1.0.0",
+    "subtitle": "Intégrez l'identification visiteur à 72+ signaux, l'anti-spoofing et la threat intelligence en moins de 3 minutes.",
+    "step1Title": "1. Sélectionnez ou Créez vos Clés API (API Keys)",
+    "step1Desc": "Utilisez votre clé publique (bid_pub_...) côté navigateur et votre clé secrète (bid_sec_...) côté serveur.",
+    "step2Title": "2. Installez le SDK Client (Mode ThumbmarkJS ou Fingerprint.com)",
+    "step2Desc": "Remplacement drop-in 100 % compatible avec @thumbmarkjs/thumbmarkjs et @fingerprintjs/fingerprintjs-pro.",
+    "step3Title": "3. Vérifiez la Requête & Appliquez les Règles côté Serveur",
+    "step3Desc": "Appelez verifyRequest(requestId) ou GET /api/v1/events/:requestId avec votre clé secrète pour bloquer bots, Tor et navigateurs spoofés.",
+    "step4Title": "4. Test de Vérification en Direct",
+    "step4Desc": "Envoyez un événement de test maintenant pour valider votre pipeline PostgreSQL, Redis/Valkey et l'arbre CIDR.",
+    "sendTestBtn": "Envoyer un Événement Fingerprint Test",
+    "testSuccess": "Événement live vérifié et enregistré avec succès !",
+    "manageKeysBtn": "Gérer les Clés API",
+    "openPlaygroundBtn": "Ouvrir Management API"
+  },
+  "webhooksPage": {
+    "title": "Webhooks & Flux d'Alertes Signés HMAC",
+    "subtitle": "Notifications HTTP POST temps réel signées avec X-BloumeID-Signature (HMAC-SHA256) dès qu'un trafic à haut risque ou bot est détecté.",
+    "endpointConfigTitle": "Endpoints Webhooks par Site & Secrets HMAC",
+    "signatureHeader": "En-tête de Signature",
+    "eventPayloadTitle": "Schéma JSON du Payload Webhook",
+    "deliveriesTitle": "Historique des Livraisons Webhooks",
+    "triggerTest": "Envoyer un Événement Test"
+  },
+  "releasesPage": {
+    "title": "Release Notes & Journal des Versions",
+    "subtitle": "Mises à jour de la plateforme self-hosted, nouveaux collecteurs matériels et améliorations du moteur de sécurité.",
+    "v1Title": "BloumeID v1.0.0 — Édition Enterprise Clean Slate",
+    "v1Date": "Novembre 2026 • Version Stable Actuelle",
+    "v1Item1": "Compatibilité Dual API Drop-in : Support natif de ThumbmarkJS Pro (new BloumeID().get()) et de Fingerprint.com (FingerprintJS.load().then(fp => fp.get())).",
+    "v1Item2": "72 Collecteurs Déterministes & Sondes Anti-Spoof : Hash de pixels 3D WebGL, limites d'adaptateur WebGPU, sous-pixels Unicode/Emoji TextMetrics, matrice CSS Media, détection de hooks Function.prototype.toString et GPU virtuels.",
+    "v1Item3": "Téléchargeur Automatique Bi-Mode MaxMind GeoLite2 (.mmdb) + Arbre Radix 54 134 CIDR (résolution mémoire < 1 ms, 0 appel API externe par requête).",
+    "v1Item4": "Carte Mondiale Choroplèthe 176 Pays style TryCap, classement des réseaux FAI/ASN, moteur de règles personnalisées (allow/challenge/block/flag) et déploiement Coolify 1-Click Docker."
   }
 }

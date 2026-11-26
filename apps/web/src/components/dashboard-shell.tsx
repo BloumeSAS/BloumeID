@@ -4,14 +4,14 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Activity,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   Command,
-  Cpu,
+  Database,
+  FileText,
   Fingerprint,
   Globe,
-  Home,
   KeyRound,
   LayoutList,
   ListFilter,
@@ -19,20 +19,21 @@ import {
   Menu,
   Moon,
   RefreshCw,
+  Rocket,
   Rows3,
   Search,
-  Settings,
   Shield,
   ShieldCheck,
   Sun,
+  TerminalSquare,
   Users,
+  Webhook,
 } from "lucide-react";
 import {
   useI18n,
   type AutoRefreshInterval,
   type GlobalTimeRange,
 } from "@/i18n/provider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -88,37 +89,23 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const navCategories = [
-    {
-      category: dict.nav.catOverview,
-      items: [
-        { href: "/dashboard", label: dict.nav.dashboard, icon: Activity, exact: false },
-        { href: "/events", label: dict.nav.events, icon: ListFilter, exact: false },
-      ],
-    },
-    {
-      category: dict.nav.catSecurity,
-      items: [
-        { href: "/visitors", label: dict.nav.visitors, icon: Users, exact: false },
-        { href: "/rules", label: dict.nav.rules, icon: ShieldCheck, exact: false },
-      ],
-    },
-    {
-      category: dict.nav.catDeveloper,
-      items: [
-        { href: "/sites", label: dict.nav.sites, icon: KeyRound, exact: false },
-        { href: "/playground", label: dict.nav.playground, icon: Cpu, exact: false },
-        { href: "/settings", label: dict.nav.settings, icon: Settings, exact: false },
-        { href: "/", label: dict.nav.home, icon: Home, exact: true },
-      ],
-    },
+  // Exact ThumbmarkJS Pro flat navigation structure & icons from user screenshot
+  const navItems = [
+    { href: "/get-started", label: dict.nav.getStarted, icon: Rocket, exact: false },
+    { href: "/sites", label: dict.nav.sites, icon: KeyRound, exact: false },
+    { href: "/webhooks", label: dict.nav.webhooks, icon: Webhook, exact: false },
+    { href: "/playground", label: dict.nav.playground, icon: TerminalSquare, exact: false },
+    { href: "/dashboard", label: dict.nav.dashboard, icon: BarChart3, exact: false },
+    { href: "/events", label: dict.nav.events, icon: ListFilter, exact: false },
+    { href: "/rules", label: dict.nav.rules, icon: ShieldCheck, exact: false },
+    { href: "/visitors", label: dict.nav.visitors, icon: Users, exact: false },
+    { href: "/settings", label: dict.nav.settings, icon: Database, exact: false },
+    { href: "/releases", label: dict.nav.releases, icon: FileText, exact: false },
   ];
-
-  const allNavItems = navCategories.flatMap((c) => c.items);
 
   const filteredCommands = React.useMemo(() => {
     const q = commandQuery.trim().toLowerCase();
-    const base = allNavItems.map((item) => ({
+    const base = navItems.map((item) => ({
       id: `nav:${item.href}`,
       title: item.label,
       subtitle: item.href,
@@ -142,62 +129,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       },
     }));
 
-    const actionCommands = [
-      {
-        id: "act:theme",
-        title: theme === "dark" ? dict.common.themeLight : dict.common.themeDark,
-        subtitle: "Theme",
-        icon: theme === "dark" ? Sun : Moon,
-        run: () => {
-          toggleTheme();
-          setCommandOpen(false);
-        },
-      },
-      {
-        id: "act:density",
-        title:
-          viewDensity === "comfort"
-            ? dict.common.densityCompact
-            : dict.common.densityComfort,
-        subtitle: dict.common.viewConfig,
-        icon: Rows3,
-        run: () => {
-          setViewDensity(viewDensity === "comfort" ? "compact" : "comfort");
-          setCommandOpen(false);
-        },
-      },
-      {
-        id: "act:locale",
-        title: `${dict.common.language}: ${locale === "fr" ? "English (EN)" : "Français (FR)"}`,
-        subtitle: "i18n",
-        icon: Globe,
-        run: () => {
-          setLocale(locale === "fr" ? "en" : "fr");
-          setCommandOpen(false);
-        },
-      },
-    ];
-
-    const combined = [...base, ...siteCommands, ...actionCommands];
+    const combined = [...base, ...siteCommands];
     if (!q) return combined;
     return combined.filter(
       (item) =>
         item.title.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q)
     );
-  }, [
-    allNavItems,
-    commandQuery,
-    sites,
-    theme,
-    dict.common,
-    viewDensity,
-    locale,
-    router,
-    setSelectedSiteId,
-    toggleTheme,
-    setViewDensity,
-    setLocale,
-  ]);
+  }, [navItems, commandQuery, sites, router, setSelectedSiteId]);
 
   const handleLogout = async () => {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -214,66 +152,68 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   const renderNavLinks = (isMobile = false) => (
-    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-      {navCategories.map((group, gIdx) => (
-        <div key={group.category} className="space-y-1">
-          {!collapsed || isMobile ? (
-            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/75">
-              {group.category}
-            </p>
-          ) : gIdx > 0 ? (
-            <div className="mx-auto my-2 h-px w-8 bg-border/80" />
-          ) : null}
+    <nav className="flex-1 space-y-1.5 overflow-y-auto px-3.5 py-5">
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const active = item.exact
+          ? pathname === item.href
+          : pathname === item.href || pathname.startsWith(`${item.href}/`);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => isMobile && setMobileMenuOpen(false)}
+            className={cn(
+              "group relative flex items-center gap-3.5 overflow-hidden rounded-xl px-4 py-3 text-[14px] font-medium transition-all duration-150",
+              active
+                ? "bg-gradient-to-r from-[#231942] via-[#1b1435] to-[#141026] font-semibold text-white shadow-[0_0_24px_rgba(139,92,246,0.18)] ring-1 ring-white/8"
+                : "text-[#7c859e] hover:bg-white/[0.03] hover:text-[#cbd5e1]",
+              collapsed && !isMobile ? "mx-auto h-11 w-11 justify-center px-0" : ""
+            )}
+            title={collapsed && !isMobile ? item.label : undefined}
+          >
+            {/* Exact ThumbmarkJS Glowing Pink/Magenta Vertical Left Bar on Active Item */}
+            {active ? (
+              <span className="absolute inset-y-1.5 left-0 w-[3.5px] rounded-r-full bg-gradient-to-b from-[#f472b6] via-[#d946ef] to-[#8b5cf6] shadow-[0_0_12px_#e879f9]" />
+            ) : null}
 
-          {group.items.map((item) => {
-            const Icon = item.icon;
-            const active = item.exact
-              ? pathname === item.href
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => isMobile && setMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
-                  active
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground",
-                  collapsed && !isMobile ? "mx-auto h-10 w-10 justify-center p-0" : ""
-                )}
-                title={collapsed && !isMobile ? item.label : undefined}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed || isMobile ? <span className="truncate">{item.label}</span> : null}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+            <Icon
+              className={cn(
+                "h-[18px] w-[18px] shrink-0 transition-colors",
+                active
+                  ? "text-white"
+                  : "text-[#646e87] group-hover:text-[#cbd5e1]"
+              )}
+            />
+            {!collapsed || isMobile ? (
+              <span className="truncate tracking-[-0.01em]">{item.label}</span>
+            ) : null}
+          </Link>
+        );
+      })}
     </nav>
   );
 
   return (
     <div
       className={cn(
-        "flex min-h-screen flex-col bg-background text-foreground lg:flex-row",
+        "flex min-h-screen flex-col bg-[#08070e] text-foreground lg:flex-row",
         viewDensity === "compact" ? "text-[13px]" : ""
       )}
     >
-      {/* Desktop Collapsible Sidebar (lg:) */}
+      {/* Exact ThumbmarkJS Pro Dark Sidebar (#0b0a12) */}
       <aside
         className={cn(
-          "relative hidden shrink-0 flex-col border-r border-border bg-card/90 transition-all duration-200 lg:flex",
-          collapsed ? "w-[72px]" : "w-64"
+          "relative hidden shrink-0 flex-col border-r border-white/[0.07] bg-[#0b0a12] transition-all duration-200 lg:flex",
+          collapsed ? "w-[76px]" : "w-[252px]"
         )}
       >
-        {/* Clean Floating Sidebar Toggle on Right Border (Never overlaps Logo) */}
+        {/* Subtle floating collapse toggle on right border */}
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           aria-label={dict.common.collapseSidebar}
-          className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary/50 hover:text-foreground"
+          className="absolute -right-3 top-7 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#12101e] text-[#7c859e] shadow-md transition-colors hover:border-[#635bff] hover:text-white"
         >
           {collapsed ? (
             <ChevronRight className="h-3.5 w-3.5" />
@@ -282,72 +222,40 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         </button>
 
+        {/* Top Brand Header — Exact ThumbmarkJS Pro style */}
         <div
           className={cn(
-            "flex h-16 items-center border-b border-border px-4",
-            collapsed ? "justify-center px-0" : "justify-between"
+            "flex h-20 items-center border-b border-white/[0.06] px-6",
+            collapsed ? "justify-center px-0" : "justify-start"
           )}
         >
-          <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30">
-              <Fingerprint className="h-5 w-5" />
+          <Link href="/" className="flex items-center gap-3.5 overflow-hidden">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#635bff] to-[#4f46e5] text-white shadow-[0_0_20px_rgba(99,91,255,0.45)]">
+              <Fingerprint className="h-6 w-6 stroke-[2.2]" />
             </div>
             {!collapsed ? (
-              <div className="truncate">
-                <div className="flex items-center gap-1.5">
-                  <p className="font-bold tracking-tight text-foreground">
-                    {dict.common.brandName}
-                  </p>
-                  <Badge
-                    variant="outline"
-                    className="px-1.5 py-0 font-mono text-[10px] text-primary"
-                  >
-                    v1.0.0
-                  </Badge>
-                </div>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {dict.common.companyName}
-                </p>
-              </div>
+              <span className="truncate text-[21px] font-extrabold lowercase tracking-tight text-[#635bff]">
+                {dict.common.brandName}
+              </span>
             ) : null}
           </Link>
         </div>
 
-        {/* Quick Command Palette Trigger inside Sidebar */}
-        {!collapsed ? (
-          <div className="px-3 pt-3">
-            <button
-              type="button"
-              onClick={() => setCommandOpen(true)}
-              className="flex w-full items-center justify-between rounded-xl border border-border bg-secondary/35 px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-            >
-              <span className="flex items-center gap-2">
-                <Search className="h-3.5 w-3.5 text-primary" />
-                <span>{dict.common.search}</span>
-              </span>
-              <kbd className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px]">
-                {dict.common.commandShortcut}
-              </kbd>
-            </button>
-          </div>
-        ) : null}
-
         {renderNavLinks(false)}
 
-        <div className="space-y-2.5 border-t border-border p-3">
+        {/* Clean Minimal Bottom Controls */}
+        <div className="space-y-3 border-t border-white/[0.06] p-4">
           {!collapsed ? (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-500 dark:text-emerald-300">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-              <span className="truncate font-medium">{dict.common.engineOnline}</span>
+            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs text-[#7c859e]">
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                <span className="truncate font-medium text-slate-300">
+                  {dict.common.engineOnline}
+                </span>
+              </span>
+              <span className="font-mono text-[10px] text-[#635bff]">v1.0.0</span>
             </div>
-          ) : (
-            <div
-              className="mx-auto flex h-7 w-7 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10"
-              title={dict.common.engineOnline}
-            >
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            </div>
-          )}
+          ) : null}
 
           <div
             className={cn(
@@ -361,7 +269,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="locale-switcher"
               onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-              className={cn(collapsed ? "h-8 w-10 px-0" : "flex-1")}
+              className={cn(
+                "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]",
+                collapsed ? "h-8 w-10 px-0" : "flex-1"
+              )}
             >
               <Globe className="h-3.5 w-3.5" />
               {!collapsed ? <span>{locale.toUpperCase()}</span> : null}
@@ -373,7 +284,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="theme-switcher"
               onClick={toggleTheme}
-              className={cn(collapsed ? "h-8 w-10 px-0" : "")}
+              className={cn(
+                "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]",
+                collapsed ? "h-8 w-10 px-0" : ""
+              )}
               title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
             >
               {theme === "dark" ? (
@@ -389,7 +303,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="logout-button"
               onClick={handleLogout}
-              className={cn(collapsed ? "h-8 w-10 px-0" : "")}
+              className={cn(
+                "text-[#7c859e] hover:bg-rose-500/15 hover:text-rose-400",
+                collapsed ? "h-8 w-10 px-0" : ""
+              )}
               title={dict.common.logout}
             >
               <LogOut className="h-4 w-4" />
@@ -398,15 +315,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Main Content Area with Sticky Enterprise Header */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-2.5 backdrop-blur-md lg:px-8">
-          <div className="flex flex-wrap items-center gap-2.5">
+      {/* Main Content Area with Sleek Dark Topbar */}
+      <div className="flex min-w-0 flex-1 flex-col bg-[#08070e]">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] bg-[#0b0a12]/90 px-4 py-3 backdrop-blur-xl lg:px-8">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="lg:hidden"
+              className="border-white/10 lg:hidden"
               onClick={() => setMobileMenuOpen(true)}
               aria-label={dict.common.openMenu}
             >
@@ -414,39 +331,45 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </Button>
 
             <Link href="/" className="flex items-center gap-2 lg:hidden">
-              <Fingerprint className="h-5 w-5 text-primary" />
-              <span className="font-bold">{dict.common.brandName}</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#635bff] text-white">
+                <Fingerprint className="h-4 w-4" />
+              </div>
+              <span className="font-extrabold lowercase text-[#635bff]">
+                {dict.common.brandName}
+              </span>
             </Link>
 
             {/* Global Site Selector */}
-            <div className="flex items-center gap-2">
-              <Shield className="hidden h-4 w-4 text-primary sm:inline" />
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#12101d] px-3 py-1">
+              <Shield className="h-3.5 w-3.5 text-[#635bff]" />
               <select
                 aria-label={dict.common.allSites}
                 value={selectedSiteId}
                 onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="bg-transparent text-xs font-medium text-slate-200 focus:outline-none"
               >
-                <option value="all">{dict.common.allSites}</option>
+                <option value="all" className="bg-[#12101d]">
+                  {dict.common.allSites}
+                </option>
                 {sites.map((s) => (
-                  <option key={s.publicId} value={s.publicId}>
+                  <option key={s.publicId} value={s.publicId} className="bg-[#12101d]">
                     {s.name} ({s.publicId.slice(0, 12)})
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* PRO View Density Switcher (Comfort vs Compact PRO) */}
-            <div className="hidden items-center rounded-lg border border-border bg-background p-0.5 sm:inline-flex">
+            {/* PRO View Density Switcher */}
+            <div className="hidden items-center rounded-xl border border-white/10 bg-[#12101d] p-0.5 sm:inline-flex">
               <button
                 type="button"
                 onClick={() => setViewDensity("comfort")}
                 title={dict.common.densityComfort}
                 className={cn(
-                  "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
                   viewDensity === "comfort"
-                    ? "bg-secondary text-foreground shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-[#231942] text-white shadow-2xs"
+                    : "text-[#7c859e] hover:text-white"
                 )}
               >
                 <LayoutList className="h-3 w-3" />
@@ -457,10 +380,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setViewDensity("compact")}
                 title={dict.common.densityCompact}
                 className={cn(
-                  "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                  "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
                   viewDensity === "compact"
-                    ? "bg-secondary text-foreground shadow-2xs"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-[#231942] text-white shadow-2xs"
+                    : "text-[#7c859e] hover:text-white"
                 )}
               >
                 <Rows3 className="h-3 w-3" />
@@ -469,13 +392,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {/* Right Toolbar: Auto-Refresh Interval + Time Range + Command Button */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Global Live Auto-Refresh Selector */}
-            <div className="hidden items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 md:flex">
+          {/* Right Toolbar: Auto-Refresh + Time Range + Command Palette */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-[#12101d] px-2.5 py-1 md:flex">
               <RefreshCw
                 className={cn(
-                  "h-3.5 w-3.5 text-primary",
+                  "h-3.5 w-3.5 text-[#635bff]",
                   autoRefreshSec > 0 ? "animate-spin" : ""
                 )}
               />
@@ -485,35 +407,42 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 onChange={(e) =>
                   setAutoRefreshSec(Number(e.target.value) as AutoRefreshInterval)
                 }
-                className="bg-transparent text-xs font-medium text-foreground focus:outline-none"
+                className="bg-transparent text-xs font-medium text-slate-200 focus:outline-none"
               >
-                <option value={0}>{dict.common.autoRefreshOff}</option>
-                <option value={5}>{dict.common.autoRefresh5s}</option>
-                <option value={15}>{dict.common.autoRefresh15s}</option>
-                <option value={60}>{dict.common.autoRefresh60s}</option>
+                <option value={0} className="bg-[#12101d]">
+                  {dict.common.autoRefreshOff}
+                </option>
+                <option value={5} className="bg-[#12101d]">
+                  {dict.common.autoRefresh5s}
+                </option>
+                <option value={15} className="bg-[#12101d]">
+                  {dict.common.autoRefresh15s}
+                </option>
+                <option value={60} className="bg-[#12101d]">
+                  {dict.common.autoRefresh60s}
+                </option>
               </select>
               <button
                 type="button"
                 onClick={triggerManualRefresh}
                 title={dict.common.refresh}
-                className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                className="ml-1 rounded p-0.5 text-[#7c859e] hover:text-white"
               >
                 <RefreshCw className="h-3 w-3" />
               </button>
             </div>
 
-            {/* Global Time Range Selector */}
-            <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
+            <div className="inline-flex rounded-xl border border-white/10 bg-[#12101d] p-0.5">
               {TIME_RANGES.map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setTimeRange(r)}
                   className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-all",
                     timeRange === r
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-[#635bff] text-white shadow-[0_0_12px_rgba(99,91,255,0.4)]"
+                      : "text-[#7c859e] hover:text-white"
                   )}
                 >
                   {getTimeLabel(r)}
@@ -521,34 +450,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               ))}
             </div>
 
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => setCommandOpen(true)}
-              className="hidden h-8 gap-1.5 text-xs sm:inline-flex"
+              className="hidden h-8 items-center gap-2 rounded-xl border border-white/10 bg-[#12101d] px-3 text-xs font-medium text-[#7c859e] transition-colors hover:border-[#635bff]/50 hover:text-white sm:inline-flex"
             >
-              <Command className="h-3.5 w-3.5 text-primary" />
+              <Command className="h-3.5 w-3.5 text-[#635bff]" />
               <span>{dict.common.commandShortcut}</span>
-            </Button>
-
-            <div className="flex items-center gap-1 lg:hidden">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-              >
-                {locale.toUpperCase()}
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={toggleTheme}>
-                {theme === "dark" ? (
-                  <Sun className="h-3.5 w-3.5" />
-                ) : (
-                  <Moon className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            </div>
+            </button>
           </div>
         </header>
 
@@ -614,9 +523,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         description={dict.common.versionBadge}
         closeLabel={dict.common.close}
       >
-        <div className="flex h-full flex-col justify-between">
+        <div className="flex h-full flex-col justify-between bg-[#0b0a12]">
           {renderNavLinks(true)}
-          <div className="mt-6 border-t border-border pt-4">
+          <div className="mt-6 border-t border-white/10 pt-4">
             <Button
               type="button"
               variant="destructive"
