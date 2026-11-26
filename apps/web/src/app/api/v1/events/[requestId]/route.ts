@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { APP_VERSION } from "@/lib/version";
 import { z } from "zod";
 import { getEventByPublicId, verifySiteSecretKey } from "@/lib/engine/repository";
 
@@ -91,7 +92,7 @@ export async function GET(
             url: event.origin ?? "",
             tag: event.tag ?? {},
             linkedId: event.linkedId ?? "",
-            confidence: { score: event.confidence, revision: "1.0.0" },
+            confidence: { score: event.confidence, revision: APP_VERSION },
             visitorFound: true,
           },
         },

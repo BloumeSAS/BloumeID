@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useI18n } from "@/i18n/provider";
+import { APP_VERSION_TAG } from "@/lib/version";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +48,7 @@ export function BrandLogo({
           <span className="font-bold tracking-tight text-foreground">{dict.common.brandName}</span>
           {showVersion ? (
             <Badge variant="outline" className="font-mono text-[10px]">
-              {dict.common.versionBadge}
+              {APP_VERSION_TAG}
             </Badge>
           ) : null}
         </span>

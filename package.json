@@ -1,6 +1,6 @@
 {
   "name": "bloumeid-monorepo",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "packageManager": "pnpm@10.33.2",
   "engines": {
@@ -14,6 +14,7 @@
     "test": "pnpm -r test",
     "test:coverage": "pnpm -r test:coverage",
     "release:sdk": "pnpm --filter @bloume/id test && pnpm --filter @bloume/id build && pnpm --filter @bloume/id publish --access public --no-git-checks",
+    "bump:version": "node scripts/bump-version.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md}\""
   },
   "devDependencies": {

@@ -85,3 +85,12 @@ L'agent DOIT exécuter automatiquement le cycle Git complet sans attendre de dem
 4. **Gestion des conflits & sécurité Git :**
    - Résoudre proprement tout conflit avant de finaliser le rebase/merge et re-vérifier le build/typecheck.
    - Interdiction absolue d'utiliser `git push --force` sur `main` ou de commiter des secrets.
+
+---
+
+## 9. Versioning Dynamique & Bump SemVer Automatique
+- **Source de vérité unique** : `apps/web/src/lib/version.ts` (`APP_VERSION` / `APP_VERSION_TAG`) lit dynamiquement `apps/web/package.json`. Il est **interdit de coder en dur `"1.0.0"`** dans les composants UI, l'API (`/api/health`), les métadonnées ou les dictionnaires i18n (`fr.json` / `en.json`).
+- **Bump automatique à chaque modification** : Avant chaque commit/merge, exécuter `pnpm bump:version <patch|minor|major>` :
+  - `patch` (`1.0.x`) : fix, ajustement CSS/UI mineur, traduction i18n, documentation.
+  - `minor` (`1.x.0`) : nouvelle fonctionnalité (`feat`), refonte de page ou d'interface, ajout d'endpoints rétrocompatibles.
+  - `major` (`x.0.0`) : breaking change majeur d'architecture, de schéma API ou de base de données.

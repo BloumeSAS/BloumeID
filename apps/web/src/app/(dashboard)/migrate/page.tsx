@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check, Copy, Eye, EyeOff, Wand2 } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
+import { APP_VERSION_TAG } from "@/lib/version";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,7 +50,7 @@ export default function MigratePage() {
       : `4. **Aucun Webhook** :
    - N'installe AUCUNE route webhook. Utilise uniquement l'appel SDK client et la vérification serveur directe via \`BloumeIDServer.verifyRequest(requestId)\`.`;
 
-    return `# MISSION : Migration vers @bloume/id v1.0.0 (BloumeID Self-Hosted)
+    return `# MISSION : Migration vers @bloume/id ${APP_VERSION_TAG} (BloumeID Self-Hosted)
 
 - **Outil source à remplacer :** ${sourceTool}
 - **Stack cible :** ${targetStack}
@@ -253,7 +254,7 @@ ${webhookSection}
             <div>
               <CardTitle className="text-base">{dict.migratePage.promptTitle}</CardTitle>
               <Badge variant="outline" className="mt-1 font-mono text-[10px] text-primary">
-                @bloume/id v1.0.0
+                @bloume/id {APP_VERSION_TAG}
               </Badge>
             </div>
             <Button type="button" size="sm" onClick={handleCopyPrompt}>
