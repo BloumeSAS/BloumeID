@@ -520,5 +520,15 @@
     "code502Desc": "Le service amont ou le proxy inverse a retourné une réponse invalide.",
     "code503Title": "Service Indisponible",
     "code503Desc": "Le service est temporairement indisponible ou en cours de maintenance."
+  },
+  "pagination": {
+    "showingRange": "Affichage de {from} à {to} sur {total} résultats",
+    "perPage": "par page",
+    "firstPage": "Première page",
+    "previousPage": "Page précédente",
+    "nextPage": "Page suivante",
+    "lastPage": "Dernière page",
+    "pageOf": "Page {page} sur {totalPages}",
+    "noResults": "0 résultat"
   }
 }

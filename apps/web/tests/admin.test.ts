@@ -273,4 +273,55 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
       expect(source, `${path.basename(file)} must reference dict.`).toContain("dict.");
     }
   });
+
+  it("computes PaginationMeta and returns paginated items on /api/admin/events and /api/admin/visitors", async () => {
+    const { computePaginationMeta, parsePaginationParams } = await import("../src/lib/pagination");
+    const meta = computePaginationMeta(2, 25, 60);
+    expect(meta).toEqual({
+      page: 2,
+      pageSize: 25,
+      totalItems: 60,
+      totalPages: 3,
+      hasNextPage: true,
+      hasPreviousPage: true,
+    });
+
+    const parsed = parsePaginationParams(new URLSearchParams("page=3&pageSize=10"), 25);
+    expect(parsed).toEqual({
+      page: 3,
+      pageSize: 10,
+      skip: 20,
+      take: 10,
+      hasExplicitPage: true,
+    });
+
+    const { GET: eventsGET } = await import("../src/app/api/admin/events/route");
+    const { GET: visitorsGET } = await import("../src/app/api/admin/visitors/route");
+    const { createSignedAdminSessionToken, ADMIN_SESSION_COOKIE } = await import("../src/lib/auth");
+    const token = createSignedAdminSessionToken();
+    const headers = { cookie: `${ADMIN_SESSION_COOKIE}=${token}` };
+
+    const evRes = await eventsGET(
+      new Request("http://localhost:3000/api/admin/events?page=1&pageSize=1", { headers })
+    );
+    expect(evRes.status).toBe(200);
+    const evBody = (await evRes.json()) as {
+      items: unknown[];
+      pagination: { page: number; pageSize: number; totalItems: number; totalPages: number };
+    };
+    expect(evBody.items.length).toBeLessThanOrEqual(1);
+    expect(evBody.pagination.page).toBe(1);
+    expect(evBody.pagination.pageSize).toBe(1);
+
+    const visRes = await visitorsGET(
+      new Request("http://localhost:3000/api/admin/visitors?page=1&pageSize=1", { headers })
+    );
+    expect(visRes.status).toBe(200);
+    const visBody = (await visRes.json()) as {
+      items: unknown[];
+      pagination: { page: number; pageSize: number; totalItems: number; totalPages: number };
+    };
+    expect(visBody.items.length).toBeLessThanOrEqual(1);
+    expect(visBody.pagination.page).toBe(1);
+  });
 });

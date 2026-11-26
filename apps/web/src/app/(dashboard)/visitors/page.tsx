@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { DataPagination } from "@/components/ui/data-pagination";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -19,30 +20,59 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { PublicVisitorDTO, VisitorTrustStatus } from "@/types";
+import type { PaginationMeta, PublicVisitorDTO, VisitorTrustStatus } from "@/types";
 
 export default function VisitorsPage() {
-  const { dict, refreshTick } = useI18n();
+  const { dict, refreshTick, selectedSiteId } = useI18n();
   const [visitors, setVisitors] = React.useState<PublicVisitorDTO[]>([]);
   const [query, setQuery] = React.useState("");
   const [onlyHighRisk, setOnlyHighRisk] = React.useState(false);
   const [policyFilter, setPolicyFilter] = React.useState<"all" | VisitorTrustStatus>("all");
   const [viewMode, setViewMode] = React.useState<"table" | "grid">("table");
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [pagination, setPagination] = React.useState<PaginationMeta>({
+    page: 1,
+    pageSize: 25,
+    totalItems: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
-  const loadVisitors = React.useCallback(async (q: string, hr: boolean) => {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (hr) params.set("highRisk", "true");
-    const res = await fetch(`/api/admin/visitors?${params.toString()}`);
-    if (res.ok) {
-      const data = (await res.json()) as { visitors: PublicVisitorDTO[] };
-      setVisitors(data.visitors);
+  const loadVisitors = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        siteId: selectedSiteId,
+        trustStatus: policyFilter,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (query) params.set("q", query);
+      if (onlyHighRisk) params.set("highRisk", "true");
+      const res = await fetch(`/api/admin/visitors?${params.toString()}`);
+      if (res.ok) {
+        const data = (await res.json()) as {
+          visitors: PublicVisitorDTO[];
+          pagination?: PaginationMeta;
+        };
+        setVisitors(data.visitors);
+        if (data.pagination) setPagination(data.pagination);
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  }, [selectedSiteId, policyFilter, query, onlyHighRisk, page, pageSize]);
 
   React.useEffect(() => {
-    void loadVisitors(query, onlyHighRisk);
-  }, [query, onlyHighRisk, loadVisitors, refreshTick]);
+    setPage(1);
+  }, [selectedSiteId, policyFilter, query, onlyHighRisk]);
+
+  React.useEffect(() => {
+    void loadVisitors();
+  }, [loadVisitors, refreshTick]);
 
   const handleQuickTrust = async (publicId: string, trustStatus: VisitorTrustStatus) => {
     const res = await fetch("/api/admin/visitors", {
@@ -359,6 +389,20 @@ export default function VisitorsPage() {
               ))}
             </div>
           )}
+          <div className="mt-4">
+            <DataPagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalItems={pagination.totalItems}
+              totalPages={pagination.totalPages}
+              isLoading={isLoading}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

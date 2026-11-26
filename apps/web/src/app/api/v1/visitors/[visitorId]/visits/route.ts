@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { APP_VERSION } from "@/lib/version";
+import { paginateArray, parsePaginationParams } from "@/lib/pagination";
 import { z } from "zod";
 import { getVisitorByPublicId, verifySiteSecretKey } from "@/lib/engine/repository";
 
@@ -54,12 +55,16 @@ export async function GET(
   const requestIdFilter = url.searchParams.get("request_id");
   const linkedIdFilter = url.searchParams.get("linked_id");
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? 50)));
+  const { page, pageSize, hasExplicitPage } = parsePaginationParams(url.searchParams, limit);
 
-  const visits = data.events
-    .filter((e) => (!requestIdFilter || e.publicId === requestIdFilter))
-    .filter((e) => (!linkedIdFilter || e.linkedId === linkedIdFilter))
-    .slice(0, limit)
-    .map((e) => ({
+  const filteredVisits = data.events
+    .filter((e) => !requestIdFilter || e.publicId === requestIdFilter)
+    .filter((e) => !linkedIdFilter || e.linkedId === linkedIdFilter);
+  const paginated = hasExplicitPage
+    ? paginateArray(filteredVisits, page, pageSize)
+    : paginateArray(filteredVisits, 1, limit);
+
+  const visits = paginated.items.map((e) => ({
       requestId: e.publicId,
       browserDetails: {
         browserName: e.browser ?? "Unknown",
@@ -94,6 +99,7 @@ export async function GET(
     {
       visitorId: data.visitor.publicId,
       visits,
+      pagination: paginated.pagination,
       lastTimestamp: visits[visits.length - 1]?.timestamp ?? null,
     },
     { status: 200 }

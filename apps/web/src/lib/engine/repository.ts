@@ -1,3 +1,4 @@
+import { computePaginationMeta, paginateArray } from "@/lib/pagination";
 import type { FingerprintComponents, SecurityRuleAction } from "@bloume/id";
 import { prisma } from "@/lib/prisma";
 import {
@@ -11,6 +12,7 @@ import { THREAT_FEEDS } from "./feeds";
 import type { ReconciliationStore } from "./reconcile";
 import type { SecurityRuleCondition } from "./rules";
 import type {
+  PaginatedResponse,
   DashboardMetricsDTO,
   PublicFingerprintEventDTO,
   PublicSecurityRuleDTO,
@@ -1046,6 +1048,123 @@ export async function listFingerprintEvents(filters?: {
     .slice(0, limit);
 }
 
+export async function listFingerprintEventsPaginated(filters?: {
+  sitePublicId?: string;
+  query?: string;
+  minDanger?: number;
+  vector?: "all" | "bot" | "vpntor" | "spoofed" | "crossbrowser";
+  linkedId?: string;
+  action?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<PaginatedResponse<PublicFingerprintEventDTO>> {
+  ensureMemorySeeded();
+  const page = Math.max(1, filters?.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, filters?.pageSize ?? 25));
+  const q = filters?.query?.trim() ?? "";
+  const minDanger = filters?.minDanger ?? 0;
+  const vector = filters?.vector ?? "all";
+
+  if (await isDatabaseConnected()) {
+    try {
+      const where: Record<string, unknown> = {};
+      if (filters?.sitePublicId && filters.sitePublicId !== "all") {
+        where.site = { publicId: filters.sitePublicId };
+      }
+      if (minDanger > 0) {
+        where.dangerLevel = { gte: minDanger };
+      }
+      if (filters?.linkedId) {
+        where.linkedId = filters.linkedId;
+      }
+      if (filters?.action && filters.action !== "all") {
+        where.ruleAction = filters.action;
+      }
+      if (vector === "bot") where.isBot = true;
+      if (vector === "vpntor") where.OR = [{ isVpn: true }, { isTor: true }, { isProxy: true }];
+      if (vector === "spoofed") where.isSpoofed = true;
+      if (vector === "crossbrowser") where.crossBrowserMatched = true;
+      if (q) {
+        where.AND = [
+          {
+            OR: [
+              { publicId: { contains: q, mode: "insensitive" } },
+              { ipAddress: { contains: q, mode: "insensitive" } },
+              { country: { contains: q, mode: "insensitive" } },
+              { asnOrg: { contains: q, mode: "insensitive" } },
+              { visitor: { publicId: { contains: q, mode: "insensitive" } } },
+            ],
+          },
+        ];
+      }
+
+      const skip = (page - 1) * pageSize;
+      const [dbEvents, totalItems] = await Promise.all([
+        prisma.fingerprintEvent.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: pageSize,
+          include: { site: true, visitor: true },
+        }),
+        prisma.fingerprintEvent.count({ where }),
+      ]);
+
+      const items: PublicFingerprintEventDTO[] = dbEvents.map((evt) => ({
+        publicId: evt.publicId,
+        sitePublicId: evt.site.publicId,
+        visitorPublicId: evt.visitor.publicId,
+        fullHash: evt.fullHash,
+        hardwareHash: evt.hardwareHash,
+        ipAddress: evt.ipAddress,
+        ipSubnet: evt.ipSubnet,
+        ja4Hash: evt.ja4Hash,
+        asnNumber: evt.asnNumber,
+        asnOrg: evt.asnOrg,
+        country: evt.country,
+        city: evt.city,
+        latitude: evt.latitude ?? null,
+        longitude: evt.longitude ?? null,
+        isVpn: evt.isVpn,
+        isProxy: evt.isProxy,
+        isTor: evt.isTor,
+        isDatacenter: evt.isDatacenter,
+        isBot: evt.isBot,
+        isSpoofed: evt.isSpoofed,
+        isIncognito: evt.isIncognito,
+        crossBrowserMatched: evt.crossBrowserMatched,
+        dangerLevel: evt.dangerLevel,
+        confidence: evt.confidence,
+        ruleAction: (evt.ruleAction as SecurityRuleAction) ?? "allow",
+        matchedRuleId: evt.matchedRuleId ?? null,
+        linkedId: evt.linkedId ?? null,
+        tag: (evt.tag as Record<string, unknown> | string | null) ?? null,
+        browser: evt.browser,
+        os: evt.os,
+        device: evt.device,
+        userAgent: evt.userAgent,
+        origin: evt.origin,
+        components: evt.components as unknown as FingerprintComponents,
+        createdAt: evt.createdAt.toISOString(),
+      }));
+
+      return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+    } catch {
+      // Fallback to memory
+    }
+  }
+
+  const allFiltered = await listFingerprintEvents({
+    ...filters,
+    limit: 5000,
+  });
+  const actionFiltered =
+    filters?.action && filters.action !== "all"
+      ? allFiltered.filter((e) => e.ruleAction === filters.action)
+      : allFiltered;
+  return paginateArray(actionFiltered, page, pageSize);
+}
+
 export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
   visitor: PublicVisitorDTO;
   events: PublicFingerprintEventDTO[];
@@ -1387,6 +1506,80 @@ export async function listVisitors(filters?: {
         v.hardwareHash.toLowerCase().includes(q) ||
         v.tags.some((t) => t.toLowerCase().includes(q))
     );
+}
+
+export async function listVisitorsPaginated(filters?: {
+  sitePublicId?: string;
+  query?: string;
+  onlyHighRisk?: boolean;
+  trustStatus?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<PaginatedResponse<PublicVisitorDTO>> {
+  ensureMemorySeeded();
+  const page = Math.max(1, filters?.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, filters?.pageSize ?? 25));
+  const q = filters?.query?.trim() ?? "";
+
+  if (await isDatabaseConnected()) {
+    try {
+      const where: Record<string, unknown> = { mergedIntoId: null };
+      if (filters?.sitePublicId && filters.sitePublicId !== "all") {
+        where.site = { publicId: filters.sitePublicId };
+      }
+      if (filters?.onlyHighRisk) {
+        where.maxDangerLevel = { gte: 3 };
+      }
+      if (filters?.trustStatus && filters.trustStatus !== "all") {
+        where.trustStatus = filters.trustStatus;
+      }
+      if (q) {
+        where.OR = [
+          { publicId: { contains: q, mode: "insensitive" } },
+          { hardwareHash: { contains: q, mode: "insensitive" } },
+        ];
+      }
+
+      const skip = (page - 1) * pageSize;
+      const [dbVisitors, totalItems] = await Promise.all([
+        prisma.visitor.findMany({
+          where,
+          include: { site: true },
+          orderBy: { lastSeenAt: "desc" },
+          skip,
+          take: pageSize,
+        }),
+        prisma.visitor.count({ where }),
+      ]);
+
+      const items: PublicVisitorDTO[] = dbVisitors.map((v) => ({
+        publicId: v.publicId,
+        sitePublicId: v.site.publicId,
+        hardwareHash: v.hardwareHash,
+        firstSeenAt: v.firstSeenAt.toISOString(),
+        lastSeenAt: v.lastSeenAt.toISOString(),
+        visitCount: v.visitCount,
+        maxDangerLevel: v.maxDangerLevel,
+        trustStatus: (v.trustStatus as VisitorTrustStatus) ?? "neutral",
+        mergedIntoId: v.mergedIntoId ?? null,
+        tags: v.tags,
+        notes: v.notes,
+      }));
+
+      return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+    } catch {
+      // Fallback
+    }
+  }
+
+  let items = await listVisitors(filters);
+  if (filters?.sitePublicId && filters.sitePublicId !== "all") {
+    items = items.filter((v) => v.sitePublicId === filters.sitePublicId);
+  }
+  if (filters?.trustStatus && filters.trustStatus !== "all") {
+    items = items.filter((v) => v.trustStatus === filters.trustStatus);
+  }
+  return paginateArray(items, page, pageSize);
 }
 
 export async function updateVisitorAnnotations(

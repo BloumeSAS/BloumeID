@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { DataPagination } from "@/components/ui/data-pagination";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CollapsibleJsonViewer } from "@/components/collapsible-json";
+import { paginateArray } from "@/lib/pagination";
 import type { PublicFingerprintEventDTO, PublicVisitorDTO, VisitorTrustStatus } from "@/types";
 
 export default function VisitorDetailPage() {
@@ -21,6 +23,8 @@ export default function VisitorDetailPage() {
 
   const [visitor, setVisitor] = React.useState<PublicVisitorDTO | null>(null);
   const [events, setEvents] = React.useState<PublicFingerprintEventDTO[]>([]);
+  const [timelinePage, setTimelinePage] = React.useState(1);
+  const [timelinePageSize, setTimelinePageSize] = React.useState(10);
   const [tagsInput, setTagsInput] = React.useState("");
   const [notesInput, setNotesInput] = React.useState("");
   const [mergeSourceId, setMergeSourceId] = React.useState("");
@@ -286,7 +290,7 @@ export default function VisitorDetailPage() {
           <CardTitle className="text-base">{dict.visitors.timelineTitle}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {events.map((evt) => (
+          {paginateArray(events, timelinePage, timelinePageSize).items.map((evt) => (
             <div key={evt.publicId} className="space-y-3 rounded-xl border border-border p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -311,6 +315,17 @@ export default function VisitorDetailPage() {
               />
             </div>
           ))}
+          <DataPagination
+            page={timelinePage}
+            pageSize={timelinePageSize}
+            totalItems={events.length}
+            totalPages={Math.max(1, Math.ceil(events.length / timelinePageSize))}
+            onPageChange={setTimelinePage}
+            onPageSizeChange={(size) => {
+              setTimelinePageSize(size);
+              setTimelinePage(1);
+            }}
+          />
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
+import { paginateArray, parsePaginationParams } from "@/lib/pagination";
 import {
   createSecurityRule,
   deleteSecurityRule,
@@ -47,8 +48,15 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
   const url = new URL(request.url);
   const sitePublicId = url.searchParams.get("siteId") ?? "all";
-  const rules = await listSecurityRules(sitePublicId);
-  return NextResponse.json({ rules }, { status: 200 });
+  const allRules = await listSecurityRules(sitePublicId);
+  const { page, pageSize, hasExplicitPage } = parsePaginationParams(url.searchParams, 15);
+  const paginated = hasExplicitPage
+    ? paginateArray(allRules, page, pageSize)
+    : { items: allRules, pagination: paginateArray(allRules, 1, Math.max(15, allRules.length)).pagination };
+  return NextResponse.json(
+    { items: paginated.items, rules: paginated.items, pagination: paginated.pagination },
+    { status: 200 }
+  );
 }
 
 export async function POST(request: Request): Promise<NextResponse> {

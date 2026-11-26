@@ -520,5 +520,15 @@
     "code502Desc": "The upstream service or reverse proxy returned an invalid response.",
     "code503Title": "Service Unavailable",
     "code503Desc": "The service is temporarily unavailable or undergoing maintenance."
+  },
+  "pagination": {
+    "showingRange": "Showing {from} to {to} of {total} results",
+    "perPage": "per page",
+    "firstPage": "First page",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page",
+    "pageOf": "Page {page} of {totalPages}",
+    "noResults": "0 results"
   }
 }

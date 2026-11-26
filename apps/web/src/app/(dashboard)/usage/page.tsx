@@ -7,11 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { DataPagination } from "@/components/ui/data-pagination";
+import { paginateArray } from "@/lib/pagination";
 import type { PublicSiteDTO } from "@/types";
 
 export default function UsagePage() {
   const { dict } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
 
   React.useEffect(() => {
     fetch("/api/admin/sites")
@@ -23,6 +27,10 @@ export default function UsagePage() {
   }, []);
 
   const total30d = sites.reduce((acc, s) => acc + (s.requests30d ?? 0), 0);
+  const paginatedSites = React.useMemo(
+    () => paginateArray(sites, page, pageSize),
+    [sites, page, pageSize]
+  );
 
   return (
     <div className="space-y-6">
@@ -69,7 +77,7 @@ export default function UsagePage() {
       </div>
 
       <div className="grid gap-4">
-        {sites.map((s) => (
+        {paginatedSites.items.map((s) => (
           <Card key={s.publicId}>
             <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
               <div className="space-y-1">
@@ -94,6 +102,18 @@ export default function UsagePage() {
           </Card>
         ))}
       </div>
+
+      <DataPagination
+        page={paginatedSites.pagination.page}
+        pageSize={paginatedSites.pagination.pageSize}
+        totalItems={paginatedSites.pagination.totalItems}
+        totalPages={paginatedSites.pagination.totalPages}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }
