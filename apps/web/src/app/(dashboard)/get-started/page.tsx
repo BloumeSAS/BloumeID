@@ -57,7 +57,7 @@ export default function GetStartedPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-[#d946ef]" />
+            <Rocket className="h-5 w-5 text-primary" />
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
               {dict.getStarted.title}
             </h1>
@@ -70,12 +70,12 @@ export default function GetStartedPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/sites">
             <Button type="button" variant="outline" size="sm">
-              <KeyRound className="h-3.5 w-3.5 text-[#635bff]" />
+              <KeyRound className="h-3.5 w-3.5 text-primary" />
               <span>{dict.getStarted.manageKeysBtn}</span>
             </Button>
           </Link>
           <Link href="/playground">
-            <Button type="button" size="sm" className="bg-[#635bff] text-white hover:bg-[#5249e6]">
+            <Button type="button" size="sm">
               <TerminalSquare className="h-3.5 w-3.5" />
               <span>{dict.getStarted.openPlaygroundBtn}</span>
             </Button>
@@ -84,13 +84,13 @@ export default function GetStartedPage() {
       </div>
 
       {/* Step 1: Active API Keys */}
-      <Card className="border-white/10 bg-[#100e1a]">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">{dict.getStarted.step1Title}</CardTitle>
           <CardDescription>{dict.getStarted.step1Desc}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-[#0b0a12] p-4">
+          <div className="rounded-xl border border-border bg-secondary/20 p-4">
             <p className="text-xs font-medium text-muted-foreground">{dict.sites.publicKey}</p>
             <div className="mt-2">
               <CopyableMono
@@ -100,7 +100,7 @@ export default function GetStartedPage() {
               />
             </div>
           </div>
-          <div className="rounded-xl border border-white/10 bg-[#0b0a12] p-4">
+          <div className="rounded-xl border border-border bg-secondary/20 p-4">
             <p className="text-xs font-medium text-muted-foreground">{dict.sites.secretKey}</p>
             <div className="mt-2">
               <CopyableMono
@@ -114,7 +114,7 @@ export default function GetStartedPage() {
       </Card>
 
       {/* Step 2: Client SDK Drop-In Snippets */}
-      <Card className="border-white/10 bg-[#100e1a]">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">{dict.getStarted.step2Title}</CardTitle>
           <CardDescription>{dict.getStarted.step2Desc}</CardDescription>
@@ -128,7 +128,7 @@ export default function GetStartedPage() {
             </TabsList>
 
             <TabsContent value="thumbmark">
-              <pre className="overflow-x-auto rounded-xl border border-white/10 bg-[#0b0a12] p-4 font-mono text-xs text-slate-200">
+              <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
 {`pnpm add @bloumeid/sdk
 
 import { BloumeID } from "@bloumeid/sdk";
@@ -144,7 +144,7 @@ console.log(result.visitorId, result.thumbmark, result.info.dangerLevel);`}
             </TabsContent>
 
             <TabsContent value="fp">
-              <pre className="overflow-x-auto rounded-xl border border-white/10 bg-[#0b0a12] p-4 font-mono text-xs text-slate-200">
+              <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
 {`import FingerprintJS from "@bloumeid/sdk";
 
 const fpPromise = FingerprintJS.load({
@@ -159,7 +159,7 @@ console.log(result.visitorId, result.requestId, result.ipLocation);`}
             </TabsContent>
 
             <TabsContent value="script">
-              <pre className="overflow-x-auto rounded-xl border border-white/10 bg-[#0b0a12] p-4 font-mono text-xs text-slate-200">
+              <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
 {`<script src="http://localhost:3000/sdk/v1/bloumeid.js"></script>
 <script>
   const client = new window.BloumeID({
@@ -176,13 +176,13 @@ console.log(result.visitorId, result.requestId, result.ipLocation);`}
 
       {/* Step 3 & Step 4 */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-white/10 bg-[#100e1a]">
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">{dict.getStarted.step3Title}</CardTitle>
             <CardDescription>{dict.getStarted.step3Desc}</CardDescription>
           </CardHeader>
           <CardContent>
-            <pre className="overflow-x-auto rounded-xl border border-white/10 bg-[#0b0a12] p-4 font-mono text-xs text-slate-200">
+            <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
 {`import { BloumeIDServer } from "@bloumeid/sdk/server";
 
 const server = new BloumeIDServer({
@@ -198,11 +198,11 @@ if (verified.dangerLevel >= 3 || verified.flags.isBot) {
           </CardContent>
         </Card>
 
-        <Card className="border-[#635bff]/35 bg-[#100e1a]">
+        <Card className="border-primary/35">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">{dict.getStarted.step4Title}</CardTitle>
-              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+              <ShieldCheck className="h-5 w-5 text-emerald-500" />
             </div>
             <CardDescription>{dict.getStarted.step4Desc}</CardDescription>
           </CardHeader>
@@ -211,7 +211,7 @@ if (verified.dangerLevel >= 3 || verified.flags.isBot) {
               type="button"
               onClick={handleRunTest}
               disabled={testing}
-              className="w-full bg-gradient-to-r from-[#635bff] to-[#d946ef] text-white hover:opacity-95"
+              className="w-full"
             >
               <Play className="h-4 w-4" />
               <span>{testing ? dict.playground.running : dict.getStarted.sendTestBtn}</span>
@@ -219,7 +219,7 @@ if (verified.dangerLevel >= 3 || verified.flags.isBot) {
 
             {testResult ? (
               <div className="space-y-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-500">
                   <CheckCircle2 className="h-4 w-4" />
                   <span>{dict.getStarted.testSuccess}</span>
                 </div>
@@ -245,7 +245,7 @@ if (verified.dangerLevel >= 3 || verified.flags.isBot) {
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Badge variant="success">{testResult.info.collectorCount} signals</Badge>
                   <Badge variant="outline" className="font-mono">
                     {testResult.info.durationMs} ms
@@ -262,4 +262,3 @@ if (verified.dangerLevel >= 3 || verified.flags.isBot) {
     </div>
   );
 }
-

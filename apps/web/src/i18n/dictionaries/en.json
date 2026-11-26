@@ -416,13 +416,17 @@
     "openPlaygroundBtn": "Open Management API Explorer"
   },
   "webhooksPage": {
-    "title": "Webhooks & HMAC Event Streams",
-    "subtitle": "Real-time HTTP POST notifications signed with X-BloumeID-Signature (HMAC-SHA256) whenever high-risk or bot traffic is detected.",
+    "title": "Webhooks & HMAC Event Streams (Optional)",
+    "subtitle": "Webhooks are 100% optional. Enable them per site only if you want real-time HTTP POST push alerts signed with X-BloumeID-Signature (HMAC-SHA256). Without webhooks, your backend verifies visitors directly via the SDK or REST API.",
+    "optionalBadge": "100% Optional Feature",
     "endpointConfigTitle": "Site Webhook Endpoints & Signing Secrets",
     "signatureHeader": "Signature Header",
     "eventPayloadTitle": "Webhook JSON Payload Schema",
     "deliveriesTitle": "Recent Webhook Delivery Logs",
-    "triggerTest": "Dispatch Test Event"
+    "triggerTest": "Dispatch Test Event",
+    "saveWebhook": "Save Webhook Config",
+    "disableWebhook": "Disable Webhook",
+    "webhookSaved": "Webhook configuration updated."
   },
   "releasesPage": {
     "title": "Release Notes & System Changelog",

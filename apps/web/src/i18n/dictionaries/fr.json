@@ -416,13 +416,17 @@
     "openPlaygroundBtn": "Ouvrir Management API"
   },
   "webhooksPage": {
-    "title": "Webhooks & Flux d'Alertes Signés HMAC",
-    "subtitle": "Notifications HTTP POST temps réel signées avec X-BloumeID-Signature (HMAC-SHA256) dès qu'un trafic à haut risque ou bot est détecté.",
+    "title": "Webhooks & Flux d'Alertes HMAC (Optionnel)",
+    "subtitle": "Les webhooks sont 100 % optionnels. Activez-les par site uniquement si vous souhaitez recevoir des alertes push HTTP POST signées avec X-BloumeID-Signature (HMAC-SHA256). Sans webhook, le SDK et l'API de vérification fonctionnent de manière autonome.",
+    "optionalBadge": "Fonctionnalité 100 % Optionnelle",
     "endpointConfigTitle": "Endpoints Webhooks par Site & Secrets HMAC",
     "signatureHeader": "En-tête de Signature",
     "eventPayloadTitle": "Schéma JSON du Payload Webhook",
     "deliveriesTitle": "Historique des Livraisons Webhooks",
-    "triggerTest": "Envoyer un Événement Test"
+    "triggerTest": "Envoyer un Événement Test",
+    "saveWebhook": "Enregistrer le Webhook",
+    "disableWebhook": "Désactiver le Webhook",
+    "webhookSaved": "Configuration du webhook mise à jour."
   },
   "releasesPage": {
     "title": "Release Notes & Journal des Versions",

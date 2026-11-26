@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Send, ShieldCheck, Webhook } from "lucide-react";
+import { Save, Send, ShieldCheck, Trash2, Webhook } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -21,6 +23,8 @@ export default function WebhooksPage() {
   const { dict, refreshTick } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [deliveries, setDeliveries] = React.useState<PublicWebhookDeliveryDTO[]>([]);
+  const [urlDrafts, setUrlDrafts] = React.useState<Record<string, string>>({});
+  const [thresholdDrafts, setThresholdDrafts] = React.useState<Record<string, number>>({});
   const [toast, setToast] = React.useState<string | null>(null);
 
   const loadData = React.useCallback(async () => {
@@ -34,12 +38,39 @@ export default function WebhooksPage() {
       if (data.webhookDeliveries) {
         setDeliveries(data.webhookDeliveries);
       }
+      const urls: Record<string, string> = {};
+      const thresholds: Record<string, number> = {};
+      for (const s of data.sites) {
+        urls[s.publicId] = s.webhookUrl ?? "";
+        thresholds[s.publicId] = s.riskThreshold;
+      }
+      setUrlDrafts(urls);
+      setThresholdDrafts(thresholds);
     }
   }, []);
 
   React.useEffect(() => {
     void loadData();
   }, [loadData, refreshTick]);
+
+  const handleSaveWebhook = async (publicId: string, clearUrl = false) => {
+    const nextUrl = clearUrl ? null : (urlDrafts[publicId] ?? "").trim() || null;
+    const nextThreshold = thresholdDrafts[publicId] ?? 3;
+    const res = await fetch("/api/admin/sites", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        publicId,
+        webhookUrl: nextUrl,
+        riskThreshold: nextThreshold,
+      }),
+    });
+    if (res.ok) {
+      setToast(dict.webhooksPage.webhookSaved);
+      await loadData();
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
 
   const handleTestWebhook = async (publicId: string) => {
     const res = await fetch("/api/admin/sites", {
@@ -56,94 +87,158 @@ export default function WebhooksPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2.5">
-          <Webhook className="h-5 w-5 text-[#d946ef]" />
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-            {dict.webhooksPage.title}
-          </h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Webhook className="h-5 w-5 text-primary" />
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
+              {dict.webhooksPage.title}
+            </h1>
+            <Badge variant="outline" className="border-primary/40 text-xs text-primary">
+              {dict.webhooksPage.optionalBadge}
+            </Badge>
+          </div>
+          <p className="mt-1 max-w-4xl text-xs text-muted-foreground sm:text-sm">
+            {dict.webhooksPage.subtitle}
+          </p>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-          {dict.webhooksPage.subtitle}
-        </p>
       </div>
 
       {toast ? (
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-400">
+        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-500">
           {toast}
         </div>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-12">
-        <Card className="border-white/10 bg-[#100e1a] lg:col-span-7">
+        <Card className="lg:col-span-7">
           <CardHeader>
             <CardTitle className="text-base">{dict.webhooksPage.endpointConfigTitle}</CardTitle>
             <CardDescription>{dict.sites.subtitle}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {sites.map((site) => (
-              <div
-                key={site.publicId}
-                className="space-y-3 rounded-xl border border-white/10 bg-[#0b0a12] p-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white">{site.name}</span>
-                    <CopyableMono
-                      value={site.publicId}
-                      copyLabel={dict.common.copy}
-                      copiedLabel={dict.common.copied}
-                    />
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {dict.sites.riskThreshold}: &gt;= {site.riskThreshold}
-                    </Badge>
+            {sites.map((site) => {
+              const hasWebhook = Boolean(site.webhookUrl && site.webhookUrl.trim().length > 0);
+              return (
+                <div
+                  key={site.publicId}
+                  className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-foreground">{site.name}</span>
+                      <CopyableMono
+                        value={site.publicId}
+                        copyLabel={dict.common.copy}
+                        copiedLabel={dict.common.copied}
+                      />
+                      <Badge variant={hasWebhook ? "success" : "secondary"}>
+                        {hasWebhook ? dict.common.enabled : dict.common.disabled}
+                      </Badge>
+                    </div>
+
+                    {hasWebhook ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleTestWebhook(site.publicId)}
+                      >
+                        <Send className="h-3.5 w-3.5 text-primary" />
+                        <span>{dict.webhooksPage.triggerTest}</span>
+                      </Button>
+                    ) : null}
                   </div>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => handleTestWebhook(site.publicId)}
-                  >
-                    <Send className="h-3.5 w-3.5 text-[#635bff]" />
-                    <span>{dict.webhooksPage.triggerTest}</span>
-                  </Button>
-                </div>
+                  {/* Optional Webhook URL & Risk Threshold Editor */}
+                  <div className="grid gap-3 sm:grid-cols-12">
+                    <div className="space-y-1 sm:col-span-8">
+                      <Label htmlFor={`wh-url-${site.publicId}`} className="text-xs">
+                        {dict.sites.webhookUrl} ({dict.webhooksPage.optionalBadge})
+                      </Label>
+                      <Input
+                        id={`wh-url-${site.publicId}`}
+                        value={urlDrafts[site.publicId] ?? ""}
+                        onChange={(e) =>
+                          setUrlDrafts((prev) => ({
+                            ...prev,
+                            [site.publicId]: e.target.value,
+                          }))
+                        }
+                        placeholder={dict.sites.webhookUrlPlaceholder}
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-4">
+                      <Label htmlFor={`wh-th-${site.publicId}`} className="text-xs">
+                        {dict.sites.riskThreshold}
+                      </Label>
+                      <Input
+                        id={`wh-th-${site.publicId}`}
+                        type="number"
+                        min={0}
+                        max={5}
+                        value={thresholdDrafts[site.publicId] ?? site.riskThreshold}
+                        onChange={(e) =>
+                          setThresholdDrafts((prev) => ({
+                            ...prev,
+                            [site.publicId]: Number(e.target.value),
+                          }))
+                        }
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-[11px] text-muted-foreground">{dict.sites.webhookUrl}</p>
-                    <CopyableMono
-                      value={site.webhookUrl ?? "https://hooks.bloume.io/security/fingerprint"}
-                      copyLabel={dict.common.copy}
-                      copiedLabel={dict.common.copied}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-muted-foreground">
-                      {dict.webhooksPage.signatureHeader} (HMAC-SHA256)
-                    </p>
-                    <CopyableMono
-                      value={site.webhookSecret ?? "whsec_bloumeid_cosmic_secret_2026"}
-                      copyLabel={dict.common.copy}
-                      copiedLabel={dict.common.copied}
-                    />
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {dict.webhooksPage.signatureHeader} (HMAC-SHA256)
+                      </p>
+                      <CopyableMono
+                        value={site.webhookSecret ?? "whsec_bloumeid_cosmic_secret_2026"}
+                        copyLabel={dict.common.copy}
+                        copiedLabel={dict.common.copied}
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {hasWebhook ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleSaveWebhook(site.publicId, true)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          <span>{dict.webhooksPage.disableWebhook}</span>
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleSaveWebhook(site.publicId, false)}
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        <span>{dict.webhooksPage.saveWebhook}</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
-        <Card className="border-white/10 bg-[#100e1a] lg:col-span-5">
+        <Card className="lg:col-span-5">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
               <CardTitle className="text-base">{dict.webhooksPage.eventPayloadTitle}</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
-            <pre className="overflow-x-auto rounded-xl border border-white/10 bg-[#0b0a12] p-4 font-mono text-xs text-slate-300">
+            <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
 {`// Header: X-BloumeID-Signature: sha256=<hmac>
 {
   "event": "threat.detected",
@@ -173,7 +268,7 @@ export default function WebhooksPage() {
       </div>
 
       {/* Webhook Deliveries Log Table */}
-      <Card className="border-white/10 bg-[#100e1a]">
+      <Card>
         <CardHeader>
           <CardTitle className="text-base">{dict.webhooksPage.deliveriesTitle}</CardTitle>
         </CardHeader>
@@ -230,4 +325,3 @@ export default function WebhooksPage() {
     </div>
   );
 }
-

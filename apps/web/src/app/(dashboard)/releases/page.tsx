@@ -13,7 +13,7 @@ export default function ReleaseNotesPage() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2.5">
-          <FileText className="h-5 w-5 text-[#d946ef]" />
+          <FileText className="h-5 w-5 text-primary" />
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
             {dict.releasesPage.title}
           </h1>
@@ -23,14 +23,14 @@ export default function ReleaseNotesPage() {
         </p>
       </div>
 
-      <Card className="border-[#635bff]/35 bg-[#100e1a]">
-        <CardHeader className="border-b border-white/10 pb-4">
+      <Card className="border-primary/35">
+        <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <Sparkles className="h-5 w-5 text-[#d946ef]" />
+              <Sparkles className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">{dict.releasesPage.v1Title}</CardTitle>
             </div>
-            <Badge className="bg-[#635bff] font-mono text-xs text-white">v1.0.0</Badge>
+            <Badge className="font-mono text-xs">v1.0.0</Badge>
           </div>
           <CardDescription className="font-mono text-xs">
             {dict.releasesPage.v1Date}
@@ -45,9 +45,9 @@ export default function ReleaseNotesPage() {
           ].map((item) => (
             <div
               key={item}
-              className="flex items-start gap-3 rounded-xl border border-white/10 bg-[#0b0a12] p-4 text-sm text-slate-200"
+              className="flex items-start gap-3 rounded-xl border border-border bg-secondary/20 p-4 text-sm text-foreground"
             >
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
               <span>{item}</span>
             </div>
           ))}
@@ -56,4 +56,3 @@ export default function ReleaseNotesPage() {
     </div>
   );
 }
-

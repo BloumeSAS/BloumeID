@@ -89,7 +89,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Exact ThumbmarkJS Pro flat navigation structure & icons from user screenshot
+  // ThumbmarkJS Pro flat navigation structure & icons, fully localized via dict.nav.*
   const navItems = [
     { href: "/get-started", label: dict.nav.getStarted, icon: Rocket, exact: false },
     { href: "/sites", label: dict.nav.sites, icon: KeyRound, exact: false },
@@ -164,25 +164,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             href={item.href}
             onClick={() => isMobile && setMobileMenuOpen(false)}
             className={cn(
-              "group relative flex items-center gap-3.5 overflow-hidden rounded-xl px-4 py-3 text-[14px] font-medium transition-all duration-150",
+              "group relative flex items-center gap-3.5 overflow-hidden rounded-xl px-4 py-2.5 text-[14px] font-medium transition-all duration-150",
               active
-                ? "bg-gradient-to-r from-[#231942] via-[#1b1435] to-[#141026] font-semibold text-white shadow-[0_0_24px_rgba(139,92,246,0.18)] ring-1 ring-white/8"
-                : "text-[#7c859e] hover:bg-white/[0.03] hover:text-[#cbd5e1]",
+                ? "bg-primary/15 font-semibold text-foreground shadow-xs ring-1 ring-primary/30 dark:bg-gradient-to-r dark:from-primary/25 dark:via-primary/15 dark:to-primary/5 dark:text-white"
+                : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
               collapsed && !isMobile ? "mx-auto h-11 w-11 justify-center px-0" : ""
             )}
             title={collapsed && !isMobile ? item.label : undefined}
           >
-            {/* Exact ThumbmarkJS Glowing Pink/Magenta Vertical Left Bar on Active Item */}
+            {/* ThumbmarkJS-style Glowing Vertical Left Bar on Active Item */}
             {active ? (
-              <span className="absolute inset-y-1.5 left-0 w-[3.5px] rounded-r-full bg-gradient-to-b from-[#f472b6] via-[#d946ef] to-[#8b5cf6] shadow-[0_0_12px_#e879f9]" />
+              <span className="absolute inset-y-1.5 left-0 w-[3.5px] rounded-r-full bg-gradient-to-b from-fuchsia-400 via-fuchsia-500 to-primary shadow-[0_0_12px_rgba(217,70,239,0.85)]" />
             ) : null}
 
             <Icon
               className={cn(
                 "h-[18px] w-[18px] shrink-0 transition-colors",
                 active
-                  ? "text-white"
-                  : "text-[#646e87] group-hover:text-[#cbd5e1]"
+                  ? "text-primary dark:text-white"
+                  : "text-muted-foreground group-hover:text-foreground"
               )}
             />
             {!collapsed || isMobile ? (
@@ -197,23 +197,23 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        "flex min-h-screen flex-col bg-[#08070e] text-foreground lg:flex-row",
+        "flex min-h-screen flex-col bg-background text-foreground lg:flex-row",
         viewDensity === "compact" ? "text-[13px]" : ""
       )}
     >
-      {/* Exact ThumbmarkJS Pro Dark Sidebar (#0b0a12) */}
+      {/* ThumbmarkJS-style Sidebar using Clean Slate theme tokens (Light & Dark compatible) */}
       <aside
         className={cn(
-          "relative hidden shrink-0 flex-col border-r border-white/[0.07] bg-[#0b0a12] transition-all duration-200 lg:flex",
+          "relative hidden shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-200 lg:flex",
           collapsed ? "w-[76px]" : "w-[252px]"
         )}
       >
-        {/* Subtle floating collapse toggle on right border */}
+        {/* Floating collapse toggle on right border */}
         <button
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           aria-label={dict.common.collapseSidebar}
-          className="absolute -right-3 top-7 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#12101e] text-[#7c859e] shadow-md transition-colors hover:border-[#635bff] hover:text-white"
+          className="absolute -right-3 top-7 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-foreground"
         >
           {collapsed ? (
             <ChevronRight className="h-3.5 w-3.5" />
@@ -222,19 +222,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         </button>
 
-        {/* Top Brand Header — Exact ThumbmarkJS Pro style */}
+        {/* Top Brand Header — ThumbmarkJS style with Clean Slate Primary Accent */}
         <div
           className={cn(
-            "flex h-20 items-center border-b border-white/[0.06] px-6",
+            "flex h-20 items-center border-b border-border px-6",
             collapsed ? "justify-center px-0" : "justify-start"
           )}
         >
           <Link href="/" className="flex items-center gap-3.5 overflow-hidden">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#635bff] to-[#4f46e5] text-white shadow-[0_0_20px_rgba(99,91,255,0.45)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/40">
               <Fingerprint className="h-6 w-6 stroke-[2.2]" />
             </div>
             {!collapsed ? (
-              <span className="truncate text-[21px] font-extrabold lowercase tracking-tight text-[#635bff]">
+              <span className="truncate text-[21px] font-extrabold lowercase tracking-tight text-primary">
                 {dict.common.brandName}
               </span>
             ) : null}
@@ -243,17 +243,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
         {renderNavLinks(false)}
 
-        {/* Clean Minimal Bottom Controls */}
-        <div className="space-y-3 border-t border-white/[0.06] p-4">
+        {/* Bottom Status & Theme / Language / Logout Controls */}
+        <div className="space-y-3 border-t border-border p-4">
           {!collapsed ? (
-            <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs text-[#7c859e]">
+            <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-                <span className="truncate font-medium text-slate-300">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                <span className="truncate font-medium text-foreground">
                   {dict.common.engineOnline}
                 </span>
               </span>
-              <span className="font-mono text-[10px] text-[#635bff]">v1.0.0</span>
+              <span className="font-mono text-[10px] font-semibold text-primary">v1.0.0</span>
             </div>
           ) : null}
 
@@ -269,10 +269,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="locale-switcher"
               onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-              className={cn(
-                "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]",
-                collapsed ? "h-8 w-10 px-0" : "flex-1"
-              )}
+              className={cn(collapsed ? "h-8 w-10 px-0" : "flex-1")}
             >
               <Globe className="h-3.5 w-3.5" />
               {!collapsed ? <span>{locale.toUpperCase()}</span> : null}
@@ -284,10 +281,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="theme-switcher"
               onClick={toggleTheme}
-              className={cn(
-                "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.08]",
-                collapsed ? "h-8 w-10 px-0" : ""
-              )}
+              className={cn(collapsed ? "h-8 w-10 px-0" : "")}
               title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
             >
               {theme === "dark" ? (
@@ -304,7 +298,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               data-testid="logout-button"
               onClick={handleLogout}
               className={cn(
-                "text-[#7c859e] hover:bg-rose-500/15 hover:text-rose-400",
+                "text-muted-foreground hover:bg-destructive/15 hover:text-destructive",
                 collapsed ? "h-8 w-10 px-0" : ""
               )}
               title={dict.common.logout}
@@ -315,15 +309,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Main Content Area with Sleek Dark Topbar */}
-      <div className="flex min-w-0 flex-1 flex-col bg-[#08070e]">
-        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] bg-[#0b0a12]/90 px-4 py-3 backdrop-blur-xl lg:px-8">
-          <div className="flex flex-wrap items-center gap-3">
+      {/* Main Content Area with Responsive Clean Slate Topbar */}
+      <div className="flex min-w-0 flex-1 flex-col bg-background">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-3 backdrop-blur-xl lg:px-8">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="border-white/10 lg:hidden"
+              className="lg:hidden"
               onClick={() => setMobileMenuOpen(true)}
               aria-label={dict.common.openMenu}
             >
@@ -331,28 +325,32 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </Button>
 
             <Link href="/" className="flex items-center gap-2 lg:hidden">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#635bff] text-white">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Fingerprint className="h-4 w-4" />
               </div>
-              <span className="font-extrabold lowercase text-[#635bff]">
+              <span className="font-extrabold lowercase text-primary">
                 {dict.common.brandName}
               </span>
             </Link>
 
             {/* Global Site Selector */}
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#12101d] px-3 py-1">
-              <Shield className="h-3.5 w-3.5 text-[#635bff]" />
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-1">
+              <Shield className="h-3.5 w-3.5 text-primary" />
               <select
                 aria-label={dict.common.allSites}
                 value={selectedSiteId}
                 onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="bg-transparent text-xs font-medium text-slate-200 focus:outline-none"
+                className="max-w-[160px] truncate bg-transparent text-xs font-medium text-foreground focus:outline-none sm:max-w-none"
               >
-                <option value="all" className="bg-[#12101d]">
+                <option value="all" className="bg-card text-foreground">
                   {dict.common.allSites}
                 </option>
                 {sites.map((s) => (
-                  <option key={s.publicId} value={s.publicId} className="bg-[#12101d]">
+                  <option
+                    key={s.publicId}
+                    value={s.publicId}
+                    className="bg-card text-foreground"
+                  >
                     {s.name} ({s.publicId.slice(0, 12)})
                   </option>
                 ))}
@@ -360,7 +358,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* PRO View Density Switcher */}
-            <div className="hidden items-center rounded-xl border border-white/10 bg-[#12101d] p-0.5 sm:inline-flex">
+            <div className="hidden items-center rounded-xl border border-border bg-background p-0.5 sm:inline-flex">
               <button
                 type="button"
                 onClick={() => setViewDensity("comfort")}
@@ -368,8 +366,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
                   viewDensity === "comfort"
-                    ? "bg-[#231942] text-white shadow-2xs"
-                    : "text-[#7c859e] hover:text-white"
+                    ? "bg-secondary text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <LayoutList className="h-3 w-3" />
@@ -382,8 +380,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors",
                   viewDensity === "compact"
-                    ? "bg-[#231942] text-white shadow-2xs"
-                    : "text-[#7c859e] hover:text-white"
+                    ? "bg-secondary text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Rows3 className="h-3 w-3" />
@@ -392,12 +390,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {/* Right Toolbar: Auto-Refresh + Time Range + Command Palette */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-[#12101d] px-2.5 py-1 md:flex">
+          {/* Right Toolbar: Auto-Refresh + Time Range + Command Palette + Mobile Locale/Theme */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 py-1 md:flex">
               <RefreshCw
                 className={cn(
-                  "h-3.5 w-3.5 text-[#635bff]",
+                  "h-3.5 w-3.5 text-primary",
                   autoRefreshSec > 0 ? "animate-spin" : ""
                 )}
               />
@@ -407,18 +405,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 onChange={(e) =>
                   setAutoRefreshSec(Number(e.target.value) as AutoRefreshInterval)
                 }
-                className="bg-transparent text-xs font-medium text-slate-200 focus:outline-none"
+                className="bg-transparent text-xs font-medium text-foreground focus:outline-none"
               >
-                <option value={0} className="bg-[#12101d]">
+                <option value={0} className="bg-card text-foreground">
                   {dict.common.autoRefreshOff}
                 </option>
-                <option value={5} className="bg-[#12101d]">
+                <option value={5} className="bg-card text-foreground">
                   {dict.common.autoRefresh5s}
                 </option>
-                <option value={15} className="bg-[#12101d]">
+                <option value={15} className="bg-card text-foreground">
                   {dict.common.autoRefresh15s}
                 </option>
-                <option value={60} className="bg-[#12101d]">
+                <option value={60} className="bg-card text-foreground">
                   {dict.common.autoRefresh60s}
                 </option>
               </select>
@@ -426,23 +424,23 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={triggerManualRefresh}
                 title={dict.common.refresh}
-                className="ml-1 rounded p-0.5 text-[#7c859e] hover:text-white"
+                className="ml-1 rounded p-0.5 text-muted-foreground hover:text-foreground"
               >
                 <RefreshCw className="h-3 w-3" />
               </button>
             </div>
 
-            <div className="inline-flex rounded-xl border border-white/10 bg-[#12101d] p-0.5">
+            <div className="inline-flex rounded-xl border border-border bg-background p-0.5">
               {TIME_RANGES.map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setTimeRange(r)}
                   className={cn(
-                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-all",
+                    "rounded-lg px-2 py-1 text-xs font-medium transition-all sm:px-2.5",
                     timeRange === r
-                      ? "bg-[#635bff] text-white shadow-[0_0_12px_rgba(99,91,255,0.4)]"
-                      : "text-[#7c859e] hover:text-white"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {getTimeLabel(r)}
@@ -453,11 +451,29 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="hidden h-8 items-center gap-2 rounded-xl border border-white/10 bg-[#12101d] px-3 text-xs font-medium text-[#7c859e] transition-colors hover:border-[#635bff]/50 hover:text-white sm:inline-flex"
+              className="hidden h-8 items-center gap-2 rounded-xl border border-border bg-background px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground sm:inline-flex"
             >
-              <Command className="h-3.5 w-3.5 text-[#635bff]" />
+              <Command className="h-3.5 w-3.5 text-primary" />
               <span>{dict.common.commandShortcut}</span>
             </button>
+
+            <div className="flex items-center gap-1 lg:hidden">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
+              >
+                {locale.toUpperCase()}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={toggleTheme}>
+                {theme === "dark" ? (
+                  <Sun className="h-3.5 w-3.5" />
+                ) : (
+                  <Moon className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -523,9 +539,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         description={dict.common.versionBadge}
         closeLabel={dict.common.close}
       >
-        <div className="flex h-full flex-col justify-between bg-[#0b0a12]">
+        <div className="flex h-full flex-col justify-between bg-sidebar text-sidebar-foreground">
           {renderNavLinks(true)}
-          <div className="mt-6 border-t border-white/10 pt-4">
+          <div className="mt-6 border-t border-border pt-4">
             <Button
               type="button"
               variant="destructive"
