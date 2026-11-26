@@ -17,7 +17,6 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/config/package.json ./packages/config/package.json
-COPY packages/bloumeid/package.json ./packages/bloumeid/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/web/prisma ./apps/web/prisma
 
@@ -28,13 +27,10 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# 1. Build @bloume/id (outputs dist/* and copies UMD to apps/web/public/sdk/v1/bloumeid.js)
-RUN pnpm --filter @bloume/id build
-
-# 2. Generate Prisma Client
+# 1. Generate Prisma Client
 RUN pnpm --filter @bloumeid/web exec prisma generate
 
-# 3. Build Next.js 16 standalone output
+# 2. Build Next.js 16 standalone output
 RUN pnpm --filter @bloumeid/web build
 
 # ==============================================================================
