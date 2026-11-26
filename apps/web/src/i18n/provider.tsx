@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { getDictionary, type Dictionary, type Locale } from "./index";
+import {
+  detectBrowserLocale,
+  getDictionary,
+  isSupportedLocale,
+  type Dictionary,
+  type Locale,
+} from "./index";
 
 export type ThemeMode = "dark" | "light";
 export type GlobalTimeRange = "1h" | "24h" | "7d" | "30d" | "90d";
@@ -63,9 +69,11 @@ export function I18nProvider({
 
   React.useEffect(() => {
     try {
-      const savedLocale = window.localStorage.getItem("bloumeid_locale") as Locale | null;
-      if (savedLocale === "en" || savedLocale === "fr") {
+      const savedLocale = window.localStorage.getItem("bloumeid_locale");
+      if (isSupportedLocale(savedLocale)) {
         setLocaleState(savedLocale);
+      } else if (typeof navigator !== "undefined" && navigator.language) {
+        setLocaleState(detectBrowserLocale(navigator.language));
       }
       const savedTheme = window.localStorage.getItem("bloumeid_theme") as ThemeMode | null;
       if (savedTheme === "light" || savedTheme === "dark") {

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/i18n/provider";
 import { WORLD_COUNTRY_PATHS } from "./world-map-data";
 import { CountryFlag } from "./ui/country-flag";
 
@@ -16,6 +17,7 @@ export function InteractiveWorldMap({
 }: {
   countries: CountryTrafficPoint[];
 }) {
+  const { dict } = useI18n();
   const [hovered, setHovered] = React.useState<{
     id: string;
     name: string;
@@ -80,7 +82,7 @@ export function InteractiveWorldMap({
         viewBox="0 0 880 460"
         className="h-full w-full select-none"
         role="img"
-        aria-label="World Choropleth Traffic Map"
+        aria-label={dict.landing.worldMapAriaLabel}
       >
         <g>
           {WORLD_COUNTRY_PATHS.map((country) => {

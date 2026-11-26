@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Globe } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
-  const { dict, locale, setLocale } = useI18n();
+  const { dict } = useI18n();
   const router = useRouter();
   const [masterKey, setMasterKey] = React.useState("");
   const [errorKey, setErrorKey] = React.useState<"invalidKey" | "rateLimited" | null>(null);
@@ -50,15 +51,7 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="absolute right-6 top-6">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-        >
-          <Globe className="h-3.5 w-3.5" />
-          <span>{locale.toUpperCase()}</span>
-        </Button>
+        <LocaleSwitcher />
       </div>
 
       <Card className="w-full max-w-md border-primary/25 bg-card/90 shadow-2xl backdrop-blur-md">

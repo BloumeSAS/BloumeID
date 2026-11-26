@@ -1,3 +1,4 @@
+import dns from "node:dns/promises";
 import { isIP } from "node:net";
 import { signHmacSha256 } from "./snowflake";
 
@@ -28,7 +29,7 @@ function isPrivateOrReservedIp(host: string): boolean {
   return false;
 }
 
-export function validateWebhookUrl(rawUrl: string): { valid: boolean; reason?: string } {
+function parseSafeWebhookUrl(rawUrl: string): { valid: true; url: URL } | { valid: false; reason: string } {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl.trim());
@@ -44,6 +45,10 @@ export function validateWebhookUrl(rawUrl: string): { valid: boolean; reason?: s
     };
   }
 
+  if (parsed.username || parsed.password) {
+    return { valid: false, reason: "Webhook URL must not contain embedded credentials" };
+  }
+
   if (isPrivateOrReservedIp(parsed.hostname)) {
     return {
       valid: false,
@@ -51,7 +56,13 @@ export function validateWebhookUrl(rawUrl: string): { valid: boolean; reason?: s
     };
   }
 
-  return { valid: true };
+  const safeUrl = new URL(`${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`);
+  return { valid: true, url: safeUrl };
+}
+
+export function validateWebhookUrl(rawUrl: string): { valid: boolean; reason?: string } {
+  const res = parseSafeWebhookUrl(rawUrl);
+  return res.valid ? { valid: true } : { valid: false, reason: res.reason };
 }
 
 export interface WebhookEventPayload {
@@ -102,14 +113,26 @@ export async function dispatchSignedWebhook(params: {
   baseDelayMs?: number;
   fetchImpl?: typeof fetch;
 }): Promise<{ delivered: boolean; attempts: number; statusCode?: number }> {
-  const check = validateWebhookUrl(params.webhookUrl);
+  const check = parseSafeWebhookUrl(params.webhookUrl);
   if (!check.valid) {
     return { delivered: false, attempts: 0 };
+  }
+
+  if (!params.fetchImpl && isIP(check.url.hostname) === 0) {
+    try {
+      const resolved = await dns.lookup(check.url.hostname, { all: true });
+      if (resolved.some((entry) => isPrivateOrReservedIp(entry.address))) {
+        return { delivered: false, attempts: 0 };
+      }
+    } catch {
+      return { delivered: false, attempts: 0 };
+    }
   }
 
   const maxRetries = params.maxRetries ?? 3;
   const baseDelayMs = params.baseDelayMs ?? 250;
   const fetchFn = params.fetchImpl ?? fetch;
+  const targetEndpoint = new URL(check.url.pathname + check.url.search, check.url.origin);
 
   const body = JSON.stringify(params.payload);
   const signature = signHmacSha256(params.webhookSecret, body);
@@ -118,7 +141,7 @@ export async function dispatchSignedWebhook(params: {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
-      const res = await fetchFn(params.webhookUrl, {
+      const res = await fetchFn(targetEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

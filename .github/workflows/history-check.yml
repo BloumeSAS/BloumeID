@@ -8,13 +8,14 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  security-events: write
 
 jobs:
   history-check:
     name: Verify HISTORY.md Updated on Code Changes
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -23,8 +24,10 @@ jobs:
 
       - name: Check if apps/, packages/ or prisma/ changed without HISTORY.md
         id: check
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD")
           echo "Changed files:"
           echo "$CHANGED_FILES"
           CODE_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^(apps/|packages/|prisma/)' || true)
@@ -50,6 +53,9 @@ jobs:
 
   codeql:
     name: CodeQL SAST Analysis
+    permissions:
+      contents: read
+      security-events: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

@@ -176,7 +176,7 @@ ${webhookSection}
                 onChange={(e) => setTargetStack(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-medium"
               >
-                <option value="Auto-détection dans le repo">Auto-détection dans le repo</option>
+                <option value={dict.landing.autoDetectRepo}>{dict.landing.autoDetectRepo}</option>
                 <option value="Next.js (App Router)">Next.js (App Router)</option>
                 <option value="React / Vite">React / Vite</option>
                 <option value="Node.js / NestJS / Express">Node.js / NestJS / Express</option>
