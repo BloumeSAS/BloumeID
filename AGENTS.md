@@ -90,7 +90,15 @@ L'agent DOIT exécuter automatiquement le cycle Git complet sans attendre de dem
 
 ## 9. Versioning Dynamique & Bump SemVer Automatique
 - **Source de vérité unique** : `apps/web/src/lib/version.ts` (`APP_VERSION` / `APP_VERSION_TAG`) lit dynamiquement `apps/web/package.json`. Il est **interdit de coder en dur `"1.0.0"`** dans les composants UI, l'API (`/api/health`), les métadonnées ou les dictionnaires i18n (`fr.json` / `en.json`).
-- **Bump automatique à chaque modification** : Avant chaque commit/merge, exécuter `pnpm bump:version <patch|minor|major>` :
+- **Bump SemVer & README Auto-Sync Obligatoire** : Avant chaque commit/merge, exécuter `pnpm bump:version <patch|minor|major> [--all]` afin que l'UI, l'API, `package.json` et les `README.md` (`README.md` racine et `packages/bloumeid/README.md` avec `--all`) affichent **toujours** la version exacte à jour :
   - `patch` (`1.0.x`) : fix, ajustement CSS/UI mineur, traduction i18n, documentation.
   - `minor` (`1.x.0`) : nouvelle fonctionnalité (`feat`), refonte de page ou d'interface, ajout d'endpoints rétrocompatibles.
   - `major` (`x.0.0`) : breaking change majeur d'architecture, de schéma API ou de base de données.
+
+---
+
+## 10. Gouvernance Multi-Repos (`BloumeSAS/BloumeID` + `BloumeSAS/bloumeid-sdk`)
+- **Double Contrôle Git Obligatoire** :
+  - Le dépôt principal (`BloumeSAS/BloumeID`, racine) et le dépôt SDK (`BloumeSAS/bloumeid-sdk`, `packages/bloumeid/`) sont deux dépôts Git distincts imbriqués localement.
+  - Sur `BloumeSAS/BloumeID`, `packages/bloumeid/` ne doit suivre **exclusivement que `packages/bloumeid/README.md`** (`packages/bloumeid/*` + `!packages/bloumeid/README.md` dans `.gitignore`). Toujours vérifier avec `git ls-files packages/bloumeid`.
+  - À chaque modification touchant le SDK, exécuter d'abord le **Workflow Git Automatique Complet** (`checkout main` $\rightarrow$ `pull --rebase` $\rightarrow$ `checkout -b` $\rightarrow$ bump `--all` + build + tests $\rightarrow$ `commit` $\rightarrow$ `push` $\rightarrow$ `merge --no-ff` sur `main` $\rightarrow$ `push origin main` $\rightarrow$ suppression de branche) dans **`packages/bloumeid` (`BloumeSAS/bloumeid-sdk`)**, puis dans **`BloumeID` (`BloumeSAS/BloumeID`)**.
