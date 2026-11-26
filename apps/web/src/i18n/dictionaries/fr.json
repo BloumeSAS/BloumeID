@@ -63,6 +63,7 @@
     "rules": "Rule Engine",
     "sites": "Sites Web & API Keys",
     "webhooks": "Webhooks",
+    "migrate": "Migration IA",
     "health": "Health",
     "security": "Security",
     "usage": "Usage",
@@ -484,5 +485,19 @@
     "thumbmarkCalls": "Appels Mode ThumbmarkJS",
     "fpProCalls": "Appels Mode Fingerprint.com",
     "totalRequests30d": "Total Requêtes 30j"
+  },
+  "migratePage": {
+    "title": "Assistant de Migration IA (@bloume/id v1.0.0)",
+    "subtitle": "Générez un prompt IA prêt à coller dans Claude Code, Antigravity ou Cursor pour migrer automatiquement votre projet vers @bloume/id.",
+    "sourceTool": "Outil actuel à remplacer",
+    "targetSite": "Site cible BloumeID",
+    "targetStack": "Stack cible",
+    "webhookQuestion": "Souhaitez-vous installer et configurer un Webhook temps réel lors de la migration ?",
+    "webhookYes": "Oui, inclure l'endpoint Webhook HMAC (POST /api/webhooks/bloumeid)",
+    "webhookNo": "Non, ne pas installer de Webhook (SDK + Vérification serveur uniquement)",
+    "revealSecret": "Révéler la clé secrète",
+    "hideSecret": "Masquer",
+    "promptTitle": "Prompt de Migration IA Généré (Prêt à copier)",
+    "copyPrompt": "Copier le Prompt IA"
   }
 }

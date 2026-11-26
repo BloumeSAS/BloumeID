@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Sparkles,
   Sun,
+  Wand2,
   Webhook,
 } from "lucide-react";
 import { useI18n, type GlobalTimeRange } from "@/i18n/provider";
@@ -116,6 +117,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       items: [
         { href: "/sites", label: dict.nav.sites, icon: KeyRound, badge: null },
         { href: "/webhooks", label: dict.nav.webhooks, icon: Webhook, badge: dict.webhooksPage.optionalBadge },
+        { href: "/migrate", label: dict.nav.migrate, icon: Wand2, badge: null },
       ],
     },
     {

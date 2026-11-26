@@ -257,12 +257,12 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
       path.resolve(__dirname, "../src/app/(dashboard)/rules/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/sites/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/webhooks/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/migrate/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/health/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/security/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/usage/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/visitors/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/visitors/[visitorId]/page.tsx"),
-      path.resolve(__dirname, "../src/app/(dashboard)/playground/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/settings/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/releases/page.tsx"),
     ];

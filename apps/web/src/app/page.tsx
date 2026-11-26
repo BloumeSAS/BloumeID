@@ -29,7 +29,7 @@ import { CopyableMono } from "@/components/ui/copyable-mono";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
-const GITHUB_REPO_URL = "https://github.com/bloume-sas/bloumeid";
+const GITHUB_REPO_URL = "https://github.com/BloumeSAS/BloumeID";
 
 export default function OpenSourceHomePage() {
   const { dict, locale, setLocale, theme, toggleTheme } = useI18n();
@@ -134,12 +134,12 @@ export default function OpenSourceHomePage() {
               {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
             </Button>
 
-            <Link href="/playground" className="hidden sm:inline-flex">
+            <a href="#live-scanner">
               <Button type="button" variant="secondary" size="sm">
                 <Cpu className="h-3.5 w-3.5" />
-                <span>{dict.landing.ctaPlayground}</span>
+                <span>{dict.landing.ctaTryLive}</span>
               </Button>
-            </Link>
+            </a>
 
             <Link href="/dashboard">
               <Button type="button" size="sm" data-testid="landing-admin-cta">
@@ -152,53 +152,141 @@ export default function OpenSourceHomePage() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-7xl px-4 pb-24 sm:px-6">
-        {/* HERO SECTION */}
-        <section className="pt-12 pb-12 text-center md:pt-20">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary shadow-xs">
-            <Sparkles className="h-3.5 w-3.5 shrink-0" />
-            <span>{dict.landing.heroBadge}</span>
-          </div>
+        {/* HERO SPLIT-SCREEN 2 COLUMNS (Text + CTAs Left / Animated Panel Mockup Right) */}
+        <section className="pt-10 pb-14 md:pt-16">
+          <div className="grid items-center gap-10 lg:grid-cols-12">
+            {/* Left Column: Value Prop & CTAs */}
+            <div className="space-y-6 text-center lg:col-span-6 lg:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary shadow-xs">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 animate-pulse" />
+                <span>{dict.landing.heroBadge}</span>
+              </div>
 
-          <h1 className="mx-auto mt-6 max-w-4xl text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
-            <span className="block text-foreground">{dict.landing.heroTitleLine1}</span>
-            <span className="mt-1 block bg-gradient-to-r from-primary via-indigo-400 to-sky-400 bg-clip-text font-serif italic text-transparent">
-              {dict.landing.heroTitleLine2}
-            </span>
-          </h1>
+              <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
+                <span className="block text-foreground">{dict.landing.heroTitleLine1}</span>
+                <span className="mt-1 block bg-gradient-to-r from-primary via-indigo-400 to-sky-400 bg-clip-text font-serif italic text-transparent">
+                  {dict.landing.heroTitleLine2}
+                </span>
+              </h1>
 
-          <p className="mx-auto mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
-            {dict.landing.heroSubtitle}
-          </p>
+              <p className="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base lg:mx-0">
+                {dict.landing.heroSubtitle}
+              </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/dashboard">
-              <Button size="lg" className="h-11 px-6 text-sm font-semibold shadow-md">
-                <span>{dict.landing.ctaPrimary}</span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                <a href="#live-scanner">
+                  <Button size="lg" className="h-11 px-6 text-sm font-semibold shadow-md">
+                    <Cpu className="h-4 w-4" />
+                    <span>{dict.landing.ctaTryLive}</span>
+                  </Button>
+                </a>
 
-            <Link href="/playground">
-              <Button variant="secondary" size="lg" className="h-11 px-6 text-sm font-semibold">
-                <Cpu className="h-4 w-4 text-primary" />
-                <span>{dict.landing.ctaPlayground}</span>
-              </Button>
-            </Link>
+                <Link href="/dashboard">
+                  <Button variant="secondary" size="lg" className="h-11 px-6 text-sm font-semibold">
+                    <span>{dict.landing.ctaPrimary}</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
 
-            <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="lg" className="h-11 px-6 text-sm font-semibold">
-                <GitBranch className="h-4 w-4 text-primary" />
-                <span>{dict.landing.ctaSecondary}</span>
-              </Button>
-            </a>
+                <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
+                  <Button variant="outline" size="lg" className="h-11 px-5 text-sm font-semibold">
+                    <GitBranch className="h-4 w-4 text-primary" />
+                    <span>{dict.landing.ctaSecondary}</span>
+                  </Button>
+                </a>
+              </div>
 
-            <CopyableMono
-              value={dict.landing.npmCommand}
-              displayValue={`$ ${dict.landing.npmCommand}`}
-              copyLabel={dict.common.copy}
-              copiedLabel={dict.common.copied}
-              className="h-11 px-4 text-sm"
-            />
+              <div className="flex justify-center lg:justify-start">
+                <CopyableMono
+                  value={dict.landing.npmCommand}
+                  displayValue={`$ ${dict.landing.npmCommand}`}
+                  copyLabel={dict.common.copy}
+                  copiedLabel={dict.common.copied}
+                  className="h-10 px-4 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Right Column: Animated High-Fidelity Admin Panel Mockup */}
+            <div className="lg:col-span-6">
+              <div className="overflow-hidden rounded-2xl border border-primary/30 bg-card/95 shadow-2xl transition-transform duration-500 hover:-translate-y-1">
+                {/* macOS Window Chrome */}
+                <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-4 py-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
+                  </div>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    bloumeid.app/dashboard
+                  </span>
+                  <Badge variant="success" className="px-1.5 py-0 font-mono text-[10px]">
+                    LIVE
+                  </Badge>
+                </div>
+
+                {/* Mockup Body */}
+                <div className="grid grid-cols-12 gap-3 p-4">
+                  {/* Mini Sidebar */}
+                  <div className="col-span-3 hidden space-y-1.5 border-r border-border/60 pr-3 sm:block">
+                    <div className="flex items-center gap-1.5 pb-2">
+                      <div className="h-5 w-5 rounded-md bg-primary" />
+                      <span className="font-mono text-xs font-bold text-primary">bloumeid</span>
+                    </div>
+                    {["Overview", "Identifications", "Smart Signals", "Rule Engine", "API Keys"].map(
+                      (item, idx) => (
+                        <div
+                          key={item}
+                          className={`rounded-lg px-2 py-1 text-[10px] font-medium ${
+                            idx === 0
+                              ? "bg-primary/15 text-primary ring-1 ring-primary/30"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {item}
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  {/* Mini Telemetry Area */}
+                  <div className="col-span-12 space-y-3 sm:col-span-9">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg border border-border bg-secondary/20 p-2.5">
+                        <p className="text-[10px] text-muted-foreground">Signals</p>
+                        <p className="font-mono text-base font-bold text-primary">104+</p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-secondary/20 p-2.5">
+                        <p className="text-[10px] text-muted-foreground">CIDR Trie</p>
+                        <p className="font-mono text-base font-bold text-sky-500">54,133</p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-secondary/20 p-2.5">
+                        <p className="text-[10px] text-muted-foreground">Latency</p>
+                        <p className="font-mono text-base font-bold text-emerald-500">&lt;1ms</p>
+                      </div>
+                    </div>
+
+                    {/* Animated Traffic Bars */}
+                    <div className="space-y-1.5 rounded-lg border border-border bg-secondary/15 p-3">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>FR — Orange S.A. (AS3215)</span>
+                        <span className="font-mono text-emerald-500">68%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                        <div className="h-full w-[68%] animate-pulse rounded-full bg-primary" />
+                      </div>
+                      <div className="flex items-center justify-between pt-1 text-[10px] text-muted-foreground">
+                        <span>DE — Hetzner Tor Exit (AS24940)</span>
+                        <span className="font-mono text-rose-500">Blocked</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                        <div className="h-full w-[24%] rounded-full bg-rose-500" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* 4 Live KPI Pillars */}

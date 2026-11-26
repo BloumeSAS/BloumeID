@@ -63,6 +63,7 @@
     "rules": "Rule Engine",
     "sites": "Sites & API Keys",
     "webhooks": "Webhooks",
+    "migrate": "AI Migration",
     "health": "Health",
     "security": "Security",
     "usage": "Usage",
@@ -484,5 +485,19 @@
     "thumbmarkCalls": "ThumbmarkJS Mode Calls",
     "fpProCalls": "Fingerprint.com Mode Calls",
     "totalRequests30d": "30d Total Requests"
+  },
+  "migratePage": {
+    "title": "AI Migration Assistant (@bloume/id v1.0.0)",
+    "subtitle": "Generate a ready-to-paste AI prompt for Claude Code, Antigravity or Cursor to automatically migrate your codebase to @bloume/id.",
+    "sourceTool": "Current Tool to Replace",
+    "targetSite": "Target BloumeID Site",
+    "targetStack": "Target Stack",
+    "webhookQuestion": "Do you want to install and configure a real-time Webhook during migration?",
+    "webhookYes": "Yes, include HMAC Webhook endpoint (POST /api/webhooks/bloumeid)",
+    "webhookNo": "No, do not install any Webhook (SDK + Server verification only)",
+    "revealSecret": "Reveal Secret Key",
+    "hideSecret": "Hide Secret Key",
+    "promptTitle": "Generated AI Migration Prompt (Ready to Paste)",
+    "copyPrompt": "Copy AI Prompt"
   }
 }
