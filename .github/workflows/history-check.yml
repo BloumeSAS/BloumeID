@@ -1,0 +1,64 @@
+name: Governance — HISTORY.md Enforcement & CodeQL
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  history-check:
+    name: Verify HISTORY.md Updated on Code Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if apps/, packages/ or prisma/ changed without HISTORY.md
+        id: check
+        run: |
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          CODE_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^(apps/|packages/|prisma/)' || true)
+          HISTORY_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^HISTORY\.md$' || true)
+          if [ -n "$CODE_CHANGED" ] && [ -z "$HISTORY_CHANGED" ]; then
+            echo "missing_history=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing_history=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment on PR if HISTORY.md is missing
+        if: steps.check.outputs.missing_history == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "❌ **Governance Check Failed (`AGENTS.md`)**: This Pull Request modifies files in `apps/`, `packages/`, or `prisma/` without appending an entry to `HISTORY.md`. Please update `HISTORY.md` before merging."
+            });
+            core.setFailed("HISTORY.md must be updated when modifying apps/, packages/, or prisma/.");
+
+  codeql:
+    name: CodeQL SAST Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3

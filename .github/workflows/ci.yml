@@ -1,0 +1,115 @@
+name: CI — Quality, Tests, Security & E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, Lint, i18n, Unit & Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: bloumeid
+          POSTGRES_PASSWORD: bloumeid_ci_password
+          POSTGRES_DB: bloumeid_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bloumeid -d bloumeid_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+      redis:
+        image: valkey/valkey:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://bloumeid:bloumeid_ci_password@localhost:5432/bloumeid_test?schema=public
+      REDIS_URL: redis://localhost:6379
+      ADMIN_MASTER_KEY: bloumeid_ci_master_key_2026
+      WORKER_ID: "1"
+      BLOUMEID_PUBLIC_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply Prisma migrations on test Postgres container
+        working-directory: apps/web
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+
+      - name: Verify zero explicit 'any' in source files
+        run: |
+          if grep -rnw --include="*.ts" --include="*.tsx" -E ":\s*any\b|as\s+any\b" apps/web/src packages/bloumeid/src; then
+            echo "Error: Explicit 'any' found in source code!"
+            exit 1
+          fi
+
+      - name: Run workspace typecheck
+        run: pnpm -r typecheck
+
+      - name: Run workspace linter
+        run: pnpm -r lint
+
+      - name: Run tests with coverage (enforces >= 80% SDK coverage & i18n parity)
+        run: pnpm -r test:coverage
+
+      - name: Build SDK and Web application
+        run: pnpm build
+
+      - name: Validate SDK package exports (publint & attw)
+        working-directory: packages/bloumeid
+        run: |
+          npx publint
+          npm pack
+          npx attw bloumeid-sdk-*.tgz
+          rm -f bloumeid-sdk-*.tgz
+
+      - name: Run Playwright E2E tests on Admin & Live Playground
+        working-directory: apps/web
+        run: |
+          npx playwright install --with-deps chromium
+          pnpm test:e2e
+
+  gitleaks:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
