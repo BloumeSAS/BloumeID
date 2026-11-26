@@ -1,6 +1,7 @@
 import zlib from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 import { computeAntiReplaySignature } from "@bloume/id";
+import { APP_VERSION } from "../src/lib/version";
 import {
   SnowflakeGenerator,
   constantTimeEqual,
@@ -299,7 +300,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
       threatTrieCidrs: number;
     };
     expect(healthBody.status).toBe("ok");
-    expect(healthBody.version).toBe("1.0.0");
+    expect(healthBody.version).toBe(APP_VERSION);
     expect(healthBody.threatTrieCidrs).toBeGreaterThan(0);
 
     const sdkRes = await sdkBundleGET(new Request("http://localhost:3000/sdk/v1/bloumeid.js"));
