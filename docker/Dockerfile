@@ -10,9 +10,9 @@ RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 RUN apk add --no-cache libc6-compat openssl curl
 
 # ==============================================================================
-# Stage 2: Dependencies installer (with cached pnpm store)
+# Stage 2: Builder (cached pnpm store + SDK build + Prisma Client + Next.js 16 standalone)
 # ==============================================================================
-FROM base AS deps
+FROM base AS builder
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -21,17 +21,8 @@ COPY packages/bloumeid/package.json ./packages/bloumeid/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/web/prisma ./apps/web/prisma
 
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --prod=false
 
-# ==============================================================================
-# Stage 3: Builder (SDK ESM/CJS/UMD + Prisma Client + Next.js 16 standalone)
-# ==============================================================================
-FROM base AS builder
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
-COPY --from=deps /app/apps ./apps
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -41,13 +32,13 @@ ENV NODE_ENV=production
 RUN pnpm --filter @bloumeid/sdk build
 
 # 2. Generate Prisma Client
-RUN pnpm --filter @bloumeid/web prisma:generate
+RUN pnpm --filter @bloumeid/web exec prisma generate
 
 # 3. Build Next.js 16 standalone output
 RUN pnpm --filter @bloumeid/web build
 
 # ==============================================================================
-# Stage 4: Production Runner (Non-root nextjs user, PID 1 clean entrypoint)
+# Stage 3: Production Runner (Non-root nextjs user, PID 1 clean entrypoint)
 # ==============================================================================
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -71,7 +62,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/prisma ./apps/web/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER nextjs
 

@@ -171,3 +171,20 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - **Décisions et caveats** :
   - Toutes les actions réservées à validation humaine (section 9 : publication npm réelle hors CI, déploiement production SSH, secrets réels) ont été isolées dans `.env.example` et dans les workflows GitHub Actions protégés par approbation d'environnement.
 - **Statut de vérification** : build OK / typecheck OK / tests 26/26 OK (SDK 9/9, Web 17/17) / lint OK
+
+## [2026-11-26 01:30] Validation Live du Déploiement Docker (`docker compose up -d --build`)
+- **Résumé des changements** :
+  - Ajout de `.dockerignore` pour exclure les `node_modules` de l'hôte Windows lors de la copie du contexte Docker vers Node 22 Alpine.
+  - Raffinement de `docker/Dockerfile` (`pnpm install --frozen-lockfile --prod=false`, conversion `CRLF -> LF` de `docker-entrypoint.sh`) et de `docker/docker-entrypoint.sh` (nettoyage du paramètre `?schema=public` de `DATABASE_URL` pour `pg_isready -d`, permettant une détection instantanée de PostgreSQL 17).
+  - Test complet en conditions réelles avec `docker compose up -d --build` :
+    - `bloumeid-db` (`postgres:17-alpine`) : `Up (healthy)`
+    - `bloumeid-redis` (`valkey/valkey:8-alpine`) : `Up (healthy)`
+    - `bloumeid-web` (`ghcr.io/bloume-sas/bloumeid:latest`) : `Up (healthy)`, migration `20261126000000_init` appliquée via `prisma migrate deploy`, synchronisation automatique de **54 133 CIDR** en mémoire (X4BNet VPN/Datacenter + Tor Bulk Exit List).
+    - Smoke tests live réussis : `GET /api/health` (`200 OK`, `threatTrieCidrs: 54133`), `GET /sdk/v1/bloumeid.js` (`200 OK`), création d'un site en base PostgreSQL (`POST /api/admin/sites`), collecte d'empreinte signée (`POST /api/v1/fingerprint` avec détection live d'un nœud Tor `185.220.101.33` -> `isTor: true`), et vérification serveur (`GET /api/v1/requests/[requestId]` avec `bid_sec_`).
+- **Fichiers clés touchés** :
+  - `.dockerignore`
+  - `docker/Dockerfile`
+  - `docker/docker-entrypoint.sh`
+  - `apps/web/package.json`
+  - `HISTORY.md`
+- **Statut de vérification** : docker compose build OK / 3 conteneurs healthy OK / prisma migrate deploy OK / smoke tests API live OK

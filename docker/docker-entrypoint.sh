@@ -5,10 +5,11 @@ echo "[BloumeID] Starting container entrypoint..."
 
 # 1. Wait for PostgreSQL availability when DATABASE_URL is configured
 if [ -n "$DATABASE_URL" ]; then
+  CLEAN_DB_URL=$(echo "$DATABASE_URL" | sed 's/?schema=.*//')
   echo "[BloumeID] Waiting for PostgreSQL database..."
   MAX_RETRIES=30
   COUNT=0
-  until pg_isready -d "$DATABASE_URL" >/dev/null 2>&1 || [ $COUNT -eq $MAX_RETRIES ]; do
+  until pg_isready -d "$CLEAN_DB_URL" >/dev/null 2>&1 || [ $COUNT -eq $MAX_RETRIES ]; do
     COUNT=$((COUNT + 1))
     echo "[BloumeID] Database not ready yet ($COUNT/$MAX_RETRIES), waiting 2s..."
     sleep 2
