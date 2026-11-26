@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
 import { CountryFlag } from "@/components/ui/country-flag";
+import { DataPagination } from "@/components/ui/data-pagination";
 import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { CollapsibleJsonViewer } from "@/components/collapsible-json";
 import { cn } from "@/lib/utils";
-import type { PublicFingerprintEventDTO } from "@/types";
+import type { PaginationMeta, PublicFingerprintEventDTO } from "@/types";
 
 export default function EventsAuditPage() {
   const { dict, selectedSiteId, refreshTick } = useI18n();
@@ -41,6 +42,17 @@ export default function EventsAuditPage() {
   const [actionFilter, setActionFilter] = React.useState<"all" | "block" | "challenge">("all");
   const [livePolling, setLivePolling] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<PublicFingerprintEventDTO | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(25);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [pagination, setPagination] = React.useState<PaginationMeta>({
+    page: 1,
+    pageSize: 25,
+    totalItems: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
   // PRO View Configuration: Split Master-Detail vs Drawer + Custom Column Visibility
   const [inspectorMode, setInspectorMode] = React.useState<"split" | "drawer">("split");
@@ -56,18 +68,34 @@ export default function EventsAuditPage() {
   });
 
   const loadEvents = React.useCallback(async () => {
-    const params = new URLSearchParams({
-      siteId: selectedSiteId,
-      q: query,
-      minDanger: String(minDanger),
-      vector,
-    });
-    const res = await fetch(`/api/admin/events?${params.toString()}`);
-    if (res.ok) {
-      const data = (await res.json()) as { events: PublicFingerprintEventDTO[] };
-      setEvents(data.events);
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        siteId: selectedSiteId,
+        q: query,
+        minDanger: String(minDanger),
+        vector,
+        action: actionFilter,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      const res = await fetch(`/api/admin/events?${params.toString()}`);
+      if (res.ok) {
+        const data = (await res.json()) as {
+          events: PublicFingerprintEventDTO[];
+          pagination?: PaginationMeta;
+        };
+        setEvents(data.events);
+        if (data.pagination) setPagination(data.pagination);
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, [selectedSiteId, query, minDanger, vector]);
+  }, [selectedSiteId, query, minDanger, vector, actionFilter, page, pageSize]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [selectedSiteId, query, minDanger, vector, actionFilter]);
 
   React.useEffect(() => {
     void loadEvents();
@@ -431,6 +459,20 @@ export default function EventsAuditPage() {
                   })}
                 </TableBody>
               </Table>
+            </div>
+            <div className="px-4 pb-4">
+              <DataPagination
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                totalItems={pagination.totalItems}
+                totalPages={pagination.totalPages}
+                isLoading={isLoading}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+              />
             </div>
           </CardContent>
         </Card>

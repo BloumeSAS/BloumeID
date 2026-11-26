@@ -10,7 +10,7 @@ import { CopyableMono } from "@/components/ui/copyable-mono";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Pagination } from "@/components/ui/pagination";
+import { DataPagination } from "@/components/ui/data-pagination";
 import {
   Table,
   TableBody,
@@ -383,8 +383,9 @@ export default function WebhooksPage() {
               )}
             </TableBody>
           </Table>
-          <Pagination
+          <DataPagination
             page={deliveriesPage}
+            pageSize={pageSize}
             totalPages={totalDeliveryPages}
             totalItems={filteredDeliveries.length}
             onPageChange={setDeliveriesPage}

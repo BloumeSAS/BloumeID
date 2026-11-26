@@ -68,7 +68,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [adminUsername, setAdminUsername] = React.useState("Jules");
 
   const loadSites = React.useCallback(() => {
-    fetch("/api/admin/sites")
+    fetch("/api/admin/sites?all=true")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sites?: PublicSiteDTO[] } | null) => {
         if (data?.sites) setSites(data.sites);

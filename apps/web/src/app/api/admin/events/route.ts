@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
-import { listFingerprintEvents } from "@/lib/engine/repository";
+import { parsePaginationParams } from "@/lib/pagination";
+import { listFingerprintEventsPaginated } from "@/lib/engine/repository";
 
 const VectorSchema = z
   .enum(["all", "bot", "vpntor", "spoofed", "crossbrowser"])
@@ -19,16 +20,26 @@ export async function GET(request: Request): Promise<NextResponse> {
   const parsedVector = VectorSchema.safeParse(url.searchParams.get("vector") ?? "all");
   const vector = parsedVector.success ? parsedVector.data : "all";
   const linkedId = url.searchParams.get("linkedId") ?? undefined;
+  const action = url.searchParams.get("action") ?? "all";
+  const { page, pageSize } = parsePaginationParams(url.searchParams, 25);
 
-  const events = await listFingerprintEvents({
+  const result = await listFingerprintEventsPaginated({
     sitePublicId,
     query,
     minDanger,
     vector,
     linkedId,
-    limit: 100,
+    action,
+    page,
+    pageSize,
   });
 
-  return NextResponse.json({ events }, { status: 200 });
+  return NextResponse.json(
+    {
+      items: result.items,
+      events: result.items,
+      pagination: result.pagination,
+    },
+    { status: 200 }
+  );
 }
-

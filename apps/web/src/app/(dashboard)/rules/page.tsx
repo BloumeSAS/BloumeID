@@ -13,15 +13,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { DataPagination } from "@/components/ui/data-pagination";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { paginateArray } from "@/lib/pagination";
 import type { PublicSecurityRuleDTO } from "@/types";
 
 export default function SecurityRulesPage() {
   const { dict, selectedSiteId } = useI18n();
   const [rules, setRules] = React.useState<PublicSecurityRuleDTO[]>([]);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(15);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [action, setAction] = React.useState<SecurityRuleAction>("block");
@@ -458,7 +462,7 @@ export default function SecurityRulesPage() {
 
       {/* Active Rules List */}
       <div className="grid gap-4">
-        {rules.map((rule) => (
+        {paginateArray(rules, page, pageSize).items.map((rule) => (
           <Card key={rule.publicId}>
             <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
               <div className="space-y-1.5">
@@ -520,6 +524,18 @@ export default function SecurityRulesPage() {
           </Card>
         ))}
       </div>
+      <DataPagination
+        page={page}
+        pageSize={pageSize}
+        totalItems={rules.length}
+        totalPages={Math.max(1, Math.ceil(rules.length / pageSize))}
+        pageSizeOptions={[10, 15, 25, 50]}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }

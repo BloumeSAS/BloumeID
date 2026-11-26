@@ -20,11 +20,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { DataPagination } from "@/components/ui/data-pagination";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { paginateArray } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import type { PublicSiteDTO } from "@/types";
 
@@ -33,6 +35,8 @@ export default function SitesPage() {
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [query, setQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"all" | "active" | "paused">("all");
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(9);
 
   // Modals State
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -366,7 +370,7 @@ export default function SitesPage() {
 
       {/* Clean Sites Grid (Max 3 cards per row, 100% Modal actions) */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredSites.map((site) => (
+        {paginateArray(filteredSites, page, pageSize).items.map((site) => (
           <Card key={site.publicId} className="flex flex-col transition-colors hover:border-primary/35">
             <CardContent className="flex flex-1 flex-col justify-between gap-4 pt-5">
               <div className="space-y-2">
@@ -453,6 +457,18 @@ export default function SitesPage() {
           </Card>
         ))}
       </div>
+      <DataPagination
+        page={page}
+        pageSize={pageSize}
+        totalItems={filteredSites.length}
+        totalPages={Math.max(1, Math.ceil(filteredSites.length / pageSize))}
+        pageSizeOptions={[9, 18, 36]}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
         </>
       )}
 

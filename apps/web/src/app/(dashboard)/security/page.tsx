@@ -7,11 +7,15 @@ import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { DataPagination } from "@/components/ui/data-pagination";
+import { paginateArray } from "@/lib/pagination";
 import type { PublicVisitorDTO } from "@/types";
 
 export default function SecurityCenterPage() {
   const { dict } = useI18n();
   const [visitors, setVisitors] = React.useState<PublicVisitorDTO[]>([]);
+  const [blockedPage, setBlockedPage] = React.useState(1);
+  const [trustedPage, setTrustedPage] = React.useState(1);
 
   React.useEffect(() => {
     fetch("/api/admin/visitors")
@@ -68,7 +72,7 @@ export default function SecurityCenterPage() {
             {blocked.length === 0 ? (
               <p className="text-xs text-muted-foreground">{dict.common.none}</p>
             ) : (
-              blocked.map((v) => (
+              paginateArray(blocked, blockedPage, 10).items.map((v) => (
                 <div
                   key={v.publicId}
                   className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 p-2.5"
@@ -84,6 +88,14 @@ export default function SecurityCenterPage() {
                 </div>
               ))
             )}
+            <DataPagination
+              page={blockedPage}
+              pageSize={10}
+              totalItems={blocked.length}
+              totalPages={Math.max(1, Math.ceil(blocked.length / 10))}
+              onPageChange={setBlockedPage}
+              compact
+            />
           </CardContent>
         </Card>
 
@@ -96,7 +108,7 @@ export default function SecurityCenterPage() {
             {trusted.length === 0 ? (
               <p className="text-xs text-muted-foreground">{dict.common.none}</p>
             ) : (
-              trusted.map((v) => (
+              paginateArray(trusted, trustedPage, 10).items.map((v) => (
                 <div
                   key={v.publicId}
                   className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 p-2.5"
@@ -112,6 +124,14 @@ export default function SecurityCenterPage() {
                 </div>
               ))
             )}
+            <DataPagination
+              page={trustedPage}
+              pageSize={10}
+              totalItems={trusted.length}
+              totalPages={Math.max(1, Math.ceil(trusted.length / 10))}
+              onPageChange={setTrustedPage}
+              compact
+            />
           </CardContent>
         </Card>
       </div>

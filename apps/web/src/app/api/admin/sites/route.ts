@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
+import { paginateArray, parsePaginationParams } from "@/lib/pagination";
 import {
   createSiteRecord,
   deleteSiteRecord,
@@ -49,11 +50,32 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const [sites, webhookDeliveries] = await Promise.all([
+  const url = new URL(request.url);
+  const fetchAll = url.searchParams.get("all") === "true";
+  const [allSites, allDeliveries] = await Promise.all([
     listSites(),
     listWebhookDeliveries(),
   ]);
-  return NextResponse.json({ sites, webhookDeliveries }, { status: 200 });
+  const { page, pageSize, hasExplicitPage } = parsePaginationParams(url.searchParams, 10);
+  const paginatedSites =
+    hasExplicitPage && !fetchAll
+      ? paginateArray(allSites, page, pageSize)
+      : { items: allSites, pagination: paginateArray(allSites, 1, Math.max(10, allSites.length)).pagination };
+  const paginatedDeliveries =
+    hasExplicitPage && !fetchAll
+      ? paginateArray(allDeliveries, page, pageSize)
+      : { items: allDeliveries, pagination: paginateArray(allDeliveries, 1, Math.max(10, allDeliveries.length)).pagination };
+
+  return NextResponse.json(
+    {
+      items: paginatedSites.items,
+      sites: paginatedSites.items,
+      pagination: paginatedSites.pagination,
+      webhookDeliveries: paginatedDeliveries.items,
+      deliveriesPagination: paginatedDeliveries.pagination,
+    },
+    { status: 200 }
+  );
 }
 
 export async function POST(request: Request): Promise<NextResponse> {

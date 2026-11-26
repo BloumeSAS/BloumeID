@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
+import { parsePaginationParams } from "@/lib/pagination";
 import {
   getVisitorByPublicId,
-  listVisitors,
+  listVisitorsPaginated,
   updateVisitorAnnotations,
 } from "@/lib/engine/repository";
 
@@ -32,8 +33,21 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const query = url.searchParams.get("q") ?? "";
   const onlyHighRisk = url.searchParams.get("highRisk") === "true";
-  const visitors = await listVisitors({ query, onlyHighRisk });
-  return NextResponse.json({ visitors }, { status: 200 });
+  const sitePublicId = url.searchParams.get("siteId") ?? "all";
+  const trustStatus = url.searchParams.get("trustStatus") ?? "all";
+  const { page, pageSize } = parsePaginationParams(url.searchParams, 25);
+  const result = await listVisitorsPaginated({
+    sitePublicId,
+    query,
+    onlyHighRisk,
+    trustStatus,
+    page,
+    pageSize,
+  });
+  return NextResponse.json(
+    { items: result.items, visitors: result.items, pagination: result.pagination },
+    { status: 200 }
+  );
 }
 
 export async function PATCH(request: Request): Promise<NextResponse> {
