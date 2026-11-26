@@ -130,5 +130,35 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     const fp = await instance.getFingerprint();
     expect(fp).toHaveLength(64);
   });
+
+  it("blocks SSRF webhook URLs targeting loopback, private, and cloud metadata IPs", async () => {
+    const { validateWebhookUrl } = await import("../src/lib/engine/webhooks");
+    expect(validateWebhookUrl("http://127.0.0.1:8080/hook").valid).toBe(false);
+    expect(validateWebhookUrl("http://169.254.169.254/latest/meta-data/").valid).toBe(false);
+    expect(validateWebhookUrl("http://10.0.0.5/internal").valid).toBe(false);
+    expect(validateWebhookUrl("http://192.168.1.10/admin").valid).toBe(false);
+    expect(validateWebhookUrl("http://localhost:3000/api").valid).toBe(false);
+    expect(validateWebhookUrl("https://[::1]/hook").valid).toBe(false);
+    expect(validateWebhookUrl("https://hooks.bloume.fr/webhook").valid).toBe(true);
+  });
+
+  it("rejects oversized (> 64 KB) JSON payloads on POST /api/v1/fingerprint with 413", async () => {
+    const { POST } = await import("../src/app/api/v1/fingerprint/route");
+    const { DEMO_PUBLIC_KEY } = await import("../src/lib/engine/repository");
+    const bigString = "x".repeat(70 * 1024);
+
+    const req = new Request("http://localhost:3000/api/v1/fingerprint", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:3000",
+        "X-BloumeID-Key": DEMO_PUBLIC_KEY,
+      },
+      body: JSON.stringify({ bigString }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+  });
 });
 

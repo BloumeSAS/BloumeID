@@ -30,6 +30,20 @@ import {
 } from "@/lib/engine/repository";
 import { dispatchSignedWebhook, shouldTriggerWebhook } from "@/lib/engine/webhooks";
 
+const MAX_COMPONENTS_DEPTH = 6;
+const MAX_COMPONENTS_KEYS = 64;
+
+function isJsonDepthSafe(value: unknown, depth = 0): boolean {
+  if (depth > MAX_COMPONENTS_DEPTH) return false;
+  if (value === null || typeof value !== "object") return true;
+  if (Array.isArray(value)) {
+    return value.every((item) => isJsonDepthSafe(item, depth + 1));
+  }
+  const keys = Object.keys(value as Record<string, unknown>);
+  if (depth === 0 && keys.length > MAX_COMPONENTS_KEYS) return false;
+  return keys.every((k) => isJsonDepthSafe((value as Record<string, unknown>)[k], depth + 1));
+}
+
 const FingerprintPayloadSchema = z.object({
   timestamp: z.number().int(),
   nonce: z.string().min(8).max(128),
@@ -106,9 +120,25 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  const MAX_BODY_BYTES = 64 * 1024;
+  const contentLen = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLen) && contentLen > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { error: "Payload exceeds 64 KB limit" },
+      { status: 413, headers: corsHeaders }
+    );
+  }
+
   let rawJson: unknown;
   try {
-    rawJson = await request.json();
+    const rawText = await request.text();
+    if (Buffer.byteLength(rawText, "utf8") > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "Payload exceeds 64 KB limit" },
+        { status: 413, headers: corsHeaders }
+      );
+    }
+    rawJson = JSON.parse(rawText);
   } catch {
     return NextResponse.json(
       { error: "Invalid JSON payload" },
@@ -117,9 +147,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const parsed = FingerprintPayloadSchema.safeParse(rawJson);
-  if (!parsed.success) {
+  if (!parsed.success || !isJsonDepthSafe(parsed.data.components)) {
     return NextResponse.json(
-      { error: "Payload validation failed", details: parsed.error.flatten() },
+      { error: "Payload validation failed" },
       { status: 400, headers: corsHeaders }
     );
   }

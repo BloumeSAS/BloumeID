@@ -9,7 +9,7 @@ import {
   recordWebhookDelivery,
   updateSiteRecord,
 } from "@/lib/engine/repository";
-import { dispatchSignedWebhook } from "@/lib/engine/webhooks";
+import { dispatchSignedWebhook, validateWebhookUrl } from "@/lib/engine/webhooks";
 
 const CollectorsSchema = z
   .object({
@@ -73,6 +73,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 400 }
     );
   }
+  if (parsed.data.webhookUrl) {
+    const check = validateWebhookUrl(parsed.data.webhookUrl);
+    if (!check.valid) {
+      return NextResponse.json({ error: check.reason ?? "Invalid webhookUrl" }, { status: 400 });
+    }
+  }
   const created = await createSiteRecord(parsed.data);
   return NextResponse.json({ site: created }, { status: 201 });
 }
@@ -93,6 +99,13 @@ export async function PATCH(request: Request): Promise<NextResponse> {
       { error: "Validation failed", details: parsed.error.flatten() },
       { status: 400 }
     );
+  }
+
+  if (parsed.data.webhookUrl && parsed.data.webhookUrl.trim().length > 0) {
+    const check = validateWebhookUrl(parsed.data.webhookUrl);
+    if (!check.valid) {
+      return NextResponse.json({ error: check.reason ?? "Invalid webhookUrl" }, { status: 400 });
+    }
   }
 
   const updated = await updateSiteRecord(parsed.data.publicId, parsed.data);

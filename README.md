@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="apps/web/public/brand/logo.png" alt="BloumeID Logo" width="96" />
+
 # BloumeID v1.0.0
 
 **Plateforme Self-Hosted de Fingerprinting (104+ Signaux), Anti-Spoofing & Threat Intelligence**

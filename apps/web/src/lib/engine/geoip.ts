@@ -63,6 +63,10 @@ export function extractMmdbFromTarGzBuffer(tarGzBuffer: Buffer): Buffer | null {
       if (header[0] === 0) break;
 
       const nameRaw = header.subarray(0, 100).toString("utf8").replace(/\0.*$/, "");
+      if (nameRaw.includes("..") || nameRaw.startsWith("/") || nameRaw.startsWith("\\")) {
+        offset += 512;
+        continue;
+      }
       const sizeOctal = header
         .subarray(124, 136)
         .toString("utf8")

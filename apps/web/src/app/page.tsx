@@ -8,7 +8,6 @@ import {
   Check,
   Copy,
   Cpu,
-  Fingerprint,
   Github,
   Moon,
   RefreshCw,
@@ -23,6 +22,7 @@ import {
 import { BloumeID, type BloumeIDResult } from "@bloume/id";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
@@ -213,15 +213,9 @@ export default function LandingPage() {
       {/* Minimalist Floating Navbar */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-              <Fingerprint className="h-4 w-4" />
-            </div>
-            <span className="font-bold tracking-tight">BloumeID</span>
-            <Badge variant="outline" className="hidden font-mono text-[10px] sm:inline-flex">
-              v1.0.0
-            </Badge>
-          </div>
+          <Link href="/">
+            <BrandLogo variant="full" size="md" showVersion />
+          </Link>
 
           <nav className="hidden items-center gap-6 text-xs font-medium text-muted-foreground md:flex">
             <a href="#inspector" className="transition-colors hover:text-foreground">
@@ -662,11 +656,7 @@ docker compose up -d --build`}
       <footer className="border-t border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
-            <Fingerprint className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-foreground">BloumeID</span>
-            <Badge variant="outline" className="font-mono text-[10px]">
-              v1.0.0
-            </Badge>
+            <BrandLogo variant="full" size="sm" showVersion />
             <span>· © 2026 Bloume SAS</span>
           </div>
           <div className="flex flex-wrap items-center gap-5">

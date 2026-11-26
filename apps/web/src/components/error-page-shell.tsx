@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, RefreshCw, Shield, ShieldAlert } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -46,6 +47,9 @@ export function ErrorPageShell({
 
       <Card className="relative z-10 w-full max-w-lg border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl">
         <CardContent className="space-y-6 p-8 text-center">
+          <div className="flex justify-center">
+            <BrandLogo variant="full" size="sm" />
+          </div>
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
             <ShieldAlert className="h-7 w-7" />
           </div>

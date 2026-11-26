@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Command,
-  Fingerprint,
   Globe,
   HeartPulse,
   KeyRound,
@@ -31,6 +30,7 @@ import {
 } from "lucide-react";
 import { useI18n, type GlobalTimeRange } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -300,20 +300,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           )}
         >
           <div className="flex items-center justify-between gap-2">
-            <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <Fingerprint className="h-5 w-5" />
-              </div>
-              {!collapsed ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-lg font-extrabold lowercase tracking-tight text-primary">
-                    {dict.common.brandName}
-                  </span>
-                  <Badge variant="outline" className="px-1.5 py-0 font-mono text-[10px]">
-                    v1.0.0
-                  </Badge>
-                </div>
-              ) : null}
+            <Link href="/dashboard" className="flex items-center overflow-hidden">
+              <BrandLogo variant={collapsed ? "icon" : "full"} size="md" showVersion={!collapsed} />
             </Link>
           </div>
 

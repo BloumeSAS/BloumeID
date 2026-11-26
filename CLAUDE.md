@@ -38,3 +38,21 @@ Ce document formalise les règles d'ingénierie non négociables applicables à 
 ## Tags, Releases & Vérification des Workflows GitHub Actions
 - **Création systématique de Tag & Release** : Après chaque push significatif sur `main`, l'agent DOIT créer un tag Git versionné (`vX.Y.Z`) et publier la GitHub Release correspondante (sur `BloumeSAS/BloumeID` et, si le SDK a changé, sur `BloumeSAS/bloumeid-sdk`).
 - **Vérification obligatoire des Workflows** : L'agent DOIT vérifier l'état de tous les workflows GitHub Actions (`CI`, `sync-sdk-repo.yml`, `release-sdk.yml`, `publish.yml`) et s'assurer qu'ils sont tous verts avant de clôturer la tâche.
+
+---
+
+## Workflow Git Automatique Obligatoire (Chaque Modification)
+L'agent DOIT exécuter automatiquement le cycle Git complet sans attendre de demande explicite de l'utilisateur :
+
+1. **Avant toute modification (Synchronisation & Création de branche) :**
+   - Vérifier l'état du dépôt (`git status`), basculer sur `main` (`git checkout main`) et récupérer les derniers changements distants (`git pull --rebase origin main`).
+   - Créer et basculer immédiatement sur une nouvelle branche dédiée (`git checkout -b <type>/<nom-court>`, ex. `feat/...`, `fix/...`, `refactor/...`, `chore/...`). **Ne jamais coder directement sur `main`.**
+2. **Pendant le développement (Commits atomiques & conventionnels) :**
+   - Vérifier qu'aucun fichier sensible (`.env`, `*.mmdb`, secrets) n'est indexé.
+   - Créer des commits clairs suivant le format **Conventional Commits** (`feat(...)`, `fix(...)`, `refactor(...)`, `docs(...)`, `chore(...)`).
+3. **Après validation (Push, Merge sur `main` & Nettoyage automatique) :**
+   - Une fois les vérifications passées (`typecheck`, `lint`, `test`, `build`), pousser la branche (`git push -u origin <type>/<nom-court>`).
+   - Revenir sur `main`, récupérer d'éventuels nouveaux commits (`git checkout main; git pull --rebase origin main`), fusionner proprement (`git merge --no-ff <type>/<nom-court> -m "merge: <type>/<nom-court> into main"`), pousser `main` (`git push origin main`), puis supprimer la branche locale et distante (`git branch -d <type>/<nom-court>` et `git push origin --delete <type>/<nom-court>`).
+4. **Gestion des conflits & sécurité Git :**
+   - Résoudre proprement tout conflit avant de finaliser le rebase/merge et re-vérifier le build/typecheck.
+   - Interdiction absolue d'utiliser `git push --force` sur `main` ou de commiter des secrets.

@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Shield, KeyRound, Globe } from "lucide-react";
+import { KeyRound, Globe } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,8 +63,8 @@ export default function LoginPage() {
 
       <Card className="w-full max-w-md border-primary/25 bg-card/90 shadow-2xl backdrop-blur-md">
         <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30">
-            <Shield className="h-6 w-6" />
+          <div className="mx-auto flex justify-center">
+            <BrandLogo variant="icon" size="xl" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">{dict.auth.title}</CardTitle>
           <CardDescription>{dict.auth.subtitle}</CardDescription>

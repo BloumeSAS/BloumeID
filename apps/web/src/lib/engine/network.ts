@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 export interface ParsedUserAgent {
   browser: string;
   os: string;
@@ -47,20 +49,20 @@ export function extractRealClientIp(
     trustedProxiesEnv.length > 0;
 
   if (trustProxy) {
-    const cfIp = headers.get("cf-connecting-ip");
-    if (cfIp && cfIp.trim().length > 0) {
-      return cfIp.trim();
+    const cfIp = headers.get("cf-connecting-ip")?.trim();
+    if (cfIp && isIP(cfIp) !== 0) {
+      return cfIp;
     }
 
-    const realIp = headers.get("x-real-ip");
-    if (realIp && realIp.trim().length > 0) {
-      return realIp.trim();
+    const realIp = headers.get("x-real-ip")?.trim();
+    if (realIp && isIP(realIp) !== 0) {
+      return realIp;
     }
 
     const xff = headers.get("x-forwarded-for");
     if (xff && xff.trim().length > 0) {
       const first = xff.split(",")[0]?.trim();
-      if (first) return first;
+      if (first && isIP(first) !== 0) return first;
     }
   }
 
