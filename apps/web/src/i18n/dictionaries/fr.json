@@ -30,7 +30,27 @@
     "engineOnline": "Moteur Threat Intel Actif",
     "openMenu": "Ouvrir le menu de navigation",
     "collapseSidebar": "Réduire la barre latérale",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "commandPalette": "Recherche & Commandes Rapides",
+    "commandPlaceholder": "Aller vers une page, un site, une IP, une règle ou une action...",
+    "commandShortcut": "Ctrl+K",
+    "densityComfort": "Vue Confort",
+    "densityCompact": "Compact PRO",
+    "autoRefreshOff": "Manuel",
+    "autoRefresh5s": "Live 5s",
+    "autoRefresh15s": "Auto 15s",
+    "autoRefresh60s": "Auto 60s",
+    "viewConfig": "Configuration de Vue",
+    "toggleWidgets": "Personnaliser Widgets",
+    "presetAll": "Télémétrie Complète",
+    "presetExecutive": "Vue Exécutive KPIs",
+    "presetSoc": "Focus SOC & Menaces",
+    "presetNetwork": "Focus Géo & Réseaux ASN",
+    "columnsConfig": "Colonnes",
+    "splitView": "Vue Split Forensique",
+    "drawerView": "Vue Tiroir",
+    "tableView": "Vue Tableau",
+    "gridView": "Vue Cartes"
   },
   "nav": {
     "home": "Accueil Open-Source",
@@ -208,7 +228,14 @@
     "colNetwork": "IP / Pays / ASN",
     "colEnvironment": "Navigateur / OS / GPU",
     "colAction": "Action Règle",
-    "colDanger": "Danger"
+    "colDanger": "Danger",
+    "quickPresets": "Filtres Rapides SOC",
+    "presetAllTraffic": "Tous les Événements",
+    "presetBlocked": "Bloqués Uniquement",
+    "presetChallenged": "Challenge Déclenché",
+    "presetTorExit": "Tor & Anonymiseurs",
+    "presetSpoof": "Hooks Prototypes / Spoof",
+    "selectEventPrompt": "Sélectionnez un événement dans le tableau pour inspecter en direct ses 70+ signaux, son empreinte JA4 et son JSON brut."
   },
   "rules": {
     "title": "Moteur de Règles de Sécurité & Actions",
@@ -226,7 +253,17 @@
     "conditionValue": "Valeur Cible",
     "hitCount": "Déclenchements",
     "priority": "Priorité",
-    "noRules": "Aucune règle personnalisée configurée."
+    "noRules": "Aucune règle personnalisée configurée.",
+    "templatesTitle": "Modèles de Politiques SOC en 1 Clic",
+    "tplTorBlock": "Bloquer Tous les Nœuds Tor",
+    "tplBotChallenge": "Challenger les Bots Headless & CDP",
+    "tplSpoofBlock": "Bloquer le Spoofing Canvas & Prototypes",
+    "tplDatacenterFlag": "Marquer (Flag) les ASN Datacenter",
+    "sandboxTitle": "Simulateur & Sandbox de Règles en Direct",
+    "sandboxSubtitle": "Testez comment vos règles actives évaluent une requête simulée en temps réel.",
+    "sandboxRun": "Simuler le Verdict",
+    "sandboxVerdict": "Verdict Évalué",
+    "sandboxMatched": "Règle Déclenchée"
   },
   "sites": {
     "title": "Sites Gérés, Clés API & Webhooks",

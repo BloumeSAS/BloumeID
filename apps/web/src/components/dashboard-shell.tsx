@@ -7,24 +7,35 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
+  Command,
   Cpu,
   Fingerprint,
   Globe,
   Home,
   KeyRound,
+  LayoutList,
   ListFilter,
   LogOut,
   Menu,
   Moon,
+  RefreshCw,
+  Rows3,
+  Search,
   Settings,
   Shield,
   ShieldCheck,
   Sun,
   Users,
 } from "lucide-react";
-import { useI18n, type GlobalTimeRange } from "@/i18n/provider";
+import {
+  useI18n,
+  type AutoRefreshInterval,
+  type GlobalTimeRange,
+} from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { PublicSiteDTO } from "@/types";
@@ -42,12 +53,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setSelectedSiteId,
     timeRange,
     setTimeRange,
+    viewDensity,
+    setViewDensity,
+    autoRefreshSec,
+    setAutoRefreshSec,
+    triggerManualRefresh,
   } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
 
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [commandOpen, setCommandOpen] = React.useState(false);
+  const [commandQuery, setCommandQuery] = React.useState("");
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
 
   React.useEffect(() => {
@@ -57,6 +75,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         if (data?.sites) setSites(data.sites);
       })
       .catch(() => undefined);
+  }, []);
+
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const navCategories = [
@@ -84,6 +113,91 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       ],
     },
   ];
+
+  const allNavItems = navCategories.flatMap((c) => c.items);
+
+  const filteredCommands = React.useMemo(() => {
+    const q = commandQuery.trim().toLowerCase();
+    const base = allNavItems.map((item) => ({
+      id: `nav:${item.href}`,
+      title: item.label,
+      subtitle: item.href,
+      icon: item.icon,
+      run: () => {
+        setCommandOpen(false);
+        setCommandQuery("");
+        router.push(item.href);
+      },
+    }));
+
+    const siteCommands = sites.map((s) => ({
+      id: `site:${s.publicId}`,
+      title: `${s.name} (${s.publicId})`,
+      subtitle: s.domains.join(", "),
+      icon: Shield,
+      run: () => {
+        setSelectedSiteId(s.publicId);
+        setCommandOpen(false);
+        setCommandQuery("");
+      },
+    }));
+
+    const actionCommands = [
+      {
+        id: "act:theme",
+        title: theme === "dark" ? dict.common.themeLight : dict.common.themeDark,
+        subtitle: "Theme",
+        icon: theme === "dark" ? Sun : Moon,
+        run: () => {
+          toggleTheme();
+          setCommandOpen(false);
+        },
+      },
+      {
+        id: "act:density",
+        title:
+          viewDensity === "comfort"
+            ? dict.common.densityCompact
+            : dict.common.densityComfort,
+        subtitle: dict.common.viewConfig,
+        icon: Rows3,
+        run: () => {
+          setViewDensity(viewDensity === "comfort" ? "compact" : "comfort");
+          setCommandOpen(false);
+        },
+      },
+      {
+        id: "act:locale",
+        title: `${dict.common.language}: ${locale === "fr" ? "English (EN)" : "Français (FR)"}`,
+        subtitle: "i18n",
+        icon: Globe,
+        run: () => {
+          setLocale(locale === "fr" ? "en" : "fr");
+          setCommandOpen(false);
+        },
+      },
+    ];
+
+    const combined = [...base, ...siteCommands, ...actionCommands];
+    if (!q) return combined;
+    return combined.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q)
+    );
+  }, [
+    allNavItems,
+    commandQuery,
+    sites,
+    theme,
+    dict.common,
+    viewDensity,
+    locale,
+    router,
+    setSelectedSiteId,
+    toggleTheme,
+    setViewDensity,
+    setLocale,
+  ]);
 
   const handleLogout = async () => {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -141,7 +255,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground lg:flex-row">
+    <div
+      className={cn(
+        "flex min-h-screen flex-col bg-background text-foreground lg:flex-row",
+        viewDensity === "compact" ? "text-[13px]" : ""
+      )}
+    >
       {/* Desktop Collapsible Sidebar (lg:) */}
       <aside
         className={cn(
@@ -156,7 +275,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           aria-label={dict.common.collapseSidebar}
           className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary/50 hover:text-foreground"
         >
-          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+          {collapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronLeft className="h-3.5 w-3.5" />
+          )}
         </button>
 
         <div
@@ -172,16 +295,42 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             {!collapsed ? (
               <div className="truncate">
                 <div className="flex items-center gap-1.5">
-                  <p className="font-bold tracking-tight text-foreground">{dict.common.brandName}</p>
-                  <Badge variant="outline" className="px-1.5 py-0 font-mono text-[10px] text-primary">
+                  <p className="font-bold tracking-tight text-foreground">
+                    {dict.common.brandName}
+                  </p>
+                  <Badge
+                    variant="outline"
+                    className="px-1.5 py-0 font-mono text-[10px] text-primary"
+                  >
                     v1.0.0
                   </Badge>
                 </div>
-                <p className="truncate text-[11px] text-muted-foreground">{dict.common.companyName}</p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {dict.common.companyName}
+                </p>
               </div>
             ) : null}
           </Link>
         </div>
+
+        {/* Quick Command Palette Trigger inside Sidebar */}
+        {!collapsed ? (
+          <div className="px-3 pt-3">
+            <button
+              type="button"
+              onClick={() => setCommandOpen(true)}
+              className="flex w-full items-center justify-between rounded-xl border border-border bg-secondary/35 px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+            >
+              <span className="flex items-center gap-2">
+                <Search className="h-3.5 w-3.5 text-primary" />
+                <span>{dict.common.search}</span>
+              </span>
+              <kbd className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px]">
+                {dict.common.commandShortcut}
+              </kbd>
+            </button>
+          </div>
+        ) : null}
 
         {renderNavLinks(false)}
 
@@ -200,7 +349,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <div className={cn("flex items-center gap-1.5", collapsed ? "flex-col" : "justify-between")}>
+          <div
+            className={cn(
+              "flex items-center gap-1.5",
+              collapsed ? "flex-col" : "justify-between"
+            )}
+          >
             <Button
               type="button"
               variant="outline"
@@ -222,7 +376,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               className={cn(collapsed ? "h-8 w-10 px-0" : "")}
               title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
             >
-              {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              {theme === "dark" ? (
+                <Sun className="h-3.5 w-3.5" />
+              ) : (
+                <Moon className="h-3.5 w-3.5" />
+              )}
             </Button>
 
             <Button
@@ -240,10 +398,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Main Content Area with Sticky Responsive Header (Mobile + Desktop Filter Bar) */}
+      {/* Main Content Area with Sticky Enterprise Header */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-3 backdrop-blur-md lg:px-8">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/85 px-4 py-2.5 backdrop-blur-md lg:px-8">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Button
               type="button"
               variant="outline"
@@ -267,7 +425,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 aria-label={dict.common.allSites}
                 value={selectedSiteId}
                 onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="all">{dict.common.allSites}</option>
                 {sites.map((s) => (
@@ -277,10 +435,74 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 ))}
               </select>
             </div>
+
+            {/* PRO View Density Switcher (Comfort vs Compact PRO) */}
+            <div className="hidden items-center rounded-lg border border-border bg-background p-0.5 sm:inline-flex">
+              <button
+                type="button"
+                onClick={() => setViewDensity("comfort")}
+                title={dict.common.densityComfort}
+                className={cn(
+                  "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                  viewDensity === "comfort"
+                    ? "bg-secondary text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <LayoutList className="h-3 w-3" />
+                <span className="hidden xl:inline">{dict.common.densityComfort}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewDensity("compact")}
+                title={dict.common.densityCompact}
+                className={cn(
+                  "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                  viewDensity === "compact"
+                    ? "bg-secondary text-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Rows3 className="h-3 w-3" />
+                <span className="hidden xl:inline">{dict.common.densityCompact}</span>
+              </button>
+            </div>
           </div>
 
-          {/* Global Time Range Selector + Mobile Theme/Locale controls */}
+          {/* Right Toolbar: Auto-Refresh Interval + Time Range + Command Button */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Global Live Auto-Refresh Selector */}
+            <div className="hidden items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 md:flex">
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5 text-primary",
+                  autoRefreshSec > 0 ? "animate-spin" : ""
+                )}
+              />
+              <select
+                aria-label={dict.common.refresh}
+                value={autoRefreshSec}
+                onChange={(e) =>
+                  setAutoRefreshSec(Number(e.target.value) as AutoRefreshInterval)
+                }
+                className="bg-transparent text-xs font-medium text-foreground focus:outline-none"
+              >
+                <option value={0}>{dict.common.autoRefreshOff}</option>
+                <option value={5}>{dict.common.autoRefresh5s}</option>
+                <option value={15}>{dict.common.autoRefresh15s}</option>
+                <option value={60}>{dict.common.autoRefresh60s}</option>
+              </select>
+              <button
+                type="button"
+                onClick={triggerManualRefresh}
+                title={dict.common.refresh}
+                className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
+            </div>
+
+            {/* Global Time Range Selector */}
             <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
               {TIME_RANGES.map((r) => (
                 <button
@@ -299,6 +521,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               ))}
             </div>
 
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setCommandOpen(true)}
+              className="hidden h-8 gap-1.5 text-xs sm:inline-flex"
+            >
+              <Command className="h-3.5 w-3.5 text-primary" />
+              <span>{dict.common.commandShortcut}</span>
+            </Button>
+
             <div className="flex items-center gap-1 lg:hidden">
               <Button
                 type="button"
@@ -309,14 +542,69 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 {locale.toUpperCase()}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={toggleTheme}>
-                {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                {theme === "dark" ? (
+                  <Sun className="h-3.5 w-3.5" />
+                ) : (
+                  <Moon className="h-3.5 w-3.5" />
+                )}
               </Button>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">{children}</main>
+        <main
+          className={cn(
+            "flex-1 overflow-x-hidden",
+            viewDensity === "compact" ? "p-3 sm:p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8"
+          )}
+        >
+          {children}
+        </main>
       </div>
+
+      {/* PRO Command Palette Dialog (Ctrl+K / Cmd+K) */}
+      <Dialog
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        title={dict.common.commandPalette}
+        description={dict.common.commandPlaceholder}
+        closeLabel={dict.common.close}
+      >
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={commandQuery}
+              onChange={(e) => setCommandQuery(e.target.value)}
+              placeholder={dict.common.commandPlaceholder}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+
+          <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+            {filteredCommands.map((cmd) => {
+              const Icon = cmd.icon;
+              return (
+                <button
+                  key={cmd.id}
+                  type="button"
+                  onClick={cmd.run}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-secondary"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-foreground">{cmd.title}</span>
+                  </div>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {cmd.subtitle}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Dialog>
 
       {/* Mobile & Tablet Slide-Over Sheet Menu */}
       <Sheet

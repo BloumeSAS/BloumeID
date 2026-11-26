@@ -30,7 +30,27 @@
     "engineOnline": "Threat Engine Online",
     "openMenu": "Open navigation menu",
     "collapseSidebar": "Toggle sidebar",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "commandPalette": "Quick Search & Commands",
+    "commandPlaceholder": "Jump to page, site, IP, rule or action...",
+    "commandShortcut": "Ctrl+K",
+    "densityComfort": "Comfort View",
+    "densityCompact": "Compact PRO",
+    "autoRefreshOff": "Manual",
+    "autoRefresh5s": "Live 5s",
+    "autoRefresh15s": "Auto 15s",
+    "autoRefresh60s": "Auto 60s",
+    "viewConfig": "View Configuration",
+    "toggleWidgets": "Customize Widgets",
+    "presetAll": "Full Telemetry",
+    "presetExecutive": "Executive KPIs",
+    "presetSoc": "SOC Threat Focus",
+    "presetNetwork": "Geo & ASN Focus",
+    "columnsConfig": "Columns",
+    "splitView": "Split Master-Detail",
+    "drawerView": "Drawer View",
+    "tableView": "Table View",
+    "gridView": "Cards Grid"
   },
   "nav": {
     "home": "Open-Source Home",
@@ -208,7 +228,14 @@
     "colNetwork": "IP / Country / ASN",
     "colEnvironment": "Browser / OS / GPU",
     "colAction": "Rule Action",
-    "colDanger": "Danger"
+    "colDanger": "Danger",
+    "quickPresets": "Quick Filter Presets",
+    "presetAllTraffic": "All Events",
+    "presetBlocked": "Blocked Only",
+    "presetChallenged": "Challenged",
+    "presetTorExit": "Tor & Anonymizers",
+    "presetSpoof": "Prototype Tampered",
+    "selectEventPrompt": "Select an event from the table to inspect its 70+ forensic signals, JA4 hash, and raw JSON."
   },
   "rules": {
     "title": "Custom Security & Action Rules Engine",
@@ -226,7 +253,17 @@
     "conditionValue": "Target Value",
     "hitCount": "Matches / Hits",
     "priority": "Priority",
-    "noRules": "No custom security rules defined."
+    "noRules": "No custom security rules defined.",
+    "templatesTitle": "1-Click Enterprise Policy Templates",
+    "tplTorBlock": "Block All Tor Exit Nodes",
+    "tplBotChallenge": "Challenge Headless & CDP Bots",
+    "tplSpoofBlock": "Block Prototype & Canvas Spoofing",
+    "tplDatacenterFlag": "Flag Datacenter & Hosting ASNs",
+    "sandboxTitle": "Interactive Live Rule Simulator Sandbox",
+    "sandboxSubtitle": "Test how your active security rules evaluate a simulated incoming request in real time.",
+    "sandboxRun": "Simulate Verdict",
+    "sandboxVerdict": "Evaluated Verdict",
+    "sandboxMatched": "Matched Rule"
   },
   "sites": {
     "title": "Managed Sites, API Keys & Webhooks",

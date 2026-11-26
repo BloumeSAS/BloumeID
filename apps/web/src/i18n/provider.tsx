@@ -5,6 +5,8 @@ import { getDictionary, type Dictionary, type Locale } from "./index";
 
 export type ThemeMode = "dark" | "light";
 export type GlobalTimeRange = "1h" | "24h" | "7d" | "30d" | "90d";
+export type ViewDensityMode = "comfort" | "compact";
+export type AutoRefreshInterval = 0 | 5 | 15 | 60;
 
 interface I18nContextValue {
   locale: Locale;
@@ -17,6 +19,12 @@ interface I18nContextValue {
   setSelectedSiteId: (siteId: string) => void;
   timeRange: GlobalTimeRange;
   setTimeRange: (range: GlobalTimeRange) => void;
+  viewDensity: ViewDensityMode;
+  setViewDensity: (density: ViewDensityMode) => void;
+  autoRefreshSec: AutoRefreshInterval;
+  setAutoRefreshSec: (sec: AutoRefreshInterval) => void;
+  refreshTick: number;
+  triggerManualRefresh: () => void;
 }
 
 const I18nContext = React.createContext<I18nContextValue>({
@@ -30,6 +38,12 @@ const I18nContext = React.createContext<I18nContextValue>({
   setSelectedSiteId: () => undefined,
   timeRange: "24h",
   setTimeRange: () => undefined,
+  viewDensity: "comfort",
+  setViewDensity: () => undefined,
+  autoRefreshSec: 0,
+  setAutoRefreshSec: () => undefined,
+  refreshTick: 0,
+  triggerManualRefresh: () => undefined,
 });
 
 export function I18nProvider({
@@ -43,6 +57,9 @@ export function I18nProvider({
   const [theme, setThemeState] = React.useState<ThemeMode>("dark");
   const [selectedSiteId, setSelectedSiteId] = React.useState<string>("all");
   const [timeRange, setTimeRange] = React.useState<GlobalTimeRange>("24h");
+  const [viewDensity, setViewDensityState] = React.useState<ViewDensityMode>("comfort");
+  const [autoRefreshSec, setAutoRefreshSec] = React.useState<AutoRefreshInterval>(0);
+  const [refreshTick, setRefreshTick] = React.useState<number>(0);
 
   React.useEffect(() => {
     try {
@@ -57,10 +74,22 @@ export function I18nProvider({
       } else {
         document.documentElement.classList.add("dark");
       }
+      const savedDensity = window.localStorage.getItem("bloumeid_density") as ViewDensityMode | null;
+      if (savedDensity === "comfort" || savedDensity === "compact") {
+        setViewDensityState(savedDensity);
+      }
     } catch {
       // Ignore storage error
     }
   }, []);
+
+  React.useEffect(() => {
+    if (autoRefreshSec <= 0) return;
+    const id = window.setInterval(() => {
+      setRefreshTick((t) => t + 1);
+    }, autoRefreshSec * 1000);
+    return () => window.clearInterval(id);
+  }, [autoRefreshSec]);
 
   const setLocale = React.useCallback((next: Locale) => {
     setLocaleState(next);
@@ -85,6 +114,19 @@ export function I18nProvider({
     setTheme(theme === "dark" ? "light" : "dark");
   }, [theme, setTheme]);
 
+  const setViewDensity = React.useCallback((next: ViewDensityMode) => {
+    setViewDensityState(next);
+    try {
+      window.localStorage.setItem("bloumeid_density", next);
+    } catch {
+      // Ignore storage error
+    }
+  }, []);
+
+  const triggerManualRefresh = React.useCallback(() => {
+    setRefreshTick((t) => t + 1);
+  }, []);
+
   const value = React.useMemo(
     () => ({
       locale,
@@ -97,8 +139,27 @@ export function I18nProvider({
       setSelectedSiteId,
       timeRange,
       setTimeRange,
+      viewDensity,
+      setViewDensity,
+      autoRefreshSec,
+      setAutoRefreshSec,
+      refreshTick,
+      triggerManualRefresh,
     }),
-    [locale, setLocale, theme, setTheme, toggleTheme, selectedSiteId, timeRange]
+    [
+      locale,
+      setLocale,
+      theme,
+      setTheme,
+      toggleTheme,
+      selectedSiteId,
+      timeRange,
+      viewDensity,
+      setViewDensity,
+      autoRefreshSec,
+      refreshTick,
+      triggerManualRefresh,
+    ]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

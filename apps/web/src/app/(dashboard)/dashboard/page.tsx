@@ -24,10 +24,12 @@ import {
   GitBranch,
   Globe,
   Laptop,
+  LayoutGrid,
   List,
   Monitor,
   Search,
   ShieldAlert,
+  SlidersHorizontal,
   Smartphone,
   Tablet,
   Users,
@@ -89,13 +91,62 @@ function formatCompactCount(n: number): string {
 }
 
 export default function DashboardPage() {
-  const { dict, timeRange, selectedSiteId } = useI18n();
+  const { dict, timeRange, selectedSiteId, refreshTick } = useI18n();
   const [metrics, setMetrics] = React.useState<DashboardMetricsDTO | null>(null);
   const [selectedEvent, setSelectedEvent] = React.useState<PublicFingerprintEventDTO | null>(null);
   const [locationView, setLocationView] = React.useState<"list" | "map">("list");
   const [networkSearch, setNetworkSearch] = React.useState("");
   const [showNetworkSearch, setShowNetworkSearch] = React.useState(false);
   const [osTab, setOsTab] = React.useState<"os" | "browsers">("os");
+
+  // PRO View Preset & Custom Widget Visibility Configuration
+  const [viewPreset, setViewPreset] = React.useState<"all" | "executive" | "soc" | "network">("all");
+  const [showWidgetConfig, setShowWidgetConfig] = React.useState(false);
+  const [visibleWidgets, setVisibleWidgets] = React.useState({
+    primaryKpis: true,
+    secondaryKpis: true,
+    timelineCharts: true,
+    trycapGrid: true,
+    liveStream: true,
+  });
+
+  const applyViewPreset = (preset: "all" | "executive" | "soc" | "network") => {
+    setViewPreset(preset);
+    if (preset === "all") {
+      setVisibleWidgets({
+        primaryKpis: true,
+        secondaryKpis: true,
+        timelineCharts: true,
+        trycapGrid: true,
+        liveStream: true,
+      });
+    } else if (preset === "executive") {
+      setVisibleWidgets({
+        primaryKpis: true,
+        secondaryKpis: false,
+        timelineCharts: true,
+        trycapGrid: true,
+        liveStream: false,
+      });
+    } else if (preset === "soc") {
+      setVisibleWidgets({
+        primaryKpis: true,
+        secondaryKpis: true,
+        timelineCharts: true,
+        trycapGrid: false,
+        liveStream: true,
+      });
+    } else if (preset === "network") {
+      setLocationView("map");
+      setVisibleWidgets({
+        primaryKpis: false,
+        secondaryKpis: true,
+        timelineCharts: false,
+        trycapGrid: true,
+        liveStream: true,
+      });
+    }
+  };
 
   const loadMetrics = React.useCallback(async () => {
     const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
@@ -108,7 +159,7 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     void loadMetrics();
-  }, [loadMetrics]);
+  }, [loadMetrics, refreshTick]);
 
   const filteredNetworks = React.useMemo(() => {
     const list = metrics?.topAsns ?? [];
@@ -159,12 +210,97 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{dict.dashboard.title}</h1>
-        <p className="text-xs text-muted-foreground sm:text-sm">{dict.dashboard.subtitle}</p>
+      {/* Header + PRO View Configuration & Preset Switcher */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{dict.dashboard.title}</h1>
+          <p className="text-xs text-muted-foreground sm:text-sm">{dict.dashboard.subtitle}</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-xl border border-border bg-card p-1 shadow-2xs">
+            {(
+              [
+                ["all", dict.common.presetAll],
+                ["executive", dict.common.presetExecutive],
+                ["soc", dict.common.presetSoc],
+                ["network", dict.common.presetNetwork],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => applyViewPreset(key)}
+                className={cn(
+                  "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                  viewPreset === key
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowWidgetConfig((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors",
+              showWidgetConfig
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>{dict.common.toggleWidgets}</span>
+          </button>
+        </div>
       </div>
 
+      {/* Collapsible PRO Widget Customizer */}
+      {showWidgetConfig ? (
+        <Card className="border-primary/35 bg-primary/5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+              <LayoutGrid className="h-4 w-4" />
+              <span>{dict.common.viewConfig}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  ["primaryKpis", dict.dashboard.totalEvents],
+                  ["secondaryKpis", dict.dashboard.crossBrowserMatches],
+                  ["timelineCharts", dict.dashboard.trafficTrendTitle],
+                  ["trycapGrid", `${dict.dashboard.cardLocation} & ${dict.dashboard.cardNetworks}`],
+                  ["liveStream", dict.dashboard.liveRiskFeedTitle],
+                ] as const
+              ).map(([wKey, wLabel]) => (
+                <button
+                  key={wKey}
+                  type="button"
+                  onClick={() =>
+                    setVisibleWidgets((prev) => ({ ...prev, [wKey]: !prev[wKey] }))
+                  }
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-xs font-medium transition-all",
+                    visibleWidgets[wKey]
+                      ? "border-primary/40 bg-primary/15 text-foreground"
+                      : "border-border bg-background/50 text-muted-foreground opacity-60"
+                  )}
+                >
+                  {visibleWidgets[wKey] ? "✓ " : "+ "}
+                  {wLabel}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* Primary 4 Cap-Style KPI Cards */}
+      {visibleWidgets.primaryKpis ? (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-primary/25">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -236,8 +372,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      ) : null}
 
       {/* Secondary 4 Deep Telemetry KPI Cards */}
+      {visibleWidgets.secondaryKpis ? (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-secondary/20">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -294,8 +432,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      ) : null}
 
       {/* Stacked Traffic Timeline & Threat Vector Breakdown */}
+      {visibleWidgets.timelineCharts ? (
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -355,6 +495,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      ) : null}
 
       {/* ==========================================================================
           TRYCAP.DEV 2x2 TELEMETRY GRID:
@@ -363,6 +504,7 @@ export default function DashboardPage() {
           3. Platform (Donut Ring Chart: Phone / Desktop / Tablet)
           4. OS & Browsers (Horizontal shaded bar rows with OS icons, count & %)
          ========================================================================== */}
+      {visibleWidgets.trycapGrid ? (
       <div className="grid gap-6 lg:grid-cols-2">
         {/* 1. LOCATION CARD (List / Map Toggle) */}
         <Card className="flex flex-col justify-between border-border/90 bg-card/95">
@@ -675,8 +817,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      ) : null}
 
       {/* Live Risk Detections Table (Responsive Table + Overflow Scroll) */}
+      {visibleWidgets.liveStream ? (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{dict.dashboard.liveRiskFeedTitle}</CardTitle>
@@ -781,6 +925,7 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       <Sheet
         open={Boolean(selectedEvent)}
