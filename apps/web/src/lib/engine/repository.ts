@@ -569,9 +569,38 @@ function toPublicSiteDTO(site: InternalSiteRecord, plainSecret?: string): Public
   };
 }
 
+async function ensureMemSiteInDatabase(memSite: InternalSiteRecord): Promise<InternalSiteRecord> {
+  try {
+    const dbSite = await prisma.site.upsert({
+      where: { publicKey: memSite.publicKey },
+      update: {},
+      create: {
+        publicId: memSite.publicId,
+        name: memSite.name,
+        domains: memSite.domains,
+        publicKey: memSite.publicKey,
+        secretKeyHash: memSite.secretKeyHash,
+        secretKeyHint: memSite.secretKeyHint,
+        webhookUrl: memSite.webhookUrl,
+        webhookSecret: memSite.webhookSecret,
+        riskThreshold: memSite.riskThreshold,
+        config: { ...memSite.config },
+        isActive: memSite.isActive,
+      },
+    });
+    return {
+      ...dbSite,
+      config: (dbSite.config as unknown as SiteCollectorsConfig) ?? DEFAULT_COLLECTORS,
+    };
+  } catch {
+    return memSite;
+  }
+}
+
 export async function findSiteByPublicKey(publicKey: string): Promise<InternalSiteRecord | null> {
   ensureMemorySeeded();
-  if (await isDatabaseConnected()) {
+  const dbConnected = await isDatabaseConnected();
+  if (dbConnected) {
     const dbSite = await prisma.site.findUnique({ where: { publicKey } });
     if (dbSite) {
       return {
@@ -580,14 +609,19 @@ export async function findSiteByPublicKey(publicKey: string): Promise<InternalSi
       };
     }
   }
-  return memSites.find((s) => s.publicKey === publicKey) ?? null;
+  const memSite = memSites.find((s) => s.publicKey === publicKey) ?? null;
+  if (memSite && dbConnected) {
+    return ensureMemSiteInDatabase(memSite);
+  }
+  return memSite;
 }
 
 export async function verifySiteSecretKey(secretKey: string): Promise<InternalSiteRecord | null> {
   ensureMemorySeeded();
   const targetHash = hashSecretKey(secretKey);
+  const dbConnected = await isDatabaseConnected();
 
-  if (await isDatabaseConnected()) {
+  if (dbConnected) {
     const allSites = await prisma.site.findMany({ where: { isActive: true } });
     for (const s of allSites) {
       if (constantTimeEqual(s.secretKeyHash, targetHash)) {
@@ -601,7 +635,7 @@ export async function verifySiteSecretKey(secretKey: string): Promise<InternalSi
 
   for (const s of memSites) {
     if (s.isActive && constantTimeEqual(s.secretKeyHash, targetHash)) {
-      return s;
+      return dbConnected ? ensureMemSiteInDatabase(s) : s;
     }
   }
   return null;
