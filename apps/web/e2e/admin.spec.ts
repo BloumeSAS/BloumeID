@@ -22,8 +22,9 @@ test.describe("BloumeID Admin Panel & Live SDK Playground E2E", () => {
     // Verify Snowflake IDs are displayed on dashboard
     await expect(page.getByText(/req_73000000000000501/)).toBeVisible();
 
-    // Switch language FR <-> EN
+    // Switch language via 8-locale selector
     await page.getByTestId("locale-switcher").click();
+    await page.getByTestId("locale-option-en").click();
 
     // Navigate to Sites & create a new site via modal
     await page.goto("/sites");

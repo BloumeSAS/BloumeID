@@ -50,16 +50,15 @@ export function generateSnowflakeId(prefix: SnowflakePrefix): string {
 const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 export function generateApiKey(prefix: ApiKeyPrefix): string {
-  const bytes = crypto.randomBytes(32);
   let token = "";
-  for (let i = 0; i < bytes.length; i += 1) {
-    token += ALPHANUM[bytes[i]! % ALPHANUM.length];
+  for (let i = 0; i < 32; i += 1) {
+    token += ALPHANUM[crypto.randomInt(0, ALPHANUM.length)];
   }
   return `${prefix}_${token}`;
 }
 
 export function hashSecretKey(secretKey: string): string {
-  return crypto.createHash("sha256").update(secretKey, "utf8").digest("hex");
+  return crypto.scryptSync(secretKey, "bloumeid-sec-kdf-v1", 32).toString("hex");
 }
 
 export function maskSecretKey(secretKey: string): string {

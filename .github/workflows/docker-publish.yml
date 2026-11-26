@@ -7,10 +7,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
-  id-token: write
-  attestations: write
-  security-events: write
 
 env:
   REGISTRY: ghcr.io
@@ -19,6 +15,12 @@ env:
 jobs:
   docker-build-publish:
     name: Multi-Arch Build, Trivy Scan & Provenance Attestation
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -58,7 +60,7 @@ jobs:
           tags: bloumeid:trivy-scan
 
       - name: Run Trivy vulnerability scanner (fail on CRITICAL)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.29.0
         with:
           image-ref: "bloumeid:trivy-scan"
           format: "table"

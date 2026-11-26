@@ -30,6 +30,7 @@ import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
@@ -38,7 +39,7 @@ const NPM_URL = "https://www.npmjs.com/package/@bloume/id";
 const BLOUME_URL = "https://bloume.fr";
 
 export default function LandingPage() {
-  const { locale, setLocale, theme, toggleTheme, dict } = useI18n();
+  const { theme, toggleTheme, dict } = useI18n();
   const [result, setResult] = React.useState<BloumeIDResult | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [elapsedMs, setElapsedMs] = React.useState<number>(0);
@@ -216,25 +217,25 @@ const res = await client.get({ tag: "checkout" });`;
               <BrandLogo variant="full" size="md" />
             </Link>
             <Badge variant="outline" className="hidden font-mono text-[10px] sm:inline-flex">
-              {APP_VERSION_TAG} Open Source
+              {APP_VERSION_TAG} {dict.landing.openSourceBadge}
             </Badge>
           </div>
 
           <nav className="hidden items-center gap-6 text-xs font-medium text-muted-foreground lg:flex">
             <a href="#preview" className="transition-colors hover:text-foreground">
-              Aperçu du Panel
+              {dict.landing.navPreview}
             </a>
             <a href="#scanner" className="transition-colors hover:text-foreground">
-              Test Live SDK
+              {dict.landing.navScanner}
             </a>
             <a href="#architecture" className="transition-colors hover:text-foreground">
-              Architecture
+              {dict.landing.navArchitecture}
             </a>
             <a href="#compare" className="transition-colors hover:text-foreground">
-              Comparatif
+              {dict.landing.navCompare}
             </a>
             <a href="#deploy" className="transition-colors hover:text-foreground">
-              Déploiement
+              {dict.landing.navDeploy}
             </a>
           </nav>
 
@@ -248,20 +249,13 @@ const res = await client.get({ tag: "checkout" });`;
               <Github className="h-3.5 w-3.5" />
               <span>GitHub</span>
             </a>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 font-mono text-xs"
-              onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-            >
-              {locale.toUpperCase()}
-            </Button>
+            <LocaleSwitcher variant="ghost" />
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleTheme}>
               {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
             </Button>
             <Link href="/dashboard">
               <Button size="sm" className="h-8 text-xs">
-                <span>Console Admin</span>
+                <span>{dict.landing.adminConsole}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
@@ -279,28 +273,27 @@ const res = await client.get({ tag: "checkout" });`;
               className="border-primary/40 bg-primary/10 px-3 py-1 font-mono text-[11px] text-primary"
             >
               <Sparkles className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
-              <span>100 % Open Source • Self-Hosted • @bloume/id {APP_VERSION_TAG}</span>
+              <span>{dict.landing.heroBadge} {APP_VERSION_TAG}</span>
             </Badge>
 
             <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl sm:leading-[1.1]">
-              Identification d&apos;Appareils à 104 Signaux. 100 % Self-Hosted.
+              {dict.landing.heroTitle}
             </h1>
 
             <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Alternative souveraine et gratuite à <strong>Fingerprint.com</strong> et{" "}
-              <strong>ThumbmarkJS Pro</strong>, avec réconciliation cross-browser, bases MaxMind
-              GeoLite2 &amp; 54 000+ CIDR auto-synchronisées et zéro frais par requête.
+              {dict.landing.heroDescPrefix} <strong>Fingerprint.com</strong> {dict.landing.heroDescAnd}{" "}
+              <strong>ThumbmarkJS Pro</strong>{dict.landing.heroDescSuffix}
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Button size="lg" onClick={scrollToScanner} className="gap-2">
                 <Activity className="h-4 w-4" />
-                <span>Tester mon navigateur en direct</span>
+                <span>{dict.landing.ctaLiveScan}</span>
               </Button>
               <Link href="/dashboard">
                 <Button size="lg" variant="outline" className="gap-2">
                   <ShieldCheck className="h-4 w-4 text-primary" />
-                  <span>Explorer la Console Admin</span>
+                  <span>{dict.landing.ctaExploreAdmin}</span>
                 </Button>
               </Link>
             </div>
@@ -327,16 +320,16 @@ const res = await client.get({ tag: "checkout" });`;
 
             <div className="grid grid-cols-3 gap-3 border-t border-border/60 pt-5 text-xs">
               <div>
-                <p className="font-mono text-base font-bold text-foreground">104 Signaux</p>
-                <p className="text-muted-foreground">Déterministes</p>
+                <p className="font-mono text-base font-bold text-foreground">{dict.landing.statSignalsValue}</p>
+                <p className="text-muted-foreground">{dict.landing.statSignalsLabel}</p>
               </div>
               <div>
                 <p className="font-mono text-base font-bold text-foreground">&lt; 1 ms</p>
-                <p className="text-muted-foreground">Lookup CIDR / GeoIP</p>
+                <p className="text-muted-foreground">{dict.landing.statLatencyLabel}</p>
               </div>
               <div>
-                <p className="font-mono text-base font-bold text-emerald-500">0 € / Illimité</p>
-                <p className="text-muted-foreground">Licence MIT</p>
+                <p className="font-mono text-base font-bold text-emerald-500">{dict.landing.statCostValue}</p>
+                <p className="text-muted-foreground">{dict.landing.statCostLabel}</p>
               </div>
             </div>
           </div>
@@ -352,10 +345,10 @@ const res = await client.get({ tag: "checkout" });`;
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
                 </div>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  id.bloume.fr — BloumeID Console {APP_VERSION_TAG}
+                  id.bloume.fr — {dict.landing.mockupConsole} {APP_VERSION_TAG}
                 </span>
                 <Badge variant="outline" className="font-mono text-[10px] text-emerald-500">
-                  LIVE
+                  {dict.landing.mockupLive}
                 </Badge>
               </div>
 
@@ -364,28 +357,28 @@ const res = await client.get({ tag: "checkout" });`;
                 <Tabs defaultValue="overview">
                   <TabsList className="mb-4 grid w-full grid-cols-3">
                     <TabsTrigger value="overview" className="text-xs">
-                      Vue Overview
+                      {dict.landing.tabOverview}
                     </TabsTrigger>
                     <TabsTrigger value="signals" className="text-xs">
-                      Smart Signals
+                      {dict.landing.tabSmartSignals}
                     </TabsTrigger>
                     <TabsTrigger value="api" className="text-xs">
-                      SDK &amp; API JSON
+                      {dict.landing.tabApiJson}
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="overview" className="space-y-3">
                     <div className="grid grid-cols-3 gap-2.5">
                       <div className="rounded-xl border border-border bg-secondary/20 p-3">
-                        <p className="text-[11px] text-muted-foreground">Identifications</p>
+                        <p className="text-[11px] text-muted-foreground">{dict.landing.kpiIdentifications}</p>
                         <p className="mt-1 font-mono text-lg font-bold">142.8k</p>
                       </div>
                       <div className="rounded-xl border border-border bg-secondary/20 p-3">
-                        <p className="text-[11px] text-muted-foreground">Précision</p>
+                        <p className="text-[11px] text-muted-foreground">{dict.landing.kpiAccuracy}</p>
                         <p className="mt-1 font-mono text-lg font-bold text-emerald-500">99.2 %</p>
                       </div>
                       <div className="rounded-xl border border-border bg-secondary/20 p-3">
-                        <p className="text-[11px] text-muted-foreground">Menaces bloquées</p>
+                        <p className="text-[11px] text-muted-foreground">{dict.landing.kpiThreatsBlocked}</p>
                         <p className="mt-1 font-mono text-lg font-bold text-rose-500">1 840</p>
                       </div>
                     </div>
@@ -394,7 +387,7 @@ const res = await client.get({ tag: "checkout" });`;
                       <div className="flex items-center justify-between text-xs font-medium">
                         <span className="flex items-center gap-1.5">
                           <Globe className="h-3.5 w-3.5 text-primary" />
-                          <span>Top Réseaux &amp; ASN (GeoLite2)</span>
+                          <span>{dict.landing.topNetworksTitle}</span>
                         </span>
                         <span className="font-mono text-[11px] text-muted-foreground">24h</span>
                       </div>
@@ -419,28 +412,28 @@ const res = await client.get({ tag: "checkout" });`;
                   <TabsContent value="signals" className="space-y-3">
                     <div className="grid gap-2.5 sm:grid-cols-2">
                       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 p-3 text-xs">
-                        <span>Bot / AI Agent</span>
-                        <Badge variant="success">Clean</Badge>
+                        <span>{dict.landing.signalBot}</span>
+                        <Badge variant="success">{dict.landing.signalClean}</Badge>
                       </div>
                       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 p-3 text-xs">
-                        <span>VPN / Tor Exit</span>
-                        <Badge variant="destructive">Détecté</Badge>
+                        <span>{dict.landing.signalVpnTor}</span>
+                        <Badge variant="destructive">{dict.landing.signalDetected}</Badge>
                       </div>
                       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 p-3 text-xs">
-                        <span>Prototype Tampering</span>
-                        <Badge variant="success">Protégé</Badge>
+                        <span>{dict.landing.signalTampering}</span>
+                        <Badge variant="success">{dict.landing.signalProtected}</Badge>
                       </div>
                       <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/20 p-3 text-xs">
-                        <span>Cross-Browser Match</span>
+                        <span>{dict.landing.signalCrossBrowser}</span>
                         <Badge variant="outline">hardwareHash</Badge>
                       </div>
                     </div>
                     <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 font-mono text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-rose-400">
-                          Rule: Block Tor Exit Nodes
+                          {dict.landing.ruleTitle}
                         </span>
-                        <Badge variant="destructive">ACTION: BLOCK</Badge>
+                        <Badge variant="destructive">{dict.landing.ruleAction}</Badge>
                       </div>
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         if (isTor === true) → HTTP 403 + Webhook HMAC
@@ -484,19 +477,19 @@ const res = await client.get({ tag: "checkout" });`;
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
                 <h2 className="text-2xl font-bold tracking-tight">
-                  Banc d&apos;Essai Live (@bloume/id)
+                  {dict.landing.scannerTitle}
                 </h2>
                 <Badge variant="secondary" className="font-mono text-[11px]">
-                  {loading ? "..." : `${elapsedMs} ms · 104 signaux`}
+                  {loading ? "..." : `${elapsedMs} ms · 104 ${dict.landing.scannerSignalsUnit}`}
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Analyse réelle exécutée localement dans votre navigateur sans cookie ni appel tiers.
+                {dict.landing.scannerSubtitle}
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => void runLiveScan()} disabled={loading}>
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              <span>Relancer l&apos;analyse</span>
+              <span>{dict.landing.scannerRerun}</span>
             </Button>
           </div>
 
@@ -504,7 +497,7 @@ const res = await client.get({ tag: "checkout" });`;
             {/* Left: Visual Diagnostic Cards */}
             <div className="space-y-3 lg:col-span-5">
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-                <p className="text-[11px] font-medium text-muted-foreground">Visitor ID (Snowflake)</p>
+                <p className="text-[11px] font-medium text-muted-foreground">{dict.landing.cardVisitorId}</p>
                 <div className="mt-1">
                   <CopyableMono
                     value={result?.visitorId ?? "vis_loading..."}
@@ -516,7 +509,7 @@ const res = await client.get({ tag: "checkout" });`;
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-3.5">
-                  <p className="text-[11px] text-muted-foreground">Full Hash</p>
+                  <p className="text-[11px] text-muted-foreground">{dict.landing.cardFullHash}</p>
                   <div className="mt-1">
                     <CopyableMono
                       value={result?.thumbmark ? `${result.thumbmark.slice(0, 14)}...` : "..."}
@@ -526,7 +519,7 @@ const res = await client.get({ tag: "checkout" });`;
                   </div>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-3.5">
-                  <p className="text-[11px] text-muted-foreground">Hardware Hash</p>
+                  <p className="text-[11px] text-muted-foreground">{dict.landing.cardHardwareHash}</p>
                   <div className="mt-1">
                     <CopyableMono
                       value={result?.hardwareHash ? `${result.hardwareHash.slice(0, 14)}...` : "..."}
@@ -539,7 +532,7 @@ const res = await client.get({ tag: "checkout" });`;
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-border bg-card p-3.5">
-                  <p className="text-[11px] text-muted-foreground">Risque &amp; Confiance</p>
+                  <p className="text-[11px] text-muted-foreground">{dict.landing.cardRiskConfidence}</p>
                   <div className="mt-1.5 flex items-center justify-between">
                     <span className="font-mono text-lg font-bold">
                       {result?.info?.dangerLevel ?? 0} / 5
@@ -556,7 +549,7 @@ const res = await client.get({ tag: "checkout" });`;
                   </div>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-3.5">
-                  <p className="text-[11px] text-muted-foreground">OS &amp; Navigateur</p>
+                  <p className="text-[11px] text-muted-foreground">{dict.landing.cardOsBrowser}</p>
                   <p className="mt-1.5 truncate font-mono text-xs font-semibold">
                     {result ? `${result.browserName} · ${result.os}` : "..."}
                   </p>
@@ -564,22 +557,22 @@ const res = await client.get({ tag: "checkout" });`;
               </div>
 
               <div className="rounded-xl border border-border bg-card p-3.5">
-                <p className="text-xs font-semibold text-primary">GPU WebGL2 &amp; Verdicts</p>
+                <p className="text-xs font-semibold text-primary">{dict.landing.cardGpuVerdicts}</p>
                 <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
                   {result?.components?.webgl?.renderer ?? "WebGL2 Renderer"}
                 </p>
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   <Badge variant={result?.info?.isVpn ? "warning" : "secondary"}>
-                    VPN: {result?.info?.isVpn ? "Yes" : "No"}
+                    VPN: {result?.info?.isVpn ? dict.landing.yes : dict.landing.no}
                   </Badge>
                   <Badge variant={result?.info?.isTor ? "destructive" : "secondary"}>
-                    Tor: {result?.info?.isTor ? "Yes" : "No"}
+                    Tor: {result?.info?.isTor ? dict.landing.yes : dict.landing.no}
                   </Badge>
                   <Badge variant={result?.info?.isBot ? "destructive" : "secondary"}>
-                    Bot: {result?.info?.isBot ? "Yes" : "No"}
+                    Bot: {result?.info?.isBot ? dict.landing.yes : dict.landing.no}
                   </Badge>
                   <Badge variant={result?.info?.isSpoofed ? "destructive" : "secondary"}>
-                    Spoofed: {result?.info?.isSpoofed ? "Yes" : "No"}
+                    Spoofed: {result?.info?.isSpoofed ? dict.landing.yes : dict.landing.no}
                   </Badge>
                 </div>
               </div>
@@ -595,7 +588,7 @@ const res = await client.get({ tag: "checkout" });`;
                     className="h-7 text-xs"
                     onClick={() => setJsonFormat("thumbmark")}
                   >
-                    Réponse ThumbmarkJS
+                    {dict.landing.formatThumbmark}
                   </Button>
                   <Button
                     size="sm"
@@ -603,7 +596,7 @@ const res = await client.get({ tag: "checkout" });`;
                     className="h-7 text-xs"
                     onClick={() => setJsonFormat("fpjs")}
                   >
-                    Réponse Fingerprint.com
+                    {dict.landing.formatFpjs}
                   </Button>
                   <Button
                     size="sm"
@@ -611,7 +604,7 @@ const res = await client.get({ tag: "checkout" });`;
                     className="h-7 text-xs"
                     onClick={() => setJsonFormat("raw")}
                   >
-                    104 Signaux Bruts
+                    {dict.landing.formatRaw}
                   </Button>
                 </div>
                 <Button
@@ -646,20 +639,19 @@ const res = await client.get({ tag: "checkout" });`;
           <div className="text-center">
             <Badge variant="outline" className="mb-2 font-mono text-[11px]">
               <Layers className="mr-1.5 h-3.5 w-3.5 text-primary" />
-              <span>Pipeline Edge-to-Core</span>
+              <span>{dict.landing.archBadge}</span>
             </Badge>
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Architecture Souveraine en 3 Étapes
+              {dict.landing.archTitle}
             </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="border-border/80 bg-card/80">
               <CardHeader>
                 <Cpu className="h-5 w-5 text-primary" />
-                <CardTitle className="text-base">1. Collecte Navigateur (@bloume/id)</CardTitle>
+                <CardTitle className="text-base">{dict.landing.archStep1Title}</CardTitle>
                 <CardDescription className="text-xs leading-relaxed">
-                  104 signaux matériels, WebGL2, WebGPU, OfflineAudioContext, polices OS &amp; sondes
-                  anti-prototype hooks en &lt; 40 ms, sans dépendance runtime.
+                  {dict.landing.archStep1Desc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -667,11 +659,10 @@ const res = await client.get({ tag: "checkout" });`;
               <CardHeader>
                 <Zap className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">
-                  2. Intelligence Edge &amp; Trie CIDR (&lt; 1 ms)
+                  {dict.landing.archStep2Title}
                 </CardTitle>
                 <CardDescription className="text-xs leading-relaxed">
-                  Résolution locale MaxMind GeoLite2 `.mmdb` + 54 000+ plages VPN/Tor/Datacenter
-                  auto-actualisées en mémoire sans aucun appel API externe.
+                  {dict.landing.archStep2Desc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -679,11 +670,10 @@ const res = await client.get({ tag: "checkout" });`;
               <CardHeader>
                 <ShieldAlert className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">
-                  3. Identité Persistante &amp; Rule Engine
+                  {dict.landing.archStep3Title}
                 </CardTitle>
                 <CardDescription className="text-xs leading-relaxed">
-                  Réconciliation 3 niveaux (`fullHash` + `hardwareHash`/`subnet`), décisions `allow /
-                  challenge / block` et Webhooks HMAC-SHA256 optionnels.
+                  {dict.landing.archStep3Desc}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -694,10 +684,10 @@ const res = await client.get({ tag: "checkout" });`;
         <section id="compare" className="scroll-mt-20 space-y-6">
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Comparatif Technique Réel
+              {dict.landing.compareTitle}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              BloumeID {APP_VERSION_TAG} face aux solutions propriétaires et bibliothèques client-only.
+              BloumeID {APP_VERSION_TAG} {dict.landing.compareSubtitle}
             </p>
           </div>
           <Card>
@@ -705,7 +695,7 @@ const res = await client.get({ tag: "checkout" });`;
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead className="border-b border-border bg-secondary/30 text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Critère Technique</th>
+                    <th className="px-4 py-3 font-medium">{dict.landing.colCriterion}</th>
                     <th className="px-4 py-3 font-semibold text-primary">
                       BloumeID {APP_VERSION_TAG}
                     </th>
@@ -715,79 +705,79 @@ const res = await client.get({ tag: "checkout" });`;
                 </thead>
                 <tbody className="divide-y divide-border">
                   <tr>
-                    <td className="px-4 py-3 font-medium">Licence &amp; Hébergement</td>
+                    <td className="px-4 py-3 font-medium">{dict.landing.rowLicense}</td>
                     <td className="px-4 py-3 text-emerald-500">
                       <Check className="mr-1 inline h-4 w-4" />
-                      MIT · 100% Self-Hosted (Docker)
+                      {dict.landing.rowLicenseBloume}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">SaaS Propriétaire (Cloud)</td>
-                    <td className="px-4 py-3 text-muted-foreground">MIT (Client) / SaaS (Pro)</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowLicenseFpjs}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowLicenseThumb}</td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium">Coût (1M requêtes / mois)</td>
-                    <td className="px-4 py-3 font-semibold text-emerald-500">0 € (Illimité)</td>
-                    <td className="px-4 py-3 text-muted-foreground">~200 $ – 1 000 $+ / mois</td>
-                    <td className="px-4 py-3 text-muted-foreground">0 € (OSS) / Payant (Pro)</td>
+                    <td className="px-4 py-3 font-medium">{dict.landing.rowCost}</td>
+                    <td className="px-4 py-3 font-semibold text-emerald-500">{dict.landing.rowCostBloume}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowCostFpjs}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowCostThumb}</td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium">Signaux &amp; Anti-Hook</td>
+                    <td className="px-4 py-3 font-medium">{dict.landing.rowSignals}</td>
                     <td className="px-4 py-3 text-emerald-500">
                       <Check className="mr-1 inline h-4 w-4" />
-                      104 signaux + détection prototype
+                      {dict.landing.rowSignalsBloume}
                     </td>
-                    <td className="px-4 py-3">Propriétaire (~100+ signaux)</td>
-                    <td className="px-4 py-3 text-muted-foreground">~35 signaux</td>
+                    <td className="px-4 py-3">{dict.landing.rowSignalsFpjs}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowSignalsThumb}</td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium">GeoIP &amp; Threat Intel</td>
+                    <td className="px-4 py-3 font-medium">{dict.landing.rowGeoip}</td>
                     <td className="px-4 py-3 text-emerald-500">
                       <Check className="mr-1 inline h-4 w-4" />
-                      GeoLite2 + 54 000+ CIDR Radix (&lt; 1 ms)
+                      {dict.landing.rowGeoipBloume}
                     </td>
                     <td className="px-4 py-3">
                       <Check className="mr-1 inline h-4 w-4 text-emerald-500" />
-                      Inclus (Smart Signals)
+                      {dict.landing.rowGeoipFpjs}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       <X className="mr-1 inline h-4 w-4 text-destructive" />
-                      Non inclus en OSS
+                      {dict.landing.rowGeoipThumb}
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium">Réconciliation Cross-Browser</td>
+                    <td className="px-4 py-3 font-medium">{dict.landing.rowCrossBrowser}</td>
                     <td className="px-4 py-3 text-emerald-500">
                       <Check className="mr-1 inline h-4 w-4" />
-                      Hardware Hash + Subnet
+                      {dict.landing.rowCrossBrowserBloume}
                     </td>
                     <td className="px-4 py-3">
                       <Check className="mr-1 inline h-4 w-4 text-emerald-500" />
-                      Inclus (Smart Signals)
+                      {dict.landing.rowCrossBrowserFpjs}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       <X className="mr-1 inline h-4 w-4 text-destructive" />
-                      Non inclus en OSS
+                      {dict.landing.rowCrossBrowserThumb}
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium">Rule Engine SOC &amp; Webhooks</td>
+                    <td className="px-4 py-3 font-medium">{dict.landing.rowRules}</td>
                     <td className="px-4 py-3 text-emerald-500">
                       <Check className="mr-1 inline h-4 w-4" />
-                      Block / Challenge / Flag + HMAC-SHA256
+                      {dict.landing.rowRulesBloume}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">Plan Enterprise uniquement</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowRulesFpjs}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       <X className="mr-1 inline h-4 w-4 text-destructive" />
-                      Non inclus
+                      {dict.landing.rowRulesThumb}
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-4 py-3 font-medium">Compatibilité SDK Drop-in</td>
+                    <td className="px-4 py-3 font-medium">{dict.landing.rowSdkCompat}</td>
                     <td className="px-4 py-3 text-emerald-500">
                       <Check className="mr-1 inline h-4 w-4" />
-                      Dual Schema (ThumbmarkJS + FPJS)
+                      {dict.landing.rowSdkCompatBloume}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">SDK Propriétaire</td>
-                    <td className="px-4 py-3 text-muted-foreground">SDK Propriétaire</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowSdkCompatOther}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{dict.landing.rowSdkCompatOther}</td>
                   </tr>
                 </tbody>
               </table>
@@ -802,10 +792,10 @@ const res = await client.get({ tag: "checkout" });`;
               <div>
                 <div className="flex items-center gap-2">
                   <Terminal className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Déploiement &amp; Intégration Rapide</CardTitle>
+                  <CardTitle className="text-base">{dict.landing.deployTitle}</CardTitle>
                 </div>
                 <CardDescription className="text-xs">
-                  PostgreSQL 17 + Valkey 8 + Next.js 16 Standalone prêts en production.
+                  {dict.landing.deploySubtitle}
                 </CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -815,7 +805,7 @@ const res = await client.get({ tag: "checkout" });`;
                   className="h-7 text-xs"
                   onClick={() => setDeployTab("coolify")}
                 >
-                  Coolify 1-Clic
+                  {dict.landing.deployCoolify}
                 </Button>
                 <Button
                   size="sm"
@@ -823,7 +813,7 @@ const res = await client.get({ tag: "checkout" });`;
                   className="h-7 text-xs"
                   onClick={() => setDeployTab("docker")}
                 >
-                  Docker Compose
+                  {dict.landing.deployDocker}
                 </Button>
                 <Button
                   size="sm"
@@ -831,7 +821,7 @@ const res = await client.get({ tag: "checkout" });`;
                   className="h-7 text-xs"
                   onClick={() => setDeployTab("sdk")}
                 >
-                  SDK @bloume/id
+                  {dict.landing.deploySdk}
                 </Button>
                 <Button
                   size="sm"
@@ -866,7 +856,7 @@ const res = await client.get({ tag: "checkout" });`;
           <div className="flex items-center gap-2">
             <BrandLogo variant="full" size="sm" showVersion />
             <span>
-              · © 2026 Dev by{" "}
+              · © 2026 {dict.landing.footerDevBy}{" "}
               <a
                 href={BLOUME_URL}
                 target="_blank"
@@ -879,16 +869,16 @@ const res = await client.get({ tag: "checkout" });`;
           </div>
           <div className="flex flex-wrap items-center gap-5">
             <a href="#preview" className="transition-colors hover:text-foreground">
-              Aperçu
+              {dict.landing.footerPreview}
             </a>
             <a href="#scanner" className="transition-colors hover:text-foreground">
-              Live Scanner
+              {dict.landing.footerLiveScanner}
             </a>
             <a href="#compare" className="transition-colors hover:text-foreground">
-              Comparatif
+              {dict.landing.footerCompare}
             </a>
             <Link href="/dashboard" className="transition-colors hover:text-foreground">
-              Console Admin
+              {dict.landing.adminConsole}
             </Link>
             <a
               href={NPM_URL}

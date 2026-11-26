@@ -239,7 +239,7 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <p className="text-xs text-muted-foreground">GeoLite2 Location</p>
+                <p className="text-xs text-muted-foreground">{dict.landing.geoliteLocation}</p>
                 <p className="mt-1 font-mono text-xs">
                   {ipResult.country ?? "--"} ({ipResult.countryName ?? "--"}) •{" "}
                   {ipResult.city ?? "--"}

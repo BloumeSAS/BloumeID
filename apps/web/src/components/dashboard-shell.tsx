@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Command,
-  Globe,
   HeartPulse,
   KeyRound,
   ListFilter,
@@ -31,6 +30,7 @@ import {
 import { useI18n, type GlobalTimeRange } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo } from "@/components/ui/brand-logo";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,6 @@ const TIME_RANGES: readonly GlobalTimeRange[] = ["1h", "24h", "7d", "30d", "90d"
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const {
     dict,
-    locale,
-    setLocale,
     theme,
     toggleTheme,
     selectedSiteId,
@@ -439,16 +437,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               )}
             </Button>
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-testid="locale-switcher"
-              onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-            >
-              <Globe className="h-3.5 w-3.5" />
-              <span>{locale.toUpperCase()}</span>
-            </Button>
+            <LocaleSwitcher />
 
             {/* Admin Username Pill */}
             <div className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 py-1 pl-1.5 pr-3 text-xs font-semibold text-foreground">
