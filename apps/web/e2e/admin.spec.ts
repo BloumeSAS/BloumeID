@@ -25,21 +25,21 @@ test.describe("BloumeID Admin Panel & Live SDK Playground E2E", () => {
     // Switch language FR <-> EN
     await page.getByTestId("locale-switcher").click();
 
-    // Navigate to Sites & create a new site
+    // Navigate to Sites & create a new site via modal
     await page.goto("/sites");
+    await page.getByTestId("open-create-site-modal").click();
     await page.getByTestId("new-site-name").fill("Playwright E2E Site");
     await page.getByTestId("new-site-domains").fill("localhost, *.playwright.dev");
     await page.getByTestId("create-site-btn").click();
     await expect(page.getByText("Playwright E2E Site")).toBeVisible();
 
-    // Navigate to Live Playground and execute @bloume/id probe
-    await page.goto("/playground");
-    await expect(page.getByTestId("run-playground-probe")).toBeVisible();
-    await expect(page.getByText(/vis_/)).toBeVisible({ timeout: 15000 });
+    // Navigate to Landing Live Sandbox and verify @bloume/id probe
+    await page.goto("/");
+    await expect(page.getByText(/vis_/).first()).toBeVisible({ timeout: 15000 });
 
     // Navigate to Settings
     await page.goto("/settings");
-    await expect(page.getByText("x4bnet_vpn_ipv4")).toBeVisible();
+    await expect(page.getByTestId("ip-tester-btn")).toBeVisible();
   });
 });
 
