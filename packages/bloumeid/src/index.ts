@@ -2,10 +2,12 @@ import {
   collectAudio,
   collectCanvas,
   collectConnection,
+  collectCssMediaMatrix,
   collectFonts,
   collectHardware,
   collectLanguages,
   collectMath,
+  collectMediaCodecs,
   collectScreen,
   collectSpeech,
   collectStorage,
@@ -31,9 +33,59 @@ import type {
   BloumeIDResult,
   CollectorName,
   FingerprintComponents,
+  FingerprintJSGetOptions,
 } from "./types";
 
-export const SDK_VERSION = "0.1.0";
+export const SDK_VERSION = "1.0.0";
+
+function parseBrowserAndOsClient(ua: string): {
+  browserName: string;
+  browserVersion: string;
+  os: string;
+  osVersion: string;
+  device: string;
+} {
+  let browserName = "Unknown";
+  let browserVersion = "0.0";
+  const edg = ua.match(/Edg\/([\d.]+)/);
+  const chr = ua.match(/Chrome\/([\d.]+)/);
+  const ff = ua.match(/Firefox\/([\d.]+)/);
+  const saf = ua.match(/Version\/([\d.]+).*Safari/);
+  if (edg) {
+    browserName = "Edge";
+    browserVersion = edg[1] ?? "0";
+  } else if (chr) {
+    browserName = "Chrome";
+    browserVersion = chr[1] ?? "0";
+  } else if (ff) {
+    browserName = "Firefox";
+    browserVersion = ff[1] ?? "0";
+  } else if (saf) {
+    browserName = "Safari";
+    browserVersion = saf[1] ?? "0";
+  }
+
+  let os = "Unknown OS";
+  let osVersion = "";
+  const win = ua.match(/Windows NT ([\d.]+)/);
+  const mac = ua.match(/Mac OS X ([\d_]+)/);
+  const andr = ua.match(/Android ([\d.]+)/);
+  if (win) {
+    os = "Windows";
+    osVersion = win[1] ?? "10.0";
+  } else if (mac) {
+    os = "macOS";
+    osVersion = (mac[1] ?? "").replace(/_/g, ".");
+  } else if (andr) {
+    os = "Android";
+    osVersion = andr[1] ?? "";
+  } else if (/Linux/i.test(ua)) {
+    os = "Linux";
+  }
+
+  const device = /Mobi|Android|iPhone|iPad/i.test(ua) ? "Mobile" : "Desktop";
+  return { browserName, browserVersion, os, osVersion, device };
+}
 
 export class BloumeID {
   public readonly version = SDK_VERSION;
@@ -51,6 +103,10 @@ export class BloumeID {
       cacheLifetimeMs: config.options?.cacheLifetimeMs ?? 0,
       includeRawComponents: config.options?.includeRawComponents ?? true,
     };
+  }
+
+  public static async load(config: BloumeIDInitConfig = {}): Promise<BloumeID> {
+    return new BloumeID(config);
   }
 
   public getOptions(): {
@@ -94,6 +150,9 @@ export class BloumeID {
           doubleRenderConsistent: true,
           geometryHash: "excluded",
           textHash: "excluded",
+          emojiSubpixelHash: "excluded",
+          emojiAscentSum: 0,
+          emojiDescentSum: 0,
         }
       : collectCanvas();
 
@@ -113,6 +172,9 @@ export class BloumeID {
           maxViewportDims: [0, 0] as [number, number],
           maxAnisotropy: 0,
           shaderPrecisionHash: "excluded",
+          maxVertexUniformVectors: 0,
+          aliasedLineWidthRange: [1, 1] as [number, number],
+          pixelRenderHash: "excluded",
         }
       : collectWebGL();
 
@@ -128,6 +190,7 @@ export class BloumeID {
           cookieEnabled: false,
           doNotTrack: null,
           architectureHint: "excluded",
+          globalPrivacyControl: false,
         }
       : collectHardware();
 
@@ -150,6 +213,8 @@ export class BloumeID {
         }
       : collectScreen();
 
+    const cssMedia = this.isExcluded("cssMedia") ? undefined : collectCssMediaMatrix();
+
     const fonts = this.isExcluded("fonts")
       ? { detected: [], count: 0, hash: "excluded" }
       : collectFonts();
@@ -164,6 +229,7 @@ export class BloumeID {
           dateTimeFormatHash: "excluded",
           numberFormatSymbol: "",
           pluralCategories: [],
+          dstConsistent: true,
         }
       : collectTimezoneIntl();
 
@@ -197,7 +263,7 @@ export class BloumeID {
       ? { available: false, effectiveType: "excluded", rtt: 0, downlink: 0, saveData: false }
       : collectConnection();
 
-    const [webgpu, audio, userAgentData, storage, webrtc] = await Promise.all([
+    const [webgpu, audio, userAgentData, storage, webrtc, mediaCodecs] = await Promise.all([
       this.isExcluded("webgpu")
         ? Promise.resolve({
             available: false,
@@ -206,6 +272,9 @@ export class BloumeID {
             device: "excluded",
             description: "excluded",
             limitsHash: "excluded",
+            features: [],
+            maxTextureDimension2D: 0,
+            maxBindGroups: 0,
           })
         : collectWebGPU(),
       this.isExcluded("audio")
@@ -250,6 +319,7 @@ export class BloumeID {
             sdpFeedbackHash: "excluded",
           })
         : collectWebRTC(),
+      this.isExcluded("mediaCodecs") ? Promise.resolve(undefined) : collectMediaCodecs(),
     ]);
 
     const antiSpoof = this.isExcluded("antiSpoof")
@@ -257,6 +327,7 @@ export class BloumeID {
           isBot: false,
           isSpoofed: false,
           isIncognito: false,
+          isVirtualMachine: false,
           webdriver: false,
           automationArtifacts: [],
           chromeObjectAnomaly: false,
@@ -264,6 +335,11 @@ export class BloumeID {
           workerMismatch: false,
           canvasNoiseDetected: false,
           audioNoiseDetected: false,
+          prototypeTampered: false,
+          tamperedFunctions: [],
+          zeroOuterDimensions: false,
+          stackEngineMismatch: false,
+          timezoneDstMismatch: false,
           reasons: [],
         }
       : await runAntiSpoofProbes({
@@ -273,6 +349,7 @@ export class BloumeID {
           webgl,
           languages,
           storage,
+          timezoneIntl,
         });
 
     const components: FingerprintComponents = {
@@ -282,6 +359,8 @@ export class BloumeID {
       audio,
       hardware,
       screen,
+      cssMedia,
+      mediaCodecs,
       fonts,
       timezoneIntl,
       languages,
@@ -319,11 +398,14 @@ export class BloumeID {
     const fullHash = sha256Hex(
       stableStringify({
         canvas: canvas.hash,
+        emoji: canvas.emojiSubpixelHash,
         webgl,
         webgpu: webgpu.limitsHash,
         audio: audio.sampleHash,
         hardware,
         screen,
+        cssMedia,
+        mediaCodecs: mediaCodecs?.keyboardLayoutHash,
         fonts: fonts.hash,
         timezoneIntl,
         languages: languages.languages,
@@ -339,7 +421,7 @@ export class BloumeID {
       fullHash,
       hardwareHash,
       durationMs,
-      collectorCount: 48,
+      collectorCount: 72,
       components,
     };
   }
@@ -349,12 +431,14 @@ export class BloumeID {
     return data.fullHash;
   }
 
-  public async get(): Promise<BloumeIDResult> {
+  public async get(getOptions?: FingerprintJSGetOptions): Promise<BloumeIDResult> {
     const now = Date.now();
     if (
       this.options.cacheLifetimeMs > 0 &&
       this.cachedResult &&
-      this.cachedResult.expiresAt > now
+      this.cachedResult.expiresAt > now &&
+      !getOptions?.linkedId &&
+      !getOptions?.tag
     ) {
       return this.cachedResult.result;
     }
@@ -381,12 +465,17 @@ export class BloumeID {
         fullHash: fpData.fullHash,
         hardwareHash: fpData.hardwareHash,
         durationMs: fpData.durationMs,
+        linkedId: getOptions?.linkedId,
+        tag: getOptions?.tag,
         components: fpData.components,
       };
 
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), this.options.timeout);
+        const timer = setTimeout(
+          () => controller.abort(),
+          getOptions?.timeout ?? this.options.timeout
+        );
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -409,26 +498,49 @@ export class BloumeID {
           return serverResult;
         }
       } catch {
-        // Fallback to local deterministic result when offline or standalone
+        // Fallback to local deterministic evaluation when offline or standalone
       }
     }
 
     const localDanger =
       (fpData.components.antiSpoof.isBot ? 3 : 0) +
       (fpData.components.antiSpoof.isSpoofed ? 2 : 0);
+    const isoNow = new Date().toISOString();
+    const uaParsed = parseBrowserAndOsClient(fpData.components.userAgentData.userAgent);
 
     const localResult: BloumeIDResult = {
       visitorId: `vis_local_${fpData.hardwareHash.slice(0, 16)}`,
       thumbmark: fpData.fullHash,
       hardwareHash: fpData.hardwareHash,
       requestId: `req_local_${generateNonce(16)}`,
+      visitorFound: false,
       confidence: {
         score: fpData.components.antiSpoof.isSpoofed ? 0.72 : 0.95,
-        comment: "Local deterministic evaluation",
+        revision: "1.0.0",
+        comment: "Local deterministic evaluation (v1.0.0)",
       },
+      incognito: fpData.components.antiSpoof.isIncognito,
+      browserName: uaParsed.browserName,
+      browserVersion: uaParsed.browserVersion,
+      os: uaParsed.os,
+      osVersion: uaParsed.osVersion,
+      device: uaParsed.device,
+      ip: "127.0.0.1",
+      ipLocation: {
+        city: { name: null },
+        country: { code: null, name: null },
+        latitude: null,
+        longitude: null,
+        asn: { asn: null, name: null },
+      },
+      firstSeenAt: { global: isoNow, subscription: isoNow },
+      lastSeenAt: { global: isoNow, subscription: isoNow },
+      linkedId: getOptions?.linkedId ?? null,
+      tag: getOptions?.tag ?? null,
       components: fpData.components,
       info: {
         dangerLevel: Math.min(5, localDanger),
+        action: localDanger >= 4 ? "block" : localDanger >= 2 ? "challenge" : "allow",
         isBot: fpData.components.antiSpoof.isBot,
         isSpoofed: fpData.components.antiSpoof.isSpoofed,
         isIncognito: fpData.components.antiSpoof.isIncognito,
@@ -436,7 +548,14 @@ export class BloumeID {
         isTor: false,
         isDatacenter: false,
         isProxy: false,
+        isVirtualMachine: fpData.components.antiSpoof.isVirtualMachine,
         crossBrowserMatched: false,
+        vpn: false,
+        proxy: false,
+        tor: false,
+        datacenter: false,
+        bot: fpData.components.antiSpoof.isBot,
+        spoofed: fpData.components.antiSpoof.isSpoofed,
         durationMs: fpData.durationMs,
         collectorCount: fpData.collectorCount,
       },
@@ -451,6 +570,19 @@ export class BloumeID {
 
     return localResult;
   }
+}
+
+/**
+ * Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`) Drop-in Compatible Namespace
+ */
+export const FingerprintJS = {
+  load: async (config: BloumeIDInitConfig = {}): Promise<BloumeID> => {
+    return BloumeID.load(config);
+  },
+};
+
+export async function load(config: BloumeIDInitConfig = {}): Promise<BloumeID> {
+  return BloumeID.load(config);
 }
 
 export {

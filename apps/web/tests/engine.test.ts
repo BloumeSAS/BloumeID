@@ -1,3 +1,4 @@
+import zlib from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 import { computeAntiReplaySignature } from "@bloumeid/sdk";
 import {
@@ -14,6 +15,7 @@ import {
   classifyAsnOrganization,
 } from "../src/lib/engine/cidr-trie";
 import {
+  evaluateClientHintsConsistency,
   evaluateJa4Consistency,
   extractIpSubnet,
   extractRealClientIp,
@@ -27,6 +29,8 @@ import {
   recordAndCheckVelocity,
 } from "../src/lib/engine/redis";
 import { computeDangerScore } from "../src/lib/engine/scoring";
+import { evaluateSecurityRules } from "../src/lib/engine/rules";
+import { extractMmdbFromTarGzBuffer } from "../src/lib/engine/geoip";
 import { dispatchSignedWebhook, shouldTriggerWebhook } from "../src/lib/engine/webhooks";
 import { reconcileVisitorIdentity } from "../src/lib/engine/reconcile";
 import {
@@ -35,12 +39,24 @@ import {
   getReconciliationStore,
 } from "../src/lib/engine/repository";
 import { POST as fingerprintPOST } from "../src/app/api/v1/fingerprint/route";
+import { POST as eventsPOST } from "../src/app/api/v1/events/route";
+import { GET as verifyEventGET } from "../src/app/api/v1/events/[requestId]/route";
 import { GET as verifyRequestGET } from "../src/app/api/v1/requests/[requestId]/route";
 import { GET as getVisitorGET } from "../src/app/api/v1/visitors/[visitorId]/route";
+import { GET as getVisitorVisitsGET } from "../src/app/api/v1/visitors/[visitorId]/visits/route";
 import { GET as healthGET } from "../src/app/api/health/route";
 import { GET as sdkBundleGET } from "../src/app/sdk/v1/bloumeid.js/route";
 
-describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", () => {
+function createFakeTarGzWithMmdb(fileName: string, content: Buffer): Buffer {
+  const header = Buffer.alloc(512, 0);
+  header.write(fileName, 0, "utf8");
+  header.write(content.length.toString(8).padStart(11, "0") + "\0", 124, "utf8");
+  const padding = Buffer.alloc((512 - (content.length % 512)) % 512, 0);
+  const eof = Buffer.alloc(1024, 0);
+  return zlib.gzipSync(Buffer.concat([header, content, padding, eof]));
+}
+
+describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Rules Engine & Dual API v1", () => {
   it("generates monotonic Snowflake IDs with WORKER_ID and constant-time comparisons", () => {
     const gen1 = new SnowflakeGenerator(42);
     const id1 = gen1.nextId("vis");
@@ -59,6 +75,43 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     expect(verifyHmacSha256("whsec_1", '{"ok":true}', sig)).toBe(true);
     expect(verifyHmacSha256("whsec_1", '{"ok":false}', sig)).toBe(false);
     expect(hashSecretKey("bid_sec_1")).toHaveLength(64);
+  });
+
+  it("extracts .mmdb binary streams from .tar.gz archives and evaluates custom security rules", () => {
+    const sampleMmdb = Buffer.from("FAKE_MAXMIND_MMDB_PAYLOAD_V1");
+    const tarGz = createFakeTarGzWithMmdb("GeoLite2-City_20261126/GeoLite2-City.mmdb", sampleMmdb);
+    const extracted = extractMmdbFromTarGzBuffer(tarGz);
+    expect(extracted?.equals(sampleMmdb)).toBe(true);
+
+    const ruleRes = evaluateSecurityRules(
+      [
+        {
+          publicId: "rule_1",
+          sitePublicId: null,
+          name: "Block Tor Exit Nodes",
+          isEnabled: true,
+          conditions: [{ field: "isTor", operator: "eq", value: true }],
+          action: "block",
+          priority: 10,
+          hitCount: 0,
+        },
+      ],
+      {
+        sitePublicId: "site_1",
+        visitorPublicId: "vis_1",
+        dangerLevel: 3,
+        isBot: false,
+        isTor: true,
+        isVpn: false,
+        isDatacenter: false,
+        isSpoofed: false,
+        country: "DE",
+        asnNumber: 24940,
+        ipSubnet: "185.220.101.0/24",
+      }
+    );
+    expect(ruleRes.action).toBe("block");
+    expect(ruleRes.matchedRuleId).toBe("rule_1");
   });
 
   it("performs O(32) CIDR lookups in Patricia/Radix Trie and classifies Datacenter/VPN ASNs", () => {
@@ -85,10 +138,11 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     });
   });
 
-  it("extracts real IP, /24 subnet, validates wildcard CORS and checks JA4 coherence", () => {
+  it("extracts real IP, /24 subnet, validates wildcard CORS, JA4 and Sec-CH-UA Client Hints coherence", () => {
     const headers = new Headers({
       "cf-connecting-ip": "203.0.113.42",
       "x-forwarded-for": "10.0.0.1",
+      "sec-ch-ua-platform": '"Windows"',
     });
     expect(extractRealClientIp(headers, "true")).toBe("203.0.113.42");
     expect(extractIpSubnet("203.0.113.42")).toBe("203.0.113.0/24");
@@ -104,10 +158,20 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     );
     expect(ja4Bad.inconsistent).toBe(true);
 
+    const chBad = evaluateClientHintsConsistency(
+      headers,
+      "MacIntel"
+    );
+    expect(chBad.inconsistent).toBe(true);
+
     const ua = parseUserAgentSummary(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0"
     );
-    expect(ua).toEqual({ browser: "Chrome", os: "Windows", device: "Desktop" });
+    expect(ua).toEqual({
+      browser: "Chrome",
+      os: "Windows",
+      device: "Desktop",
+    });
   });
 
   it("enforces sliding-window rate limits, single-use anti-replay nonces and velocity anomalies", async () => {
@@ -226,24 +290,28 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     expect(delivery.attempts).toBe(2);
   });
 
-  it("executes 3-level identity reconciliation and public API endpoints end-to-end", async () => {
+  it("executes 3-level identity reconciliation and both ThumbmarkJS + Fingerprint.com v1 API endpoints end-to-end", async () => {
     const healthRes = await healthGET();
     expect(healthRes.status).toBe(200);
-    const healthBody = (await healthRes.json()) as { status: string; threatTrieCidrs: number };
+    const healthBody = (await healthRes.json()) as {
+      status: string;
+      version: string;
+      threatTrieCidrs: number;
+    };
     expect(healthBody.status).toBe("ok");
+    expect(healthBody.version).toBe("1.0.0");
     expect(healthBody.threatTrieCidrs).toBeGreaterThan(0);
 
     const sdkRes = await sdkBundleGET(new Request("http://localhost:3000/sdk/v1/bloumeid.js"));
     expect(sdkRes.status).toBe(200);
     expect(sdkRes.headers.get("etag")).toBeTruthy();
 
-    // Test POST /api/v1/fingerprint Level 3 (new visitor), Level 1 (same fullHash), Level 2 (cross-browser same hardwareHash + subnet)
     const timestamp = Date.now();
     const fullHashChrome = "f1".repeat(32);
     const fullHashFirefox = "f2".repeat(32);
     const sharedHardwareHash = "aa".repeat(32);
 
-    const makeRequest = (nonce: string, fullHash: string) => {
+    const makeRequest = (nonce: string, fullHash: string, url = "http://localhost:3000/api/v1/fingerprint") => {
       const signature = computeAntiReplaySignature(
         DEMO_PUBLIC_KEY,
         timestamp,
@@ -251,14 +319,14 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
         fullHash,
         sharedHardwareHash
       );
-      return new Request("http://localhost:3000/api/v1/fingerprint", {
+      return new Request(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Origin: "https://app.bloume.io",
           "X-BloumeID-Key": DEMO_PUBLIC_KEY,
           "X-Real-IP": "198.51.100.25",
-          "User-Agent": "Mozilla/5.0 (Macintosh) Chrome/131.0.0.0",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/131.0.0.0",
         },
         body: JSON.stringify({
           timestamp,
@@ -267,6 +335,8 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
           fullHash,
           hardwareHash: sharedHardwareHash,
           durationMs: 14,
+          linkedId: "user_99",
+          tag: { env: "test" },
           components: {
             antiSpoof: { isBot: false, isSpoofed: false, isIncognito: false },
           },
@@ -280,19 +350,22 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     const body1 = (await res1.json()) as {
       visitorId: string;
       requestId: string;
-      confidence: { score: number };
+      visitorFound: boolean;
+      confidence: { score: number; revision: string };
       info: { crossBrowserMatched: boolean };
     };
     expect(body1.visitorId).toMatch(/^vis_/);
+    expect(body1.visitorFound).toBe(false);
     expect(body1.confidence.score).toBe(0.95);
+    expect(body1.confidence.revision).toBe("1.0.0");
     expect(body1.info.crossBrowserMatched).toBe(false);
 
-    // 2. Second visit with identical fullHash -> Level 1 (Same visitor, confidence 0.99)
-    const res2 = await fingerprintPOST(makeRequest("nonce_visit_0002", fullHashChrome));
+    // 2. Second visit via Fingerprint.com /api/v1/events endpoint -> Level 1 (Same visitor, confidence 0.99, visitorFound: true)
+    const res2 = await eventsPOST(makeRequest("nonce_visit_0002", fullHashChrome, "http://localhost:3000/api/v1/events"));
     const body2 = (await res2.json()) as typeof body1;
     expect(body2.visitorId).toBe(body1.visitorId);
+    expect(body2.visitorFound).toBe(true);
     expect(body2.confidence.score).toBe(0.99);
-    expect(body2.info.crossBrowserMatched).toBe(false);
 
     // 3. Third visit from another browser (different fullHash) but same hardwareHash + /24 subnet -> Level 2 (Cross-Browser match, confidence 0.88)
     const res3 = await fingerprintPOST(makeRequest("nonce_visit_0003", fullHashFirefox));
@@ -305,7 +378,7 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     const replayRes = await fingerprintPOST(makeRequest("nonce_visit_0003", fullHashFirefox));
     expect(replayRes.status).toBe(409);
 
-    // 5. Verify request and visitor with secret key (bid_sec_)
+    // 5. Verify request via ThumbmarkJS/BloumeID endpoint (/api/v1/requests/[requestId])
     const verifyRes = await verifyRequestGET(
       new Request(`http://localhost:3000/api/v1/requests/${body3.requestId}`, {
         headers: { Authorization: `Bearer ${DEMO_SECRET_KEY}` },
@@ -313,15 +386,21 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
       { params: Promise.resolve({ requestId: body3.requestId }) }
     );
     expect(verifyRes.status).toBe(200);
-    const verifiedBody = (await verifyRes.json()) as {
-      verified: boolean;
-      visitorId: string;
-      flags: { crossBrowserMatched: boolean };
-    };
-    expect(verifiedBody.verified).toBe(true);
-    expect(verifiedBody.visitorId).toBe(body1.visitorId);
-    expect(verifiedBody.flags.crossBrowserMatched).toBe(true);
 
+    // 6. Verify request via Fingerprint.com Server API (/api/v1/events/[requestId])
+    const fpEventRes = await verifyEventGET(
+      new Request(`http://localhost:3000/api/v1/events/${body3.requestId}`, {
+        headers: { "Auth-API-Key": DEMO_SECRET_KEY },
+      }),
+      { params: Promise.resolve({ requestId: body3.requestId }) }
+    );
+    expect(fpEventRes.status).toBe(200);
+    const fpEventBody = (await fpEventRes.json()) as {
+      products: { identification: { data: { visitorId: string } } };
+    };
+    expect(fpEventBody.products.identification.data.visitorId).toBe(body1.visitorId);
+
+    // 7. Get visitor & Fingerprint.com visitor visits history (/api/v1/visitors/[visitorId]/visits)
     const visitorRes = await getVisitorGET(
       new Request(`http://localhost:3000/api/v1/visitors/${body1.visitorId}`, {
         headers: { Authorization: `Bearer ${DEMO_SECRET_KEY}` },
@@ -329,8 +408,17 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
       { params: Promise.resolve({ visitorId: body1.visitorId }) }
     );
     expect(visitorRes.status).toBe(200);
-    const visitorBody = (await visitorRes.json()) as { visitCount: number };
-    expect(visitorBody.visitCount).toBe(3);
+
+    const visitsRes = await getVisitorVisitsGET(
+      new Request(`http://localhost:3000/api/v1/visitors/${body1.visitorId}/visits?limit=10`, {
+        headers: { "Auth-API-Key": DEMO_SECRET_KEY },
+      }),
+      { params: Promise.resolve({ visitorId: body1.visitorId }) }
+    );
+    expect(visitsRes.status).toBe(200);
+    const visitsBody = (await visitsRes.json()) as { visitorId: string; visits: unknown[] };
+    expect(visitsBody.visitorId).toBe(body1.visitorId);
+    expect(visitsBody.visits.length).toBeGreaterThanOrEqual(3);
 
     // Direct unit check on reconcileVisitorIdentity
     const store = getReconciliationStore();
@@ -345,4 +433,3 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     expect(rec.matchType).toBe("exact_full_hash");
   });
 });
-

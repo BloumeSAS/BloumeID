@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
 import { globalThreatTrie } from "@/lib/engine/cidr-trie";
-import { ensureDefaultTrieSeeded, syncAllThreatFeeds } from "@/lib/engine/feeds";
-import { getGeoIpStatus } from "@/lib/engine/geoip";
+import {
+  ensureDefaultTrieSeeded,
+  evaluateIpThreatIntel,
+  syncAllThreatFeeds,
+} from "@/lib/engine/feeds";
+import { downloadAndUpdateGeoLite2, getGeoIpStatus } from "@/lib/engine/geoip";
 import {
   getDashboardMetrics,
   listThreatFeedStatuses,
@@ -13,6 +17,8 @@ import {
 
 const ActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("sync_feeds") }),
+  z.object({ action: z.literal("update_geolite2"), licenseKey: z.string().optional() }),
+  z.object({ action: z.literal("lookup_ip"), ipAddress: z.string().min(3).max(128) }),
   z.object({
     action: z.literal("purge_events"),
     retentionDays: z.number().int().min(1).max(3650),
@@ -54,7 +60,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const csvHeader =
-      "requestId,visitorId,siteId,fullHash,hardwareHash,ipAddress,country,asnNumber,dangerLevel,isBot,isSpoofed,isVpn,isTor,createdAt";
+      "requestId,visitorId,siteId,fullHash,hardwareHash,ipAddress,country,asnNumber,dangerLevel,ruleAction,isBot,isSpoofed,isVpn,isTor,createdAt";
     const csvRows = metrics.recentHighRiskEvents.map((e) =>
       [
         e.publicId,
@@ -66,6 +72,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         e.country ?? "",
         e.asnNumber ?? "",
         e.dangerLevel,
+        e.ruleAction,
         e.isBot,
         e.isSpoofed,
         e.isVpn,
@@ -119,7 +126,24 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(syncResult, { status: 200 });
   }
 
+  if (parsed.data.action === "update_geolite2") {
+    const geoResult = await downloadAndUpdateGeoLite2({
+      licenseKey: parsed.data.licenseKey,
+    });
+    return NextResponse.json(geoResult, { status: 200 });
+  }
+
+  if (parsed.data.action === "lookup_ip") {
+    const intel = await evaluateIpThreatIntel(parsed.data.ipAddress.trim());
+    return NextResponse.json(
+      {
+        ipAddress: parsed.data.ipAddress.trim(),
+        ...intel,
+      },
+      { status: 200 }
+    );
+  }
+
   const purgedCount = await purgeOldFingerprintEvents(parsed.data.retentionDays);
   return NextResponse.json({ purgedCount }, { status: 200 });
 }
-

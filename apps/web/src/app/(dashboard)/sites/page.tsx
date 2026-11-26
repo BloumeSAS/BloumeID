@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Code2, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
+import { Activity, Code2, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { PublicSiteDTO } from "@/types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { PublicSiteDTO, PublicWebhookDeliveryDTO } from "@/types";
 
 export default function SitesPage() {
   const { dict } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
+  const [webhookDeliveries, setWebhookDeliveries] = React.useState<PublicWebhookDeliveryDTO[]>([]);
   const [newName, setNewName] = React.useState("");
   const [newDomains, setNewDomains] = React.useState("localhost, *.example.com");
   const [newWebhook, setNewWebhook] = React.useState("");
@@ -27,8 +36,14 @@ export default function SitesPage() {
   const loadSites = React.useCallback(async () => {
     const res = await fetch("/api/admin/sites");
     if (res.ok) {
-      const data = (await res.json()) as { sites: PublicSiteDTO[] };
+      const data = (await res.json()) as {
+        sites: PublicSiteDTO[];
+        webhookDeliveries?: PublicWebhookDeliveryDTO[];
+      };
       setSites(data.sites);
+      if (data.webhookDeliveries) {
+        setWebhookDeliveries(data.webhookDeliveries);
+      }
     }
   }, []);
 
@@ -73,6 +88,7 @@ export default function SitesPage() {
       setSites((prev) => prev.map((s) => (s.publicId === publicId ? data.site : s)));
       if (payload.testWebhook) {
         setWebhookStatus(dict.sites.webhookSent);
+        void loadSites();
         setTimeout(() => setWebhookStatus(null), 3000);
       }
     }
@@ -95,7 +111,7 @@ export default function SitesPage() {
       </div>
 
       {webhookStatus ? (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-300">
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-400">
           {webhookStatus}
         </div>
       ) : null}
@@ -161,9 +177,9 @@ export default function SitesPage() {
       <div className="grid gap-6">
         {sites.map((site) => (
           <Card key={site.publicId}>
-            <CardHeader className="flex flex-row items-start justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2.5">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <CardTitle className="text-lg">{site.name}</CardTitle>
                   <CopyableMono
                     value={site.publicId}
@@ -172,6 +188,13 @@ export default function SitesPage() {
                   />
                   <Badge variant={site.isActive ? "success" : "secondary"}>
                     {site.isActive ? dict.common.active : dict.common.inactive}
+                  </Badge>
+                  <Badge variant="outline" className="gap-1 font-mono text-xs">
+                    <Activity className="h-3 w-3 text-primary" />
+                    {dict.sites.requests24h}: {site.requests24h ?? 0}
+                  </Badge>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {dict.sites.requests30d}: {site.requests30d ?? 0}
                   </Badge>
                 </div>
                 <CardDescription className="flex flex-wrap gap-1.5 pt-1">
@@ -183,7 +206,7 @@ export default function SitesPage() {
                 </CardDescription>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -280,6 +303,59 @@ export default function SitesPage() {
         ))}
       </div>
 
+      {/* Webhook Delivery Logs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{dict.sites.webhookLogsTitle}</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{dict.events.colRequest}</TableHead>
+                <TableHead>{dict.common.status}</TableHead>
+                <TableHead>{dict.playground.durationLabel}</TableHead>
+                <TableHead>{dict.sites.webhookUrl}</TableHead>
+                <TableHead>{dict.events.colTime}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {webhookDeliveries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                    {dict.sites.webhookNoLogs}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                webhookDeliveries.map((wh) => (
+                  <TableRow key={wh.publicId}>
+                    <TableCell>
+                      <CopyableMono
+                        value={wh.publicId}
+                        copyLabel={dict.common.copy}
+                        copiedLabel={dict.common.copied}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={wh.delivered ? "success" : "destructive"} className="font-mono">
+                        {wh.statusCode ?? "ERR"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{wh.durationMs} ms</TableCell>
+                    <TableCell className="max-w-xs truncate font-mono text-xs text-muted-foreground">
+                      {wh.targetUrl}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {new Date(wh.createdAt).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <Dialog
         open={Boolean(modalSite)}
         onOpenChange={(open) => !open && setModalSite(null)}
@@ -289,8 +365,9 @@ export default function SitesPage() {
       >
         {modalSite ? (
           <Tabs defaultValue="npm">
-            <TabsList>
+            <TabsList className="flex-wrap">
               <TabsTrigger value="npm">{dict.sites.tabNpm}</TabsTrigger>
+              <TabsTrigger value="fp">{dict.sites.tabFpPro}</TabsTrigger>
               <TabsTrigger value="react">{dict.sites.tabReact}</TabsTrigger>
               <TabsTrigger value="script">{dict.sites.tabScript}</TabsTrigger>
               <TabsTrigger value="node">{dict.sites.tabNode}</TabsTrigger>
@@ -307,6 +384,22 @@ const bloumeid = new BloumeID({
 
 const result = await bloumeid.get();
 console.log(result.visitorId, result.thumbmark, result.info.dangerLevel);`}
+              </pre>
+            </TabsContent>
+
+            <TabsContent value="fp">
+              <pre className="overflow-x-auto rounded-lg border border-border bg-secondary/40 p-4 font-mono text-xs">
+{`import FingerprintJS from "@bloumeid/sdk";
+
+// 100% Drop-in Fingerprint.com (FingerprintJS Pro) replacement
+const fpPromise = FingerprintJS.load({
+  apiKey: "${modalSite.publicKey}",
+  endpoint: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_URL
+});
+
+const fp = await fpPromise;
+const result = await fp.get({ extendedResult: true, linkedId: "user_42" });
+console.log(result.visitorId, result.visitorFound, result.ipLocation);`}
               </pre>
             </TabsContent>
 
@@ -363,4 +456,3 @@ if (verified.dangerLevel >= ${modalSite.riskThreshold} || verified.flags.isBot) 
     </div>
   );
 }
-

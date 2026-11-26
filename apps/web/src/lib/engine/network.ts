@@ -125,6 +125,33 @@ export function evaluateJa4Consistency(ja4Hash: string | null, userAgent: string
   return { inconsistent: false };
 }
 
+export function evaluateClientHintsConsistency(
+  headers: Headers,
+  reportedPlatform?: string
+): { inconsistent: boolean; reason?: string } {
+  const secChPlatform = headers.get("sec-ch-ua-platform")?.replace(/"/g, "").trim();
+  if (!secChPlatform || !reportedPlatform || reportedPlatform === "unknown" || reportedPlatform === "excluded") {
+    return { inconsistent: false };
+  }
+
+  const chNorm = secChPlatform.toLowerCase();
+  const repNorm = reportedPlatform.toLowerCase();
+
+  if (chNorm.includes("windows") && (repNorm.includes("mac") || repNorm.includes("linux"))) {
+    return {
+      inconsistent: true,
+      reason: `Sec-CH-UA-Platform (${secChPlatform}) contradicts client navigator.platform (${reportedPlatform})`,
+    };
+  }
+  if (chNorm.includes("mac") && (repNorm.includes("win") || repNorm.includes("linux"))) {
+    return {
+      inconsistent: true,
+      reason: `Sec-CH-UA-Platform (${secChPlatform}) contradicts client navigator.platform (${reportedPlatform})`,
+    };
+  }
+  return { inconsistent: false };
+}
+
 export function parseUserAgentSummary(userAgent: string): ParsedUserAgent {
   const ua = userAgent || "";
   let browser = "Unknown Browser";

@@ -5,6 +5,7 @@ import type {
   HardwareComponent,
   LanguagesComponent,
   StorageComponent,
+  TimezoneIntlComponent,
   WebGLComponent,
 } from "./types";
 
@@ -33,9 +34,92 @@ const AUTOMATION_GLOBALS = [
   "domAutomationController",
 ] as const;
 
-async function probeWorkerConsistency(
-  mainHardware: HardwareComponent
-): Promise<boolean> {
+const VM_RENDERER_PATTERNS =
+  /SwiftShader|llvmpipe|VirtualBox|VMware|Parallels|QEMU|Microsoft Basic Render Driver| SVGA3D|Chromium/i;
+
+function inspectPrototypeTampering(): string[] {
+  const tampered: string[] = [];
+  if (typeof window === "undefined") return tampered;
+
+  const isNativeFn = (fn: unknown): boolean => {
+    if (typeof fn !== "function") return true;
+    try {
+      const str = Function.prototype.toString.call(fn);
+      return /\{\s*\[native code\]\s*\}/.test(str);
+    } catch {
+      return false;
+    }
+  };
+
+  try {
+    if (typeof Navigator !== "undefined") {
+      const desc = Object.getOwnPropertyDescriptor(Navigator.prototype, "userAgent");
+      if (desc?.get && !isNativeFn(desc.get)) {
+        tampered.push("Navigator.prototype.userAgent");
+      }
+      if (typeof navigator !== "undefined" && Object.prototype.hasOwnProperty.call(navigator, "userAgent")) {
+        tampered.push("navigator.userAgent(ownProperty)");
+      }
+    }
+  } catch {
+    // Ignore descriptor error
+  }
+
+  try {
+    if (typeof HTMLCanvasElement !== "undefined") {
+      if (!isNativeFn(HTMLCanvasElement.prototype.toDataURL)) {
+        tampered.push("HTMLCanvasElement.prototype.toDataURL");
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  try {
+    if (typeof AudioBuffer !== "undefined") {
+      if (!isNativeFn(AudioBuffer.prototype.getChannelData)) {
+        tampered.push("AudioBuffer.prototype.getChannelData");
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  try {
+    if (typeof WebGLRenderingContext !== "undefined") {
+      if (!isNativeFn(WebGLRenderingContext.prototype.getParameter)) {
+        tampered.push("WebGLRenderingContext.prototype.getParameter");
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  return tampered;
+}
+
+function detectStackEngineMismatch(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (!ua) return false;
+
+  try {
+    const err = new Error("bloumeid_stack_probe");
+    const stack = err.stack || "";
+    const hasV8StackStyle = /at\s+/.test(stack);
+    const claimsFirefoxOrSafariOnly =
+      (/Firefox\//i.test(ua) || (/Safari\//i.test(ua) && !/Chrome|Chromium|Edg/i.test(ua)));
+
+    if (claimsFirefoxOrSafariOnly && hasV8StackStyle && stack.includes("    at ")) {
+      return true;
+    }
+  } catch {
+    // Ignore
+  }
+  return false;
+}
+
+async function probeWorkerConsistency(mainHardware: HardwareComponent): Promise<boolean> {
   if (
     typeof window === "undefined" ||
     typeof Worker === "undefined" ||
@@ -114,16 +198,12 @@ async function probePermissionsInconsistency(): Promise<boolean> {
 }
 
 async function detectPrivateMode(storage: StorageComponent): Promise<boolean> {
-  // Heuristic 1: Storage quota in Chromium incognito is typically capped around 120MB - 350MB
   if (storage.quotaBytes > 0 && storage.quotaBytes < 130 * 1024 * 1024) {
     return true;
   }
-
-  // Heuristic 2: IndexedDB availability & persistence check
   if (typeof window !== "undefined" && !storage.indexedDB) {
     return true;
   }
-
   return false;
 }
 
@@ -134,6 +214,7 @@ export async function runAntiSpoofProbes(params: {
   webgl: WebGLComponent;
   languages: LanguagesComponent;
   storage: StorageComponent;
+  timezoneIntl?: TimezoneIntlComponent;
 }): Promise<AntiSpoofComponent> {
   const reasons: string[] = [];
   const automationArtifacts: string[] = [];
@@ -153,7 +234,6 @@ export async function runAntiSpoofProbes(params: {
     }
   }
 
-  // Check for CDP / Selenium $cdc_ or $wdc_ properties on document
   if (typeof document !== "undefined") {
     for (const prop of Object.getOwnPropertyNames(document)) {
       if (/^\$(cdc|wdc)_/.test(prop)) {
@@ -166,7 +246,6 @@ export async function runAntiSpoofProbes(params: {
     reasons.push(`automation artifacts: ${automationArtifacts.join(",")}`);
   }
 
-  // Check malformed window.chrome on Chromium user agents
   const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
   const isChromiumUa = /Chrome\/|Chromium\/|Edg\//i.test(ua);
   const chromeObj = win.chrome as Record<string, unknown> | undefined;
@@ -175,9 +254,36 @@ export async function runAntiSpoofProbes(params: {
     reasons.push("Chromium UA missing window.chrome object");
   }
 
-  // Headless / SwiftShader / LLVMpipe WebGL renderer detection
-  if (/SwiftShader|llvmpipe|HeadlessChrome/i.test(params.webgl.unmaskedRenderer || ua)) {
-    reasons.push("Software/headless WebGL renderer detected");
+  const isVirtualMachine = VM_RENDERER_PATTERNS.test(params.webgl.unmaskedRenderer || "");
+  if (isVirtualMachine) {
+    reasons.push(`VM or software WebGL renderer detected (${params.webgl.unmaskedRenderer})`);
+  }
+
+  const tamperedFunctions = inspectPrototypeTampering();
+  const prototypeTampered = tamperedFunctions.length > 0;
+  if (prototypeTampered) {
+    reasons.push(`Native prototype hooks detected: ${tamperedFunctions.join(", ")}`);
+  }
+
+  const zeroOuterDimensions =
+    typeof window !== "undefined" &&
+    typeof window.outerWidth === "number" &&
+    typeof window.outerHeight === "number" &&
+    window.outerWidth === 0 &&
+    window.outerHeight === 0 &&
+    window.innerWidth > 0;
+  if (zeroOuterDimensions) {
+    reasons.push("Zero outerWidth/outerHeight window geometry (headless browser)");
+  }
+
+  const stackEngineMismatch = detectStackEngineMismatch();
+  if (stackEngineMismatch) {
+    reasons.push("Error.stack format contradicts claimed User-Agent engine");
+  }
+
+  const timezoneDstMismatch = params.timezoneIntl ? params.timezoneIntl.dstConsistent === false : false;
+  if (timezoneDstMismatch) {
+    reasons.push("Intl timezone contradicts Date.getTimezoneOffset()");
   }
 
   const permissionsInconsistent = await probePermissionsInconsistency();
@@ -210,6 +316,7 @@ export async function runAntiSpoofProbes(params: {
     webdriver ||
     automationArtifacts.length > 0 ||
     permissionsInconsistent ||
+    zeroOuterDimensions ||
     /HeadlessChrome|PhantomJS|SlimerJS/i.test(ua);
 
   const isSpoofed =
@@ -217,12 +324,16 @@ export async function runAntiSpoofProbes(params: {
     workerMismatch ||
     canvasNoiseDetected ||
     audioNoiseDetected ||
+    prototypeTampered ||
+    stackEngineMismatch ||
+    timezoneDstMismatch ||
     !params.languages.consistentMainLanguage;
 
   return {
     isBot,
     isSpoofed,
     isIncognito,
+    isVirtualMachine,
     webdriver,
     automationArtifacts,
     chromeObjectAnomaly,
@@ -230,6 +341,11 @@ export async function runAntiSpoofProbes(params: {
     workerMismatch,
     canvasNoiseDetected,
     audioNoiseDetected,
+    prototypeTampered,
+    tamperedFunctions,
+    zeroOuterDimensions,
+    stackEngineMismatch,
+    timezoneDstMismatch,
     reasons,
   };
 }

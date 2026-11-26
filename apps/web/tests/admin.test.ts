@@ -11,6 +11,12 @@ import {
 import { POST as loginPOST } from "../src/app/api/admin/auth/login/route";
 import { POST as logoutPOST } from "../src/app/api/admin/auth/logout/route";
 import { GET as dashboardGET } from "../src/app/api/admin/dashboard/route";
+import { GET as eventsGET } from "../src/app/api/admin/events/route";
+import {
+  GET as rulesGET,
+  POST as rulesPOST,
+  DELETE as rulesDELETE,
+} from "../src/app/api/admin/rules/route";
 import {
   GET as sitesGET,
   POST as sitesPOST,
@@ -26,7 +32,7 @@ import {
   POST as settingsPOST,
 } from "../src/app/api/admin/settings/route";
 
-describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings", () => {
+describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visitors, Settings) & Zero Hardcoded UI Strings", () => {
   it("authenticates ADMIN_MASTER_KEY in constant time and issues signed HMAC cookies", async () => {
     const masterKey = getConfiguredMasterKey();
     expect(verifyMasterKey(masterKey)).toBe(true);
@@ -61,7 +67,7 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
     expect(logoutRes.status).toBe(200);
   });
 
-  it("operates Admin Dashboard, Sites CRUD/Rotation, Visitors & Settings APIs", async () => {
+  it("operates Admin Dashboard, Events Audit Log, Security Rules, Sites CRUD/Rotation, Visitors Trust/Merge & Settings IP Tester APIs", async () => {
     const token = createSignedAdminSessionToken();
     const authHeaders = {
       Cookie: `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}`,
@@ -72,14 +78,62 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
     const unauth = await dashboardGET(new Request("http://localhost:3000/api/admin/dashboard"));
     expect(unauth.status).toBe(401);
 
-    // Dashboard metrics
+    // Dashboard metrics (Cap-style leaderboards + stacked timeline)
     const dashRes = await dashboardGET(
       new Request("http://localhost:3000/api/admin/dashboard?period=7d", { headers: authHeaders })
     );
     expect(dashRes.status).toBe(200);
-    const dashData = (await dashRes.json()) as { period: string; totalEvents: number };
+    const dashData = (await dashRes.json()) as {
+      period: string;
+      totalEvents: number;
+      topCountries: Array<{ country: string }>;
+      topAsns: Array<{ asnNumber: number }>;
+    };
     expect(dashData.period).toBe("7d");
     expect(dashData.totalEvents).toBeGreaterThanOrEqual(2);
+    expect(Array.isArray(dashData.topCountries)).toBe(true);
+    expect(Array.isArray(dashData.topAsns)).toBe(true);
+
+    // Events Audit Log API
+    const eventsRes = await eventsGET(
+      new Request("http://localhost:3000/api/admin/events?minDanger=0", { headers: authHeaders })
+    );
+    expect(eventsRes.status).toBe(200);
+    const eventsBody = (await eventsRes.json()) as { events: Array<{ requestId: string }> };
+    expect(eventsBody.events.length).toBeGreaterThan(0);
+
+    // Security Rules CRUD API
+    const createRuleRes = await rulesPOST(
+      new Request("http://localhost:3000/api/admin/rules", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          name: "Challenge Datacenter Traffic",
+          conditions: [{ field: "isDatacenter", operator: "eq", value: true }],
+          action: "challenge",
+          priority: 15,
+        }),
+      })
+    );
+    expect(createRuleRes.status).toBe(201);
+    const createdRuleBody = (await createRuleRes.json()) as {
+      rule: { publicId: string; action: string };
+    };
+    expect(createdRuleBody.rule.publicId).toMatch(/^rule_/);
+    expect(createdRuleBody.rule.action).toBe("challenge");
+
+    const listRulesRes = await rulesGET(
+      new Request("http://localhost:3000/api/admin/rules", { headers: authHeaders })
+    );
+    expect(listRulesRes.status).toBe(200);
+
+    const delRuleRes = await rulesDELETE(
+      new Request(
+        `http://localhost:3000/api/admin/rules?publicId=${createdRuleBody.rule.publicId}`,
+        { method: "DELETE", headers: authHeaders }
+      )
+    );
+    expect(delRuleRes.status).toBe(200);
 
     // Sites CRUD + key rotation
     const createRes = await sitesPOST(
@@ -128,7 +182,7 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
     );
     expect(delRes.status).toBe(200);
 
-    // Visitors list & annotation update
+    // Visitors list & trustStatus update
     const visListRes = await visitorsGET(
       new Request("http://localhost:3000/api/admin/visitors", { headers: authHeaders })
     );
@@ -147,16 +201,32 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
           publicId: targetVisitorId,
           tags: ["reviewed", "trusted"],
           notes: "Verified by SOC analyst",
+          trustStatus: "trusted",
         }),
       })
     );
     expect(patchVisRes.status).toBe(200);
 
-    // Settings status & CSV/JSON export
+    // Settings status, Live IP Lookup Tester & CSV/JSON export
     const settingsRes = await settingsGET(
       new Request("http://localhost:3000/api/admin/settings", { headers: authHeaders })
     );
     expect(settingsRes.status).toBe(200);
+
+    const ipLookupRes = await settingsPOST(
+      new Request("http://localhost:3000/api/admin/settings", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ action: "lookup_ip", ipAddress: "185.220.101.1" }),
+      })
+    );
+    expect(ipLookupRes.status).toBe(200);
+    const ipLookupBody = (await ipLookupRes.json()) as {
+      ipAddress: string;
+      isTor: boolean;
+    };
+    expect(ipLookupBody.ipAddress).toBe("185.220.101.1");
+    expect(ipLookupBody.isTor).toBe(true);
 
     const csvRes = await settingsGET(
       new Request("http://localhost:3000/api/admin/settings?export=csv", {
@@ -181,6 +251,8 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
       path.resolve(__dirname, "../src/app/page.tsx"),
       path.resolve(__dirname, "../src/app/login/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/dashboard/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/events/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/rules/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/sites/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/visitors/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/visitors/[visitorId]/page.tsx"),
@@ -195,4 +267,3 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
     }
   });
 });
-

@@ -7,3 +7,4 @@ Zero-dependency browser fingerprinting, anti-spoofing, bot detection and server 
 - **Anti-Spoof & Bot Detection**: Detects `navigator.webdriver`, Playwright/Puppeteer/CDP/Selenium globals, malformed `window.chrome`, inconsistent `Permissions.query`, Web Worker vs Main Thread navigator tampering, and private/incognito quota heuristics.
 - **100% ThumbmarkJS Pro Compatible API**: `new BloumeID({ apiKey, endpoint, options })`, `get()`, `getFingerprint()`, `getFingerprintData()`, `setOption()`.
 - **Server-Side Verification (`@bloumeid/sdk/server`)**: `BloumeIDServer` with `verifyRequest(requestId)` and `getVisitor(visitorId)`.
+

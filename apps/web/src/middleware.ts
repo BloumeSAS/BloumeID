@@ -53,7 +53,15 @@ async function verifySessionTokenEdge(token: string | undefined): Promise<boolea
   return constantTimeHexEqual(expected, sig);
 }
 
-const PROTECTED_PATHS = ["/dashboard", "/sites", "/visitors", "/playground", "/settings"];
+const PROTECTED_PATHS = [
+  "/dashboard",
+  "/events",
+  "/rules",
+  "/sites",
+  "/visitors",
+  "/playground",
+  "/settings",
+];
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
@@ -81,6 +89,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/events/:path*",
+    "/rules/:path*",
     "/sites/:path*",
     "/visitors/:path*",
     "/playground/:path*",

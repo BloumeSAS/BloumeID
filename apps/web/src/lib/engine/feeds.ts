@@ -114,7 +114,10 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
   };
 }
 
-export async function evaluateIpThreatIntel(ipAddress: string, providedAsnOrg?: string | null): Promise<{
+export async function evaluateIpThreatIntel(
+  ipAddress: string,
+  providedAsnOrg?: string | null
+): Promise<{
   isVpn: boolean;
   isDatacenter: boolean;
   isTor: boolean;
@@ -122,7 +125,10 @@ export async function evaluateIpThreatIntel(ipAddress: string, providedAsnOrg?: 
   asnNumber: number | null;
   asnOrg: string | null;
   country: string | null;
+  countryName: string | null;
   city: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }> {
   ensureDefaultTrieSeeded();
   const categories = globalThreatTrie.lookup(ipAddress);
@@ -143,7 +149,9 @@ export async function evaluateIpThreatIntel(ipAddress: string, providedAsnOrg?: 
     asnNumber: geo.asnNumber,
     asnOrg,
     country: geo.country,
+    countryName: geo.countryName,
     city: geo.city,
+    latitude: geo.latitude,
+    longitude: geo.longitude,
   };
 }
-

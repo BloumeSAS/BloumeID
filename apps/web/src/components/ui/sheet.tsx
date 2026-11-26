@@ -33,7 +33,7 @@ export function Sheet({
     >
       <div
         className={cn(
-          "flex h-full w-full max-w-xl flex-col overflow-y-auto border-l border-border bg-card p-6 text-card-foreground shadow-2xl",
+          "flex h-full w-full max-w-[95vw] flex-col overflow-y-auto border-l border-border bg-card p-6 text-card-foreground shadow-2xl sm:max-w-xl",
           className
         )}
       >

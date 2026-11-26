@@ -5,6 +5,8 @@ import {
   createSiteRecord,
   deleteSiteRecord,
   listSites,
+  listWebhookDeliveries,
+  recordWebhookDelivery,
   updateSiteRecord,
 } from "@/lib/engine/repository";
 import { dispatchSignedWebhook } from "@/lib/engine/webhooks";
@@ -47,8 +49,11 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const sites = await listSites();
-  return NextResponse.json({ sites }, { status: 200 });
+  const [sites, webhookDeliveries] = await Promise.all([
+    listSites(),
+    listWebhookDeliveries(),
+  ]);
+  return NextResponse.json({ sites, webhookDeliveries }, { status: 200 });
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -97,41 +102,59 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 
   let webhookTestResult: { delivered: boolean; attempts: number } | undefined;
   if (parsed.data.testWebhook && updated.webhookUrl && updated.webhookSecret) {
-    webhookTestResult = await dispatchSignedWebhook({
+    const startMs = Date.now();
+    const testPayload = {
+      event: "webhook.test" as const,
+      timestamp: new Date().toISOString(),
+      siteId: updated.publicId,
+      requestId: "req_test_webhook_probe",
+      visitorId: "vis_test_webhook_probe",
+      thumbmark: "0".repeat(64),
+      hardwareHash: "f".repeat(64),
+      dangerLevel: updated.riskThreshold,
+      confidence: 0.99,
+      flags: {
+        isBot: true,
+        isSpoofed: false,
+        isVpn: true,
+        isTor: false,
+        isDatacenter: true,
+        isProxy: false,
+        isIncognito: false,
+        crossBrowserMatched: false,
+      },
+      network: {
+        ipAddress: "185.220.101.1",
+        asnNumber: 24940,
+        asnOrg: "BloumeID Test Probe",
+        country: "FR",
+      },
+    };
+    const delivery = await dispatchSignedWebhook({
       webhookUrl: updated.webhookUrl,
       webhookSecret: updated.webhookSecret,
       maxRetries: 1,
-      payload: {
-        event: "webhook.test",
-        timestamp: new Date().toISOString(),
-        siteId: updated.publicId,
-        requestId: "req_test_webhook_probe",
-        visitorId: "vis_test_webhook_probe",
-        thumbmark: "0".repeat(64),
-        hardwareHash: "f".repeat(64),
-        dangerLevel: updated.riskThreshold,
-        confidence: 0.99,
-        flags: {
-          isBot: true,
-          isSpoofed: false,
-          isVpn: true,
-          isTor: false,
-          isDatacenter: true,
-          isProxy: false,
-          isIncognito: false,
-          crossBrowserMatched: false,
-        },
-        network: {
-          ipAddress: "185.220.101.1",
-          asnNumber: 24940,
-          asnOrg: "BloumeID Test Probe",
-          country: "FR",
-        },
-      },
+      payload: testPayload,
+    });
+    webhookTestResult = delivery;
+    await recordWebhookDelivery({
+      sitePublicId: updated.publicId,
+      eventType: "webhook.test",
+      requestId: "req_test_webhook_probe",
+      targetUrl: updated.webhookUrl,
+      statusCode: delivery.statusCode ?? null,
+      durationMs: Date.now() - startMs,
+      delivered: delivery.delivered,
+      attempts: delivery.attempts,
+      payload: testPayload as unknown as Record<string, unknown>,
     });
   }
 
-  return NextResponse.json({ site: updated, webhookTestResult }, { status: 200 });
+  const webhookDeliveries = await listWebhookDeliveries();
+  return NextResponse.json(
+    { site: updated, webhookTestResult, webhookDeliveries },
+    { status: 200 }
+  );
 }
 
 export async function DELETE(request: Request): Promise<NextResponse> {
@@ -148,4 +171,3 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   const deleted = await deleteSiteRecord(parsed.data.publicId);
   return NextResponse.json({ deleted }, { status: deleted ? 200 : 404 });
 }
-

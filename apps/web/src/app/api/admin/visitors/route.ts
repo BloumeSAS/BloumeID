@@ -9,8 +9,10 @@ import {
 
 const UpdateVisitorSchema = z.object({
   publicId: z.string().regex(/^vis_/),
-  tags: z.array(z.string().min(1).max(40)),
-  notes: z.string().max(4000).nullable(),
+  tags: z.array(z.string().min(1).max(40)).optional(),
+  notes: z.string().max(4000).nullable().optional(),
+  trustStatus: z.enum(["neutral", "trusted", "blocked"]).optional(),
+  mergeSourceVisitorId: z.string().regex(/^vis_/).optional(),
 });
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -54,6 +56,8 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   const updated = await updateVisitorAnnotations(parsed.data.publicId, {
     tags: parsed.data.tags,
     notes: parsed.data.notes,
+    trustStatus: parsed.data.trustStatus,
+    mergeSourceVisitorId: parsed.data.mergeSourceVisitorId,
   });
 
   if (!updated) {
@@ -62,4 +66,3 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 
   return NextResponse.json({ visitor: updated }, { status: 200 });
 }
-

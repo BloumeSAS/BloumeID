@@ -8,22 +8,24 @@ datasource db {
 }
 
 model Site {
-  id             Int                @id @default(autoincrement())
-  publicId       String             @unique
-  name           String
-  domains        String[]
-  publicKey      String             @unique
-  secretKeyHash  String             @unique
-  secretKeyHint  String             @default("bid_sec_***")
-  webhookUrl     String?
-  webhookSecret  String?
-  riskThreshold  Int                @default(3)
-  config         Json               @default("{}")
-  isActive       Boolean            @default(true)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  visitors       Visitor[]
-  events         FingerprintEvent[]
+  id                Int                @id @default(autoincrement())
+  publicId          String             @unique
+  name              String
+  domains           String[]
+  publicKey         String             @unique
+  secretKeyHash     String             @unique
+  secretKeyHint     String             @default("bid_sec_***")
+  webhookUrl        String?
+  webhookSecret     String?
+  riskThreshold     Int                @default(3)
+  config            Json               @default("{}")
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  visitors          Visitor[]
+  events            FingerprintEvent[]
+  rules             SecurityRule[]
+  webhookDeliveries WebhookDelivery[]
 
   @@index([publicKey])
   @@index([secretKeyHash])
@@ -39,6 +41,8 @@ model Visitor {
   lastSeenAt     DateTime           @default(now())
   visitCount     Int                @default(1)
   maxDangerLevel Int                @default(0)
+  trustStatus    String             @default("neutral")
+  mergedIntoId   String?
   tags           String[]
   notes          String?
   metadata       Json?
@@ -47,6 +51,7 @@ model Visitor {
   @@index([siteId, hardwareHash])
   @@index([hardwareHash])
   @@index([lastSeenAt])
+  @@index([trustStatus])
 }
 
 model FingerprintEvent {
@@ -65,6 +70,8 @@ model FingerprintEvent {
   asnOrg              String?
   country             String?
   city                String?
+  latitude            Float?
+  longitude           Float?
   isVpn               Boolean  @default(false)
   isProxy             Boolean  @default(false)
   isTor               Boolean  @default(false)
@@ -75,6 +82,10 @@ model FingerprintEvent {
   crossBrowserMatched Boolean  @default(false)
   dangerLevel         Int      @default(0)
   confidence          Float    @default(0.95)
+  ruleAction          String   @default("allow")
+  matchedRuleId       String?
+  linkedId            String?
+  tag                 Json?
   browser             String?
   os                  String?
   device              String?
@@ -87,7 +98,45 @@ model FingerprintEvent {
   @@index([siteId, hardwareHash, ipSubnet, createdAt])
   @@index([ipAddress])
   @@index([ipSubnet])
+  @@index([linkedId])
   @@index([createdAt])
+}
+
+model SecurityRule {
+  id          Int      @id @default(autoincrement())
+  publicId    String   @unique
+  siteId      Int?
+  site        Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  action      String   @default("block")
+  conditions  Json
+  priority    Int      @default(100)
+  isEnabled   Boolean  @default(true)
+  hitCount    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([siteId, isEnabled, priority])
+}
+
+model WebhookDelivery {
+  id             Int      @id @default(autoincrement())
+  publicId       String   @unique
+  siteId         Int
+  site           Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  eventType      String
+  requestId      String
+  targetUrl      String
+  statusCode     Int?
+  durationMs     Int      @default(0)
+  delivered      Boolean  @default(false)
+  attempts       Int      @default(1)
+  payload        Json
+  responseExcerpt String?
+  createdAt      DateTime @default(now())
+
+  @@index([siteId, createdAt])
 }
 
 model ThreatFeedStatus {
@@ -99,4 +148,3 @@ model ThreatFeedStatus {
   status       String    @default("idle")
   errorMessage String?
 }
-

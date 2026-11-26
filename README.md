@@ -1,6 +1,6 @@
-# BloumeID — Self-Hosted Fingerprinting, Threat Intelligence & Visitor Identity
+# BloumeID v1.0.0 — Self-Hosted Fingerprinting, Threat Intelligence & Visitor Identity
 
-**BloumeID** (by **Bloume SAS**) is a self-hosted, privacy-respecting visitor identification, anti-spoofing, bot detection, and network threat intelligence platform. It combines a zero-dependency browser & server SDK (`@bloumeid/sdk`) with a Next.js 16 control plane, an in-memory Patricia/Radix CIDR threat trie, and a 3-tier cross-browser identity reconciliation engine.
+**BloumeID v1.0.0** (by **Bloume SAS**) is a self-hosted, open-source visitor identification, anti-spoofing, bot detection, and network threat intelligence platform. It combines a zero-dependency browser & server SDK (`@bloumeid/sdk` v1.0.0) with a Next.js 16 control plane, an in-memory Patricia/Radix CIDR threat trie, automatic dual-mode GeoLite2 `.mmdb` management, a Custom Security Rules Engine, and 100% drop-in **Dual API compatibility** for both **ThumbmarkJS Pro** and **Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`)**.
 
 ---
 
@@ -8,208 +8,160 @@
 
 ```
 bloumeid/
-├── apps/web/              # Next.js 16 (App Router, standalone) — Admin Console, REST API v1 & UMD CDN
-├── packages/bloumeid/     # @bloumeid/sdk (tsup: ESM, CJS, UMD global window.BloumeID, .d.ts)
-├── packages/config/       # Shared strict TypeScript & ESLint flat configs
-├── docker/                # Multi-stage Node 22 Alpine Dockerfile & PID-1 entrypoint
-├── docker-compose.yml     # Production stack (bloumeid-web, PostgreSQL 17, Valkey 8)
-├── .github/workflows/     # ci.yml, release-sdk.yml, docker-publish.yml, deploy.yml, history-check.yml
-├── .changeset/            # Automated versioning & changelog management for @bloumeid/sdk
-├── AGENTS.md              # Non-negotiable engineering & security governance rules
-├── HISTORY.md             # Append-only execution & architectural decision log
-└── .env.example           # Documented environment configuration template
+├── apps/web/                         # Next.js 16 (App Router, standalone) — Clean Slate Pro Admin, REST API v1 & UMD CDN
+├── packages/bloumeid/                # @bloumeid/sdk v1.0.0 (tsup: ESM, CJS, UMD global window.BloumeID & window.FingerprintJS)
+├── packages/config/                  # Shared strict TypeScript & ESLint flat configs
+├── Dockerfile                        # Root multi-stage Node 22 Alpine Dockerfile (Coolify 1-Click compatible)
+├── docker/                           # Docker build mirror & PID-1 entrypoint (automatic prisma migrate deploy)
+├── docker-compose.yml                # Option 1: All-in-One Self-Hosted Stack (bloumeid-web + PostgreSQL 17 + Valkey 8)
+├── docker-compose.external-db.yml    # Option 2: External DB & Redis Stack (bloumeid-web only)
+├── .github/workflows/                # ci.yml, release-sdk.yml, docker-publish.yml, deploy.yml, history-check.yml
+├── .changeset/                       # Automated versioning & changelog management for @bloumeid/sdk
+├── AGENTS.md                         # Non-negotiable engineering & security governance rules
+├── HISTORY.md                        # Append-only execution & architectural decision log
+└── .env.example                      # Documented environment configuration template
 ```
 
-### Core Capabilities
-1. **`@bloumeid/sdk` (48+ Deterministic Collectors & Anti-Spoof Probes)**:
-   - **Collectors**: Canvas 2D (geometry, text & winding), WebGL 1/2 (vendor, renderer, unmasked GPU, extensions, shader precision formats), WebGPU adapter limits, `OfflineAudioContext` compressor dynamics, hardware & screen HDR/gamut, 85+ OS font DOM metrics, `Intl` & timezone, `navigator.languages`, high-entropy `userAgentData`, storage quota estimates, `speechSynthesis`, JS engine math constants (`V8` / `SpiderMonkey` / `JavaScriptCore`), WebRTC ICE candidates (disable via `exclude: ['webrtc']`), and `navigator.connection`.
-   - **Anti-Spoof & Bot Probes**: `navigator.webdriver`, Playwright/Puppeteer/Selenium/CDP globals (`$cdc_`, `$wdc_`), malformed `window.chrome`, inconsistent `Permissions.query`, Web Worker Blob vs Main Thread navigator comparison, Canvas/Audio double-render noise detection (Brave aggressive, Multilogin, Dolphin, AdsPower), and incognito/private storage quota heuristics.
-   - **100% ThumbmarkJS Pro Compatible API**: `new BloumeID({ apiKey, endpoint, options })`, `get()`, `getFingerprint()`, `getFingerprintData()`, `setOption()`.
+---
+
+## Core Capabilities (v1.0.0)
+
+1. **`@bloumeid/sdk` v1.0.0 (72 Deterministic Signals & Anti-Spoof Probes)**:
+   - **72 Hardware, Graphics & Browser Signals**: Canvas 2D (winding rule, geometry & Unicode/Emoji subpixel `TextMetrics`), WebGL 1/2 (vendor, renderer, unmasked GPU, 17 extended parameters, shader precision formats & deterministic 3D pixel hash), WebGPU adapter limits & feature count, `OfflineAudioContext` compressor dynamics, 85+ OS font DOM metrics, CSS `@media` hardware query matrix (`pointer`, `hover`, `color-gamut`, `hdr`, `forced-colors`, `prefers-reduced-motion`), Media codecs (`videoCapabilities`, `audioCapabilities`, `enumerateDevices`), Keyboard layout map (`navigator.keyboard.getLayoutMap`), `Intl` & DST offset consistency, high-entropy `userAgentData`, storage quota, `speechSynthesis`, JS engine math constants (`V8` / `SpiderMonkey` / `JavaScriptCore`), WebRTC ICE candidates, and `navigator.connection`.
+   - **Anti-Spoof & Bot Probes**: `navigator.webdriver`, Playwright/Puppeteer/Selenium/CDP globals, `Function.prototype.toString` native prototype tampering detection on Canvas/WebGL/Audio/Navigator getters, VM/Software GPU renderer detection (`SwiftShader`, `llvmpipe`, `Mesa OffScreen`, `VirtualBox`, `VMware`), `outerWidth === 0` headless check, `Error.stack` engine vs `User-Agent` consistency, Web Worker Blob vs Main Thread comparison, and Canvas/Audio double-render noise injection detection.
+   - **Dual API Drop-In Compatibility**:
+     - **ThumbmarkJS Pro API**: `new BloumeID({ apiKey, endpoint, options })` $\rightarrow$ `await tm.get()`
+     - **Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`) API**: `FingerprintJS.load({ apiKey, endpoint })` $\rightarrow$ `await fp.get({ extendedResult: true, linkedId, tag })`
 2. **3-Level Visitor Identity Reconciliation**:
    - **Level 1 (`confidence: 0.99`)**: Exact `fullHash` match on the same site.
    - **Level 2 (`confidence: 0.88`, `crossBrowserMatched: true`)**: Identical browser-invariant `hardwareHash` + `/24` IPv4 (or `/48` IPv6) `ipSubnet` within a configurable 30-day window.
    - **Level 3 (`confidence: 0.95`)**: New Snowflake `vis_<snowflake>` identity.
-3. **In-Memory Patricia/Radix CIDR Threat Trie & Velocity Scoring (`dangerLevel` 0–5)**:
-   - Automatic ingestion of **X4BNet VPN (`ipv4`)**, **X4BNet Datacenter (`datacenter/ipv4`)**, and **Tor Bulk Exit List**.
-   - Keyword ASN classifier (OVH, Hetzner, DigitalOcean, AWS, GCP, Azure, Scaleway, Vultr, Linode, M247, Leaseweb, Mullvad, etc.).
-   - Optional automatic loading of MaxMind **GeoLite2** `.mmdb` databases placed in `/app/data/geoip/`.
-   - Redis velocity anomaly checks (`>5 visitorIds` per IP in 10 min; `>5 countries` per visitor in 1 hour) and TLS `X-JA4-Fingerprint` vs `User-Agent` coherence verification.
+3. **Automatic Dual-Mode GeoLite2 `.mmdb` Downloader & In-Memory CIDR Threat Trie (< 1 ms, 0 External Per-Request API Calls)**:
+   - **Mode A (Official MaxMind)**: If `MAXMIND_LICENSE_KEY` is set, downloads the official MaxMind `.tar.gz` archives and extracts `GeoLite2-City.mmdb` and `GeoLite2-ASN.mmdb` in memory via Node `zlib.gunzipSync`.
+   - **Mode B (Zero-Config Free Open-Source Fallback)**: When `MAXMIND_LICENSE_KEY` is omitted, automatically downloads `GeoLite2-City.mmdb` and `GeoLite2-ASN.mmdb` from the open-source mirror (`P3TERX/GeoLite.mmdb`) into `/app/data/geoip/` and hot-reloads the `maxmind` readers without restarting.
+   - **In-Memory Threat Feeds**: X4BNet VPN (`ipv4`), X4BNet Datacenter (`datacenter/ipv4`), Tor Bulk Exit List, and ASN keyword classifier.
+4. **Custom Security Rules Engine & Pro Admin Console (`Clean Slate` Theme)**:
+   - Per-site or global rules (`min_danger`, `flag_bot`, `flag_tor`, `flag_vpn`, `flag_datacenter`, `flag_spoofed`, `country_in`, `asn_in`) returning `allow | challenge | block | flag`.
+   - Cap-style stacked traffic timeline, Top Countries & Top ASNs leaderboards, Live Events Audit Log with 5s polling & CSV/JSON export, Visitor Trust/Block/Merge tools, and Interactive Live IP Lookup Tester in `/settings`.
 
 ---
 
-## Security & Architectural Trade-offs
+## Coolify 1-Click & Modular Docker Deployment Guide
 
-- **Snowflake Public Identifiers Only**: Internal PostgreSQL auto-increment integer IDs (`id`) are never exposed in any API response, URL, or React prop. All external identifiers use prefixed 64-bit Snowflakes (`site_`, `vis_`, `req_`, `feed_`) with `WORKER_ID` isolation (`0–1023`), or prefixed API keys (`bid_pub_`, `bid_sec_`).
-- **Client Anti-Replay Signature vs. Server Authentication**:
-  - Because a public key (`bid_pub_`) is shipped to the browser, a client-side HMAC signature cannot prove secret key possession against a determined attacker who extracts the key.
-  - Instead, the client signs `(timestamp, nonce, fullHash, hardwareHash)` to guarantee **anti-replay and payload integrity**: the server rejects any payload outside a `±5 minute` window or any `nonce` already consumed in Redis/Valkey.
-  - Collection authenticity relies on `bid_pub_` + strict per-site CORS `Origin` validation (supporting exact domains and `*.domain.tld` wildcards) + sliding-window IP/Site rate limiting + TLS JA4 correlation.
-  - Strong cryptographic proof is enforced server-to-server via `bid_sec_` (stored as a SHA-256 hash and verified with `crypto.timingSafeEqual`) in `BloumeIDServer.verifyRequest()` / `getVisitor()`, and on outgoing webhooks via `X-BloumeID-Signature: sha256=<hmac>`.
+BloumeID v1.0.0 supports **three modular deployment topologies** out of the box. On container startup, `/usr/local/bin/docker-entrypoint.sh` automatically waits for PostgreSQL, executes `prisma migrate deploy`, and launches the Next.js 16 standalone server.
 
----
+### Option 1: All-in-One Self-Hosted Stack (`docker-compose.yml`)
+Deploys `bloumeid-web` alongside self-hosted `postgres:17-alpine` and `valkey/valkey:8-alpine` with persistent volumes.
 
-## Quick Start (Docker Compose)
+- **In Coolify**: Create a new **Docker Compose** resource pointing to your repository and set Compose file to `docker-compose.yml`.
+- **Via CLI**:
+  ```bash
+  cp .env.example .env
+  docker compose up -d --build
+  ```
 
-1. **Copy and configure `.env`**:
-   ```bash
-   cp .env.example .env
-   # Edit .env and set a strong ADMIN_MASTER_KEY and your BLOUMEID_PUBLIC_URL
-   ```
+### Option 2: External DB & Redis Stack (`docker-compose.external-db.yml`)
+Deploys only the `bloumeid-web` container and connects to your existing managed PostgreSQL and Redis/Valkey instances (e.g., Coolify Managed PostgreSQL + Coolify Managed Redis/Dragonfly/Valkey, Supabase, Neon, AWS RDS).
 
-2. **Start the production stack (Next.js 16 standalone + PostgreSQL 17 + Valkey 8)**:
-   ```bash
-   docker compose up -d --build
-   ```
+- **In Coolify**: Create a new **Docker Compose** resource, set Compose file to `docker-compose.external-db.yml`, and configure `ADMIN_MASTER_KEY`, `DATABASE_URL`, `REDIS_URL`, and `BLOUMEID_PUBLIC_URL` in Coolify's Environment Variables tab.
+- **Via CLI**:
+  ```bash
+  docker compose -f docker-compose.external-db.yml up -d --build
+  ```
 
-3. **Verify healthcheck**:
-   ```bash
-   curl -fsS "${BLOUMEID_PUBLIC_URL:-http://localhost:3000}/api/health"
-   ```
-
-4. **Access the Admin Console**:
-   Open `${BLOUMEID_PUBLIC_URL}/login` (default `http://localhost:3000/login`) and unlock with your `ADMIN_MASTER_KEY`.
+### Option 3: Standalone Root `Dockerfile` Buildpack
+If you use Coolify's **Dockerfile** buildpack (or Railway / Render / Fly.io), point it directly to the root `./Dockerfile`. Mount a persistent volume to `/app/data` so downloaded GeoLite2 `.mmdb` databases persist across container rebuilds.
 
 ---
 
-## Local Monorepo Development
+## Dual SDK Integration Guide (`@bloumeid/sdk` v1.0.0)
 
-```bash
-pnpm install
-pnpm --filter @bloumeid/sdk build
-pnpm --filter @bloumeid/web prisma:generate
-pnpm dev
-```
-
-Run quality checks across all workspaces:
-```bash
-pnpm -r typecheck
-pnpm -r lint
-pnpm -r test:coverage
-pnpm build
-```
-
----
-
-## Reverse Proxy Configuration (`X-Forwarded-For` & `X-JA4-Fingerprint`)
-
-Set `TRUSTED_PROXIES="true"` in `.env` when running behind Traefik, Nginx, Caddy, or Cloudflare.
-
-### 1. Nginx
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name id.example.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # Optional: if using an edge proxy or module exporting JA4 TLS fingerprints
-        proxy_set_header X-JA4-Fingerprint $http_x_ja4_fingerprint;
-    }
-}
-```
-
-### 2. Caddy
-```caddyfile
-id.example.com {
-    reverse_proxy 127.0.0.1:3000 {
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-JA4-Fingerprint {http.request.header.X-JA4-Fingerprint}
-    }
-}
-```
-
-### 3. Traefik (Dynamic Labels)
-```yaml
-labels:
-  - "traefik.enable=true"
-  - "traefik.http.routers.bloumeid.rule=Host(`id.example.com`)"
-  - "traefik.http.routers.bloumeid.entrypoints=websecure"
-  - "traefik.http.routers.bloumeid.tls.certresolver=letsencrypt"
-  - "traefik.http.services.bloumeid.loadbalancer.server.port=3000"
-```
-
----
-
-## SDK Integration Guide
-
-All integration snippets use your dynamic `${BLOUMEID_PUBLIC_URL}` environment variable.
-
-### 1. HTML `<script>` (UMD Global Bundle)
-```html
-<script src="${BLOUMEID_PUBLIC_URL}/sdk/v1/bloumeid.js"></script>
-<script>
-  const client = new window.BloumeID({
-    apiKey: "bid_pub_YOUR_SITE_KEY",
-    endpoint: "${BLOUMEID_PUBLIC_URL}",
-    options: {
-      exclude: [],
-      timeout: 5000
-    }
-  });
-
-  client.get().then((result) => {
-    console.log("Visitor ID:", result.visitorId);
-    console.log("Thumbmark:", result.thumbmark);
-    console.log("Request ID:", result.requestId);
-    console.log("Danger Level (0-5):", result.info.dangerLevel);
-  });
-</script>
-```
-
-### 2. npm / ESM (`@bloumeid/sdk`)
-```bash
-pnpm add @bloumeid/sdk
-```
-
+### 1. ThumbmarkJS Pro Mode
 ```typescript
 import { BloumeID } from "@bloumeid/sdk";
 
 const bloumeid = new BloumeID({
   apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY,
   endpoint: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_URL,
-  options: {
-    exclude: ["webrtc"], // optional collector exclusion
-    cacheLifetimeMs: 60_000,
-  },
 });
 
-const { visitorId, thumbmark, requestId, confidence, info } = await bloumeid.get();
+const result = await bloumeid.get({ linkedId: "user_42" });
+console.log(result.visitorId, result.thumbmark, result.info.dangerLevel, result.info.ruleAction);
 ```
 
-### 3. Server-Side Node.js Verification (`@bloumeid/sdk/server`)
-Verify a client's `requestId` or inspect a `visitorId` from your backend using your secret key (`bid_sec_`):
-
+### 2. Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`) Drop-in Mode
 ```typescript
-import { BloumeIDServer } from "@bloumeid/sdk/server";
+import FingerprintJS from "@bloumeid/sdk";
 
-const bloumeServer = new BloumeIDServer({
-  secretKey: process.env.BLOUMEID_SECRET_KEY!, // bid_sec_...
-  endpoint: process.env.BLOUMEID_PUBLIC_URL!,
+const fpPromise = FingerprintJS.load({
+  apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY!,
+  endpoint: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_URL!,
 });
 
-// 1. Verify a specific fingerprint event
-const verification = await bloumeServer.verifyRequest(clientRequestId);
-if (!verification.verified || verification.dangerLevel >= 4 || verification.flags.isBot) {
-  throw new Error("Blocked high-risk or automated request");
-}
+const fp = await fpPromise;
+const result = await fp.get({
+  extendedResult: true,
+  linkedId: "account_99",
+  tag: { plan: "enterprise" },
+});
 
-// 2. Retrieve a visitor's cross-browser profile & history
-const visitor = await bloumeServer.getVisitor(verification.visitorId);
-console.log(visitor.visitCount, visitor.maxDangerLevel, visitor.tags);
+console.log(
+  result.visitorId,      // "vis_..."
+  result.requestId,      // "req_..."
+  result.visitorFound,   // true | false
+  result.confidence,     // { score: 0.99, revision: "1.0.0" }
+  result.incognito,      // boolean
+  result.ipLocation,     // { city, country, continent, latitude, longitude, timezone }
+  result.firstSeenAt,    // { global, subscription }
+  result.lastSeenAt      // { global, subscription }
+);
 ```
+
+### 3. HTML `<script>` Tag (Global `window.BloumeID` & `window.FingerprintJS`)
+```html
+<script src="https://id.yourdomain.com/sdk/v1/bloumeid.js"></script>
+<script>
+  // ThumbmarkJS syntax:
+  const tm = new window.BloumeID({ apiKey: "bid_pub_...", endpoint: "https://id.yourdomain.com" });
+  tm.get().then((res) => console.log(res.visitorId, res.requestId));
+
+  // Or Fingerprint.com syntax:
+  window.FingerprintJS.load({ apiKey: "bid_pub_...", endpoint: "https://id.yourdomain.com" })
+    .then((fp) => fp.get({ extendedResult: true }))
+    .then((res) => console.log(res.visitorId, res.ipLocation));
+</script>
+```
+
+### 4. Server-Side Verification & REST API (`bid_sec_...`)
+- **ThumbmarkJS / BloumeID Server SDK**:
+  ```typescript
+  import { BloumeIDServer } from "@bloumeid/sdk/server";
+
+  const server = new BloumeIDServer({
+    secretKey: process.env.BLOUMEID_SECRET_KEY!,
+    endpoint: process.env.BLOUMEID_PUBLIC_URL!,
+  });
+
+  const verified = await server.verifyRequest(requestId);
+  if (verified.dangerLevel >= 3 || verified.ruleAction === "block") {
+    throw new Error("Blocked high-risk request");
+  }
+  ```
+- **Fingerprint.com Server REST Endpoints**:
+  - `POST /api/v1/events` (Client collection alias)
+  - `GET /api/v1/events/:requestId` (Returns `{ products: { identification, botd, ipInfo, vpn, incognito, tamper, highActivity, suspectScore } }`)
+  - `GET /api/v1/visitors/:visitorId/visits` (Returns `{ visitorId, visits: [...] }`)
 
 ---
 
-## MaxMind GeoLite2 Databases & Licensing
+## Local Monorepo Development & Quality Gates
 
-BloumeID automatically detects and loads `.mmdb` databases placed inside `/app/data/geoip/` (mapped to `./data/geoip/` on the host via `docker-compose.yml`):
-- `GeoLite2-City.mmdb` (Country ISO code & city resolution)
-- `GeoLite2-ASN.mmdb` (Autonomous System Number & ISP/Hosting organization resolution)
-
-> **License Notice**: GeoLite2 databases are distributed by MaxMind under the [GeoLite2 End User License Agreement](https://www.maxmind.com/en/geolite2/eula). You must create a free MaxMind account to download `.mmdb` files and never commit `.mmdb` binaries to Git (enforced by `.gitignore`). This product includes GeoLite2 data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).
+```bash
+pnpm install
+pnpm --filter @bloumeid/sdk build
+pnpm --filter @bloumeid/web prisma:generate
+pnpm -r typecheck
+pnpm -r lint
+pnpm -r test
+pnpm build
+```

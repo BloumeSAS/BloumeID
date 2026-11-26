@@ -1,0 +1,42 @@
+# ==============================================================================
+# BloumeID v1.0.0 — External DB & Redis / Valkey Stack (docker-compose.external-db.yml)
+# Use this file in Coolify or Kubernetes/Docker environments when you already
+# manage your own PostgreSQL and Redis/Valkey services externally.
+# ==============================================================================
+services:
+  bloumeid-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/bloume-sas/bloumeid:1.0.0
+    container_name: bloumeid-web
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ADMIN_MASTER_KEY: ${ADMIN_MASTER_KEY:?ADMIN_MASTER_KEY is required}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required (external PostgreSQL)}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required (external Redis or Valkey)}
+      WORKER_ID: ${WORKER_ID:-1}
+      BLOUMEID_PUBLIC_URL: ${BLOUMEID_PUBLIC_URL:-http://localhost:3000}
+      NEXT_PUBLIC_BLOUMEID_PUBLIC_URL: ${NEXT_PUBLIC_BLOUMEID_PUBLIC_URL:-http://localhost:3000}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-true}
+      FEED_SYNC_INTERVAL: ${FEED_SYNC_INTERVAL:-3600}
+      RETENTION_DAYS: ${RETENTION_DAYS:-90}
+      GEOIP_DIR: /app/data/geoip
+      MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:-}
+    volumes:
+      - bloumeid_geoip_data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  bloumeid_geoip_data:
+

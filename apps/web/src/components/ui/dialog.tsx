@@ -34,7 +34,7 @@ export function Dialog({
     >
       <div
         className={cn(
-          "relative w-full max-w-2xl rounded-xl border border-border bg-card p-6 text-card-foreground shadow-2xl",
+          "relative max-h-[90vh] w-full max-w-[95vw] overflow-y-auto rounded-xl border border-border bg-card p-6 text-card-foreground shadow-2xl sm:max-w-2xl",
           className
         )}
       >

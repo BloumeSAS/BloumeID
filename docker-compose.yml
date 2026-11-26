@@ -37,18 +37,25 @@ services:
   bloumeid-web:
     build:
       context: .
-      dockerfile: docker/Dockerfile
-    image: ghcr.io/bloume-sas/bloumeid:latest
+      dockerfile: Dockerfile
+    image: ghcr.io/bloume-sas/bloumeid:1.0.0
     container_name: bloumeid-web
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
+      ADMIN_MASTER_KEY: ${ADMIN_MASTER_KEY:-bloumeid_dev_master_key_2026}
       DATABASE_URL: ${DATABASE_URL:-postgresql://bloumeid:bloumeid_dev_password@bloumeid-db:5432/bloumeid?schema=public}
       REDIS_URL: ${REDIS_URL:-redis://bloumeid-redis:6379}
+      WORKER_ID: ${WORKER_ID:-1}
+      BLOUMEID_PUBLIC_URL: ${BLOUMEID_PUBLIC_URL:-http://localhost:3000}
+      NEXT_PUBLIC_BLOUMEID_PUBLIC_URL: ${NEXT_PUBLIC_BLOUMEID_PUBLIC_URL:-http://localhost:3000}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-true}
       GEOIP_DIR: /app/data/geoip
+      MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:-}
     volumes:
       - ./data:/app/data
     depends_on:

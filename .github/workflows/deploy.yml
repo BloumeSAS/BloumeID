@@ -98,3 +98,4 @@ jobs:
             fi
             echo "Production deployment of ${RELEASE_TAG} succeeded!"
           EOF
+

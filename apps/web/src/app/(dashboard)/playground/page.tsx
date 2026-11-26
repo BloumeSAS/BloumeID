@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BloumeID, type BloumeIDResult } from "@bloumeid/sdk";
+import { BloumeID, FingerprintJS, type BloumeIDResult } from "@bloumeid/sdk";
 import { Cpu, Layers, Play, ShieldCheck, Volume2 } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
@@ -14,44 +14,80 @@ const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
 
 export default function PlaygroundPage() {
   const { dict } = useI18n();
+  const [apiMode, setApiMode] = React.useState<"thumbmark" | "fppro">("thumbmark");
   const [result, setResult] = React.useState<BloumeIDResult | null>(null);
   const [running, setRunning] = React.useState(false);
 
   const runLiveProbe = React.useCallback(async () => {
     setRunning(true);
     try {
-      const sdk = new BloumeID({
-        apiKey: DEMO_PUBLIC_KEY,
-        endpoint: typeof window !== "undefined" ? window.location.origin : "",
-      });
-      const res = await sdk.get();
-      setResult(res);
+      const endpoint = typeof window !== "undefined" ? window.location.origin : "";
+      if (apiMode === "fppro") {
+        const agent = await FingerprintJS.load({
+          apiKey: DEMO_PUBLIC_KEY,
+          endpoint,
+        });
+        const res = await agent.get({
+          extendedResult: true,
+          linkedId: "playground_live_user",
+          tag: { mode: "Fingerprint.com Pro Compatibility" },
+        });
+        setResult(res);
+      } else {
+        const sdk = new BloumeID({
+          apiKey: DEMO_PUBLIC_KEY,
+          endpoint,
+        });
+        const res = await sdk.get();
+        setResult(res);
+      }
     } finally {
       setRunning(false);
     }
-  }, []);
+  }, [apiMode]);
 
   React.useEffect(() => {
     void runLiveProbe();
   }, [runLiveProbe]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{dict.playground.title}</h1>
-          <p className="text-sm text-muted-foreground">{dict.playground.subtitle}</p>
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{dict.playground.title}</h1>
+          <p className="text-xs text-muted-foreground sm:text-sm">{dict.playground.subtitle}</p>
         </div>
 
-        <Button
-          type="button"
-          data-testid="run-playground-probe"
-          onClick={runLiveProbe}
-          disabled={running}
-        >
-          <Play className="h-4 w-4" />
-          <span>{running ? dict.playground.running : dict.playground.runProbe}</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-border bg-card p-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={apiMode === "thumbmark" ? "default" : "ghost"}
+              onClick={() => setApiMode("thumbmark")}
+            >
+              {dict.playground.modeThumbmark}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={apiMode === "fppro" ? "default" : "ghost"}
+              onClick={() => setApiMode("fppro")}
+            >
+              {dict.playground.modeFingerprintPro}
+            </Button>
+          </div>
+
+          <Button
+            type="button"
+            data-testid="run-playground-probe"
+            onClick={runLiveProbe}
+            disabled={running}
+          >
+            <Play className="h-4 w-4" />
+            <span>{running ? dict.playground.running : dict.playground.runProbe}</span>
+          </Button>
+        </div>
       </div>
 
       {result ? (
@@ -119,6 +155,11 @@ export default function PlaygroundPage() {
                   >
                     {Math.round(result.confidence.score * 100)}%
                   </Badge>
+                  {result.info.action ? (
+                    <Badge variant="outline" className="font-mono uppercase">
+                      {result.info.action}
+                    </Badge>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
@@ -128,8 +169,11 @@ export default function PlaygroundPage() {
                 <CardTitle className="text-sm">{dict.playground.durationLabel}</CardTitle>
               </CardHeader>
               <CardContent className="flex items-center gap-2">
-                <Cpu className="h-5 w-5 text-sky-400" />
+                <Cpu className="h-5 w-5 text-sky-500" />
                 <span className="font-mono text-2xl font-bold">{result.info.durationMs} ms</span>
+                <Badge variant="outline" className="ml-auto font-mono">
+                  {result.info.collectorCount} signals
+                </Badge>
               </CardContent>
             </Card>
 
@@ -154,7 +198,6 @@ export default function PlaygroundPage() {
             </Card>
           </div>
 
-          {/* Structured 4-Column Signal Matrix */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{dict.playground.signalMatrixTitle}</CardTitle>
@@ -172,15 +215,15 @@ export default function PlaygroundPage() {
                   {result.components.webgl.extensionsCount}
                 </p>
                 <CopyableMono
-                  value={result.components.canvas.hash}
-                  displayValue={`Canvas: ${result.components.canvas.hash.slice(0, 20)}...`}
+                  value={result.components.webgl.pixelRenderHash ?? result.components.canvas.hash}
+                  displayValue={`PixelHash: ${(result.components.webgl.pixelRenderHash ?? result.components.canvas.hash).slice(0, 18)}...`}
                   copyLabel={dict.common.copy}
                   copiedLabel={dict.common.copied}
                 />
               </div>
 
               <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-sky-400">
+                <div className="flex items-center gap-2 text-xs font-semibold text-sky-500">
                   <Volume2 className="h-4 w-4" />
                   <span>{dict.playground.audioSection}</span>
                 </div>
@@ -189,7 +232,9 @@ export default function PlaygroundPage() {
                   {result.components.audio.sumValue}
                 </p>
                 <p className="font-mono text-[11px] text-muted-foreground">
-                  Voices: {result.components.speech.voiceCount} ({result.components.speech.defaultVoice})
+                  AV1: {String(result.components.mediaCodecs?.av1Supported ?? false)} • Opus:{" "}
+                  {String(result.components.mediaCodecs?.opusSupported ?? false)} • Voices:{" "}
+                  {result.components.speech.voiceCount}
                 </p>
                 <CopyableMono
                   value={result.components.audio.sampleHash}
@@ -200,7 +245,7 @@ export default function PlaygroundPage() {
               </div>
 
               <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-500">
                   <Cpu className="h-4 w-4" />
                   <span>{dict.playground.systemSection}</span>
                 </div>
@@ -211,8 +256,8 @@ export default function PlaygroundPage() {
                 </p>
                 <p className="font-mono text-[11px] text-muted-foreground">
                   Screen: {result.components.screen.width}×{result.components.screen.height}@
-                  {result.components.screen.devicePixelRatio}x • Fonts:{" "}
-                  {result.components.fonts.count} • Engine: {result.components.math.engineHint}
+                  {result.components.screen.devicePixelRatio}x • EmojiAscent:{" "}
+                  {result.components.canvas.emojiAscentSum ?? 0}
                 </p>
                 <CopyableMono
                   value={result.hardwareHash}
@@ -223,13 +268,13 @@ export default function PlaygroundPage() {
               </div>
 
               <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-amber-400">
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-500">
                   <ShieldCheck className="h-4 w-4" />
                   <span>{dict.playground.antiSpoofSection}</span>
                 </div>
                 <p className="font-mono text-xs">
-                  Webdriver: {String(result.components.antiSpoof.webdriver)} • WorkerMismatch:{" "}
-                  {String(result.components.antiSpoof.workerMismatch)}
+                  PrototypeHooks: {String(result.components.antiSpoof.prototypeTampered ?? false)} •
+                  VM/SoftwareGPU: {String(result.components.antiSpoof.isVirtualMachine ?? false)}
                 </p>
                 <p className="font-mono text-[11px] text-muted-foreground">
                   Canvas2xNoise: {String(result.components.antiSpoof.canvasNoiseDetected)} •

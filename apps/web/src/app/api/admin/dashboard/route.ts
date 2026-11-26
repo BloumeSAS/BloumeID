@@ -3,7 +3,7 @@ import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
 import { getDashboardMetrics } from "@/lib/engine/repository";
 
-const PeriodSchema = z.enum(["24h", "7d", "30d"]).default("24h");
+const PeriodSchema = z.enum(["1h", "24h", "7d", "30d", "90d"]).default("24h");
 
 export async function GET(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
@@ -13,8 +13,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const parsed = PeriodSchema.safeParse(url.searchParams.get("period") ?? "24h");
   const period = parsed.success ? parsed.data : "24h";
+  const siteId = url.searchParams.get("siteId") ?? undefined;
 
-  const metrics = await getDashboardMetrics(period);
+  const metrics = await getDashboardMetrics(period, siteId);
   return NextResponse.json(metrics, { status: 200 });
 }
-

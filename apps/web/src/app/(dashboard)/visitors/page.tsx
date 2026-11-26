@@ -68,12 +68,13 @@ export default function VisitorsPage() {
           </div>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{dict.visitors.visitorId}</TableHead>
                 <TableHead>{dict.visitors.hardwareHash}</TableHead>
+                <TableHead>{dict.visitors.trustStatus}</TableHead>
                 <TableHead>{dict.visitors.visitCount}</TableHead>
                 <TableHead>{dict.visitors.maxDanger}</TableHead>
                 <TableHead>{dict.visitors.tags}</TableHead>
@@ -104,6 +105,23 @@ export default function VisitorsPage() {
                       copyLabel={dict.common.copy}
                       copiedLabel={dict.common.copied}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        v.trustStatus === "blocked"
+                          ? "destructive"
+                          : v.trustStatus === "trusted"
+                            ? "success"
+                            : "outline"
+                      }
+                    >
+                      {v.trustStatus === "blocked"
+                        ? dict.visitors.statusBlocked
+                        : v.trustStatus === "trusted"
+                          ? dict.visitors.statusTrusted
+                          : dict.visitors.statusNeutral}
+                    </Badge>
                   </TableCell>
                   <TableCell className="font-mono">{v.visitCount}</TableCell>
                   <TableCell>

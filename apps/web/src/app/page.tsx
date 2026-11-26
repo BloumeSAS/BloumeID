@@ -6,16 +6,19 @@ import { BloumeID, type BloumeIDResult } from "@bloumeid/sdk";
 import {
   ArrowRight,
   CheckCircle2,
+  Cpu,
   Database,
   Fingerprint,
   GitBranch,
   Globe,
   Layers,
   Lock,
+  Moon,
   RefreshCw,
   Shield,
   ShieldAlert,
   Sparkles,
+  Sun,
   XCircle,
 } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
@@ -29,7 +32,7 @@ const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
 const GITHUB_REPO_URL = "https://github.com/bloume-sas/bloumeid";
 
 export default function OpenSourceHomePage() {
-  const { dict, locale, setLocale } = useI18n();
+  const { dict, locale, setLocale, theme, toggleTheme } = useI18n();
   const [liveResult, setLiveResult] = React.useState<BloumeIDResult | null>(null);
   const [scanning, setScanning] = React.useState(false);
   const [activeCidrs, setActiveCidrs] = React.useState<number>(54133);
@@ -62,36 +65,34 @@ export default function OpenSourceHomePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
-      {/* Cosmic Radial Ambient Glows */}
+      {/* Clean Slate Ambient Glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-48 left-1/2 h-[540px] w-[960px] -translate-x-1/2 rounded-full bg-primary/15 blur-[150px]" />
-        <div className="absolute top-[750px] -left-40 h-[420px] w-[520px] rounded-full bg-sky-500/10 blur-[140px]" />
-        <div className="absolute top-[1350px] -right-40 h-[440px] w-[540px] rounded-full bg-purple-600/10 blur-[150px]" />
+        <div className="absolute -top-48 left-1/2 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-primary/12 blur-[140px]" />
       </div>
 
-      {/* Top Sticky Navbar */}
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/20 text-primary ring-1 ring-primary/40">
+      {/* Responsive Sticky Top Navbar */}
+      <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30">
               <Fingerprint className="h-5 w-5" />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold tracking-tight">{dict.common.brandName}</span>
               <Badge variant="outline" className="border-primary/40 font-mono text-[10px] text-primary">
-                v0.1.0 MIT
+                {dict.common.versionBadge}
               </Badge>
             </div>
           </div>
 
-          <nav className="hidden items-center gap-7 text-sm font-medium text-muted-foreground md:flex">
+          <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground lg:flex">
             <a href="#live-scanner" className="transition-colors hover:text-foreground">
               {dict.landing.navLiveDemo}
             </a>
             <a href="#architecture" className="transition-colors hover:text-foreground">
               {dict.landing.navFeatures}
             </a>
-            <a href="#why-bloumeid" className="transition-colors hover:text-foreground">
+            <a href="#competitor-matrix" className="transition-colors hover:text-foreground">
               {dict.landing.navComparison}
             </a>
             <a href="#self-host" className="transition-colors hover:text-foreground">
@@ -107,7 +108,7 @@ export default function OpenSourceHomePage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -119,12 +120,23 @@ export default function OpenSourceHomePage() {
               <span>{locale.toUpperCase()}</span>
             </Button>
 
-            <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" className="hidden sm:inline-flex">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid="landing-theme-switcher"
+              onClick={toggleTheme}
+              title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
+            >
+              {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            </Button>
+
+            <Link href="/playground" className="hidden sm:inline-flex">
               <Button type="button" variant="secondary" size="sm">
-                <GitBranch className="h-3.5 w-3.5" />
-                <span>{dict.landing.ctaSecondary}</span>
+                <Cpu className="h-3.5 w-3.5" />
+                <span>{dict.landing.ctaPlayground}</span>
               </Button>
-            </a>
+            </Link>
 
             <Link href="/dashboard">
               <Button type="button" size="sm" data-testid="landing-admin-cta">
@@ -136,31 +148,37 @@ export default function OpenSourceHomePage() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-6 pb-24">
+      <main className="relative z-10 mx-auto max-w-7xl px-4 pb-24 sm:px-6">
         {/* HERO SECTION */}
-        <section className="pt-16 pb-14 text-center md:pt-24">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
+        <section className="pt-12 pb-12 text-center md:pt-20">
+          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary shadow-xs">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
             <span>{dict.landing.heroBadge}</span>
           </div>
 
-          <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-extrabold tracking-tight sm:text-6xl">
+          <h1 className="mx-auto mt-6 max-w-4xl text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
             <span className="block text-foreground">{dict.landing.heroTitleLine1}</span>
-            <span className="mt-1 block bg-gradient-to-r from-primary via-purple-300 to-sky-400 bg-clip-text font-serif italic text-transparent">
+            <span className="mt-1 block bg-gradient-to-r from-primary via-indigo-400 to-sky-400 bg-clip-text font-serif italic text-transparent">
               {dict.landing.heroTitleLine2}
             </span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-3xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          <p className="mx-auto mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
             {dict.landing.heroSubtitle}
           </p>
 
-          {/* Hero CTAs + Quick Copy Commands */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/dashboard">
-              <Button size="lg" className="h-11 px-7 text-sm font-semibold shadow-lg shadow-primary/25">
+              <Button size="lg" className="h-11 px-6 text-sm font-semibold shadow-md">
                 <span>{dict.landing.ctaPrimary}</span>
                 <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+
+            <Link href="/playground">
+              <Button variant="secondary" size="lg" className="h-11 px-6 text-sm font-semibold">
+                <Cpu className="h-4 w-4 text-primary" />
+                <span>{dict.landing.ctaPlayground}</span>
               </Button>
             </Link>
 
@@ -181,34 +199,34 @@ export default function OpenSourceHomePage() {
           </div>
 
           {/* 4 Live KPI Pillars */}
-          <div className="mt-14 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Card className="border-border/80 bg-card/60 backdrop-blur-md">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono text-3xl font-extrabold text-primary">
+          <div className="mt-12 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+            <Card className="border-border bg-card/80">
+              <CardContent className="pt-5 text-center">
+                <p className="font-mono text-2xl font-extrabold text-primary sm:text-3xl">
                   {dict.landing.statCollectors}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statCollectorsLabel}</p>
               </CardContent>
             </Card>
-            <Card className="border-border/80 bg-card/60 backdrop-blur-md">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono text-3xl font-extrabold text-sky-400">
+            <Card className="border-border bg-card/80">
+              <CardContent className="pt-5 text-center">
+                <p className="font-mono text-2xl font-extrabold text-sky-500 sm:text-3xl">
                   {activeCidrs.toLocaleString()}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statCidrsLabel}</p>
               </CardContent>
             </Card>
-            <Card className="border-border/80 bg-card/60 backdrop-blur-md">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono text-3xl font-extrabold text-emerald-400">
+            <Card className="border-border bg-card/80">
+              <CardContent className="pt-5 text-center">
+                <p className="font-mono text-2xl font-extrabold text-emerald-500 sm:text-3xl">
                   {dict.landing.statBundleSize}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statBundleSizeLabel}</p>
               </CardContent>
             </Card>
-            <Card className="border-border/80 bg-card/60 backdrop-blur-md">
-              <CardContent className="pt-6 text-center">
-                <p className="font-mono text-3xl font-extrabold text-amber-400">
+            <Card className="border-border bg-card/80">
+              <CardContent className="pt-5 text-center">
+                <p className="font-mono text-2xl font-extrabold text-amber-500 sm:text-3xl">
                   {dict.landing.statLatency}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statLatencyLabel}</p>
@@ -217,11 +235,11 @@ export default function OpenSourceHomePage() {
           </div>
         </section>
 
-        {/* INTERACTIVE LIVE IN-BROWSER FINGERPRINT SCANNER (Inspired by trycap.dev live demo) */}
-        <section id="live-scanner" className="py-10">
-          <Card className="overflow-hidden border-primary/35 bg-card/85 shadow-2xl shadow-primary/10 backdrop-blur-xl">
-            <CardHeader className="border-b border-border/80 bg-secondary/35 px-6 py-5">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* INTERACTIVE LIVE IN-BROWSER FINGERPRINT DEMO WIDGET */}
+        <section id="live-scanner" className="py-8">
+          <Card className="overflow-hidden border-primary/35 bg-card shadow-xl">
+            <CardHeader className="border-b border-border bg-secondary/40 px-4 py-4 sm:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2.5 w-2.5">
@@ -232,11 +250,13 @@ export default function OpenSourceHomePage() {
                       {dict.landing.liveWidgetBadge}
                     </span>
                   </div>
-                  <CardTitle className="text-xl">{dict.landing.liveWidgetTitle}</CardTitle>
-                  <CardDescription>{dict.landing.liveWidgetSubtitle}</CardDescription>
+                  <CardTitle className="text-lg sm:text-xl">{dict.landing.liveWidgetTitle}</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    {dict.landing.liveWidgetSubtitle}
+                  </CardDescription>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {liveResult ? (
                     <Badge variant="outline" className="font-mono text-xs">
                       {liveResult.info.durationMs} ms • {liveResult.info.collectorCount} signals
@@ -257,16 +277,15 @@ export default function OpenSourceHomePage() {
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-6 p-6">
+            <CardContent className="space-y-5 p-4 sm:p-6">
               {liveResult ? (
                 <>
-                  {/* Top Identity Bar: Visitor Snowflake, Thumbmark, HardwareHash & Risk Verdict */}
-                  <div className="grid gap-4 md:grid-cols-4">
-                    <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-xl border border-primary/30 bg-primary/10 p-3.5">
                       <p className="text-xs font-medium text-muted-foreground">
                         {dict.playground.visitorIdLabel}
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-1.5">
                         <CopyableMono
                           value={liveResult.visitorId}
                           copyLabel={dict.common.copy}
@@ -276,11 +295,11 @@ export default function OpenSourceHomePage() {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-secondary/25 p-4">
+                    <div className="rounded-xl border border-border bg-secondary/30 p-3.5">
                       <p className="text-xs font-medium text-muted-foreground">
                         {dict.playground.thumbmarkLabel}
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-1.5">
                         <CopyableMono
                           value={liveResult.thumbmark}
                           displayValue={`${liveResult.thumbmark.slice(0, 18)}...`}
@@ -290,11 +309,11 @@ export default function OpenSourceHomePage() {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-secondary/25 p-4">
+                    <div className="rounded-xl border border-border bg-secondary/30 p-3.5">
                       <p className="text-xs font-medium text-muted-foreground">
                         {dict.visitors.hardwareHash}
                       </p>
-                      <div className="mt-2">
+                      <div className="mt-1.5">
                         <CopyableMono
                           value={liveResult.hardwareHash}
                           displayValue={`${liveResult.hardwareHash.slice(0, 18)}...`}
@@ -304,12 +323,12 @@ export default function OpenSourceHomePage() {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border bg-secondary/25 p-4">
+                    <div className="rounded-xl border border-border bg-secondary/30 p-3.5">
                       <p className="text-xs font-medium text-muted-foreground">
                         {dict.playground.dangerGaugeLabel}
                       </p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="font-mono text-xl font-bold text-foreground">
+                      <div className="mt-1.5 flex items-center justify-between">
+                        <span className="font-mono text-lg font-bold text-foreground">
                           {liveResult.info.dangerLevel} / 5
                         </span>
                         <Badge
@@ -327,9 +346,8 @@ export default function OpenSourceHomePage() {
                     </div>
                   </div>
 
-                  {/* 6-Card Signal Forensic Matrix */}
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="rounded-xl border border-border/80 bg-background/60 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-xl border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-primary">
                           {dict.landing.liveCanvas}
@@ -346,26 +364,26 @@ export default function OpenSourceHomePage() {
                             : dict.landing.liveTampered}
                         </Badge>
                       </div>
-                      <div className="mt-3">
+                      <div className="mt-2.5">
                         <CopyableMono
                           value={liveResult.components.canvas.hash}
-                          displayValue={`${liveResult.components.canvas.hash.slice(0, 24)}...`}
+                          displayValue={`${liveResult.components.canvas.hash.slice(0, 22)}...`}
                           copyLabel={dict.common.copy}
                           copiedLabel={dict.common.copied}
                         />
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-sky-400">
+                        <span className="text-xs font-semibold text-sky-500">
                           {dict.landing.liveWebgl}
                         </span>
                         <Badge variant="outline">
                           {liveResult.components.webgl.extensionsCount} ext
                         </Badge>
                       </div>
-                      <p className="mt-2.5 truncate font-mono text-xs text-foreground">
+                      <p className="mt-2 truncate font-mono text-xs text-foreground">
                         {liveResult.components.webgl.unmaskedRenderer}
                       </p>
                       <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
@@ -373,9 +391,9 @@ export default function OpenSourceHomePage() {
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-purple-400">
+                        <span className="text-xs font-semibold text-indigo-400">
                           {dict.landing.liveAudio}
                         </span>
                         <Badge
@@ -388,7 +406,7 @@ export default function OpenSourceHomePage() {
                           {liveResult.components.audio.sampleRate || 44100} Hz
                         </Badge>
                       </div>
-                      <div className="mt-3">
+                      <div className="mt-2.5">
                         <CopyableMono
                           value={liveResult.components.audio.sampleHash}
                           displayValue={`Σ=${liveResult.components.audio.sumValue} • ${liveResult.components.audio.sampleHash.slice(0, 14)}...`}
@@ -398,16 +416,16 @@ export default function OpenSourceHomePage() {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-emerald-400">
+                        <span className="text-xs font-semibold text-emerald-500">
                           {dict.landing.liveHardware}
                         </span>
                         <Badge variant="outline">
                           {liveResult.components.hardware.architectureHint}
                         </Badge>
                       </div>
-                      <p className="mt-2.5 font-mono text-xs text-foreground">
+                      <p className="mt-2 font-mono text-xs text-foreground">
                         {liveResult.components.hardware.hardwareConcurrency} cores •{" "}
                         {liveResult.components.hardware.deviceMemory || 8} GB •{" "}
                         {liveResult.components.screen.width}×{liveResult.components.screen.height}@
@@ -421,14 +439,14 @@ export default function OpenSourceHomePage() {
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-amber-400">
+                        <span className="text-xs font-semibold text-amber-500">
                           {dict.landing.liveFonts}
                         </span>
                         <Badge variant="outline">{liveResult.components.fonts.count} fonts</Badge>
                       </div>
-                      <p className="mt-2.5 truncate font-mono text-xs text-foreground">
+                      <p className="mt-2 truncate font-mono text-xs text-foreground">
                         {liveResult.components.fonts.detected.slice(0, 5).join(", ") || "System Default"}
                       </p>
                       <div className="mt-1.5">
@@ -441,14 +459,14 @@ export default function OpenSourceHomePage() {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-border/80 bg-background/60 p-4">
+                    <div className="rounded-xl border border-border bg-background/70 p-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-rose-400">
+                        <span className="text-xs font-semibold text-rose-500">
                           {dict.landing.liveAntiSpoof}
                         </span>
                         <Badge variant="outline">{liveResult.components.math.engineHint}</Badge>
                       </div>
-                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      <div className="mt-2 flex flex-wrap gap-1.5">
                         {liveResult.info.isBot ? (
                           <Badge variant="destructive">{dict.flags.bot}</Badge>
                         ) : null}
@@ -466,8 +484,8 @@ export default function OpenSourceHomePage() {
                         ) : null}
                       </div>
                       <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">
-                        TZ: {liveResult.components.timezoneIntl.timezone} (
-                        {liveResult.components.timezoneIntl.locale})
+                        IP: {liveResult.info.ipAddress ?? "127.0.0.1"} • TZ:{" "}
+                        {liveResult.components.timezoneIntl.timezone}
                       </p>
                     </div>
                   </div>
@@ -481,21 +499,22 @@ export default function OpenSourceHomePage() {
           </Card>
         </section>
 
-        {/* BENTO ARCHITECTURE & VISUAL SCHEMATICS */}
-        <section id="architecture" className="py-16">
+        {/* BENTO ARCHITECTURE */}
+        <section id="architecture" className="py-14">
           <div className="mx-auto max-w-3xl text-center">
             <Badge variant="outline" className="border-primary/40 font-mono text-xs text-primary">
               {dict.landing.archBadge}
             </Badge>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-4xl">
               {dict.landing.archTitle}
             </h2>
-            <p className="mt-3 text-base text-muted-foreground">{dict.landing.archSubtitle}</p>
+            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
+              {dict.landing.archSubtitle}
+            </p>
           </div>
 
-          <div className="mt-12 grid gap-6 lg:grid-cols-12">
-            {/* Bento 1: 3-Tier Cross-Browser Reconciliation Engine (7 cols) */}
-            <Card className="border-border/80 bg-card/75 lg:col-span-7">
+          <div className="mt-10 grid gap-5 lg:grid-cols-12">
+            <Card className="border-border bg-card lg:col-span-7">
               <CardHeader>
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
@@ -505,32 +524,28 @@ export default function OpenSourceHomePage() {
                 </div>
                 <CardDescription className="pt-1">{dict.landing.bentoReconcileDesc}</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Schematic Pipeline Visual */}
-                <div className="rounded-xl border border-border bg-background/70 p-4">
-                  <div className="space-y-2.5 font-mono text-xs">
-                    <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-emerald-300">
-                      <span>{dict.landing.bentoLevel1}</span>
-                      <Badge variant="success">0.99</Badge>
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sky-300">
-                      <span>{dict.landing.bentoLevel2}</span>
-                      <Badge variant="outline">0.88</Badge>
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-primary">
-                      <span>{dict.landing.bentoLevel3}</span>
-                      <Badge variant="default">0.95</Badge>
-                    </div>
+              <CardContent>
+                <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4 font-mono text-xs">
+                  <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                    <span>{dict.landing.bentoLevel1}</span>
+                    <Badge variant="success">0.99</Badge>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2">
+                    <span>{dict.landing.bentoLevel2}</span>
+                    <Badge variant="outline">0.88</Badge>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
+                    <span>{dict.landing.bentoLevel3}</span>
+                    <Badge variant="default">0.95</Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Bento 2: Anti-Detect & Headless Bot De-Masking (5 cols) */}
-            <Card className="border-border/80 bg-card/75 lg:col-span-5">
+            <Card className="border-border bg-card lg:col-span-5">
               <CardHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/15 text-rose-500">
                     <ShieldAlert className="h-5 w-5" />
                   </div>
                   <CardTitle className="text-lg">{dict.landing.bentoAntiSpoofTitle}</CardTitle>
@@ -540,155 +555,155 @@ export default function OpenSourceHomePage() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                   <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    <span className="text-rose-400">●</span> navigator.webdriver
+                    ● Prototype Hooks
                   </div>
                   <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    <span className="text-amber-400">●</span> Canvas 2x Noise Diff
+                    ● SwiftShader / VM
                   </div>
                   <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    <span className="text-purple-400">●</span> Blob Worker Thread
+                    ● Canvas/Audio 2x
                   </div>
                   <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    <span className="text-sky-400">●</span> CDP $cdc_ / Playwright
+                    ● Sec-CH-UA Check
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Bento 3: In-Memory Patricia / Radix CIDR Trie (6 cols) */}
-            <Card className="border-border/80 bg-card/75 lg:col-span-6">
+            <Card className="border-border bg-card lg:col-span-6">
               <CardHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-500">
                     <Database className="h-5 w-5" />
                   </div>
                   <CardTitle className="text-lg">{dict.landing.bentoTrieTitle}</CardTitle>
                 </div>
                 <CardDescription className="pt-1">{dict.landing.bentoTrieDesc}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-                  <Badge variant="secondary">X4BNet VPN IPv4</Badge>
-                  <Badge variant="secondary">X4BNet Datacenter</Badge>
-                  <Badge variant="destructive">Tor Bulk Exit Nodes</Badge>
-                  <Badge variant="outline">MaxMind GeoLite2 ASN/City</Badge>
-                  <Badge variant="outline">JA4 TLS Coherence</Badge>
-                </div>
+              <CardContent className="flex flex-wrap gap-2 font-mono text-xs">
+                <Badge variant="secondary">Auto GeoLite2-City.mmdb</Badge>
+                <Badge variant="secondary">Auto GeoLite2-ASN.mmdb</Badge>
+                <Badge variant="destructive">Tor Bulk Exit List</Badge>
+                <Badge variant="outline">X4BNet VPN & Datacenter</Badge>
               </CardContent>
             </Card>
 
-            {/* Bento 4: Constant-Time Crypto & Anti-Replay (6 cols) */}
-            <Card className="border-border/80 bg-card/75 lg:col-span-6">
+            <Card className="border-border bg-card lg:col-span-6">
               <CardHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-500">
                     <Lock className="h-5 w-5" />
                   </div>
                   <CardTitle className="text-lg">{dict.landing.bentoCryptoTitle}</CardTitle>
                 </div>
                 <CardDescription className="pt-1">{dict.landing.bentoCryptoDesc}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-                  <Badge variant="success">crypto.timingSafeEqual</Badge>
-                  <Badge variant="outline">HMAC-SHA256 Webhooks</Badge>
-                  <Badge variant="outline">Redis Nonce TTL</Badge>
-                  <Badge variant="outline">Wildcard CORS *.domain.tld</Badge>
-                </div>
+              <CardContent className="flex flex-wrap gap-2 font-mono text-xs">
+                <Badge variant="success">ThumbmarkJS API</Badge>
+                <Badge variant="success">Fingerprint.com API</Badge>
+                <Badge variant="outline">Rules: allow / challenge / block</Badge>
               </CardContent>
             </Card>
           </div>
         </section>
 
-        {/* WHY BLOUMEID COMPARISON TABLE */}
-        <section id="why-bloumeid" className="py-14">
+        {/* 4-COLUMN COMPETITOR COMPARISON MATRIX (BloumeID v1.0.0 vs ThumbmarkJS vs Fingerprint.com vs CreepJS) */}
+        <section id="competitor-matrix" className="py-12">
           <div className="mx-auto max-w-3xl text-center">
             <Badge variant="outline" className="border-primary/40 font-mono text-xs text-primary">
               {dict.landing.compBadge}
             </Badge>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-4xl">
               {dict.landing.compTitle}
             </h2>
-            <p className="mt-3 text-base text-muted-foreground">{dict.landing.compSubtitle}</p>
+            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
+              {dict.landing.compSubtitle}
+            </p>
           </div>
 
-          <Card className="mt-10 overflow-hidden border-border/80 bg-card/80">
+          <Card className="mt-8 overflow-hidden border-border bg-card">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-border bg-secondary/40">
                     <th className="p-4 font-semibold">{dict.landing.compColFeature}</th>
                     <th className="p-4 font-bold text-primary">{dict.landing.compColBloume}</th>
                     <th className="p-4 font-semibold text-muted-foreground">
-                      {dict.landing.compColSaas}
+                      {dict.landing.compColThumbmark}
                     </th>
                     <th className="p-4 font-semibold text-muted-foreground">
-                      {dict.landing.compColBasic}
+                      {dict.landing.compColFpPro}
+                    </th>
+                    <th className="p-4 font-semibold text-muted-foreground">
+                      {dict.landing.compColCreep}
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
+                  <tr className="hover:bg-secondary/20">
+                    <td className="p-4 font-medium">{dict.landing.compRow1}</td>
+                    <td className="p-4 font-semibold text-emerald-500">{dict.landing.compBloume1}</td>
+                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compThumb1}</td>
+                    <td className="p-4 text-xs text-amber-500">{dict.landing.compFp1}</td>
+                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compCreep1}</td>
+                  </tr>
+                  <tr className="hover:bg-secondary/20">
+                    <td className="p-4 font-medium">{dict.landing.compRow2}</td>
+                    <td className="p-4 font-semibold text-emerald-500">{dict.landing.compBloume2}</td>
+                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compThumb2}</td>
+                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compFp2}</td>
+                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compCreep2}</td>
+                  </tr>
                   {[
                     {
-                      label: dict.landing.compRow1,
-                      bloume: dict.landing.compYes,
-                      saas: dict.landing.compYes,
-                      basic: dict.landing.compNo,
-                    },
-                    {
-                      label: dict.landing.compRow2,
-                      bloume: dict.landing.compYes,
-                      saas: dict.landing.compPaid,
-                      basic: dict.landing.compNo,
-                    },
-                    {
                       label: dict.landing.compRow3,
-                      bloume: dict.landing.compYes,
-                      saas: dict.landing.compPaid,
-                      basic: dict.landing.compNo,
+                      thumb: dict.landing.compPartial,
+                      fp: dict.landing.compYes,
+                      creep: dict.landing.compYes,
                     },
                     {
                       label: dict.landing.compRow4,
-                      bloume: dict.landing.compYes,
-                      saas: dict.landing.compPaid,
-                      basic: dict.landing.compNo,
+                      thumb: dict.landing.compPaid,
+                      fp: dict.landing.compPaid,
+                      creep: dict.landing.compNo,
                     },
                     {
                       label: dict.landing.compRow5,
-                      bloume: dict.landing.compYes,
-                      saas: dict.landing.compPaid,
-                      basic: dict.landing.compNo,
+                      thumb: dict.landing.compNo,
+                      fp: dict.landing.compPaid,
+                      creep: dict.landing.compNo,
                     },
                     {
                       label: dict.landing.compRow6,
-                      bloume: dict.landing.compYes,
-                      saas: dict.landing.compCloud,
-                      basic: dict.landing.compYes,
+                      thumb: dict.landing.compPartial,
+                      fp: dict.landing.compPaid,
+                      creep: dict.landing.compYes,
                     },
                     {
                       label: dict.landing.compRow7,
-                      bloume: dict.landing.compYes,
-                      saas: dict.landing.compPaid,
-                      basic: dict.landing.compYes,
+                      thumb: dict.landing.compNo,
+                      fp: dict.landing.compPaid,
+                      creep: dict.landing.compNo,
                     },
                   ].map((row) => (
                     <tr key={row.label} className="hover:bg-secondary/20">
                       <td className="p-4 font-medium">{row.label}</td>
                       <td className="p-4">
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-400">
-                          <CheckCircle2 className="h-4 w-4" />
-                          <span>{row.bloume}</span>
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-500">
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                          <span>{dict.landing.compYes}</span>
                         </span>
                       </td>
-                      <td className="p-4 text-xs text-amber-300">{row.saas}</td>
+                      <td className="p-4 text-xs text-muted-foreground">{row.thumb}</td>
+                      <td className="p-4 text-xs text-amber-500">{row.fp}</td>
                       <td className="p-4 text-xs text-muted-foreground">
-                        {row.basic === dict.landing.compNo ? (
-                          <span className="inline-flex items-center gap-1 text-rose-400">
-                            <XCircle className="h-4 w-4" />
-                            <span>{row.basic}</span>
+                        {row.creep === dict.landing.compNo ? (
+                          <span className="inline-flex items-center gap-1 text-rose-500">
+                            <XCircle className="h-4 w-4 shrink-0" />
+                            <span>{row.creep}</span>
                           </span>
                         ) : (
-                          row.basic
+                          row.creep
                         )}
                       </td>
                     </tr>
@@ -699,82 +714,87 @@ export default function OpenSourceHomePage() {
           </Card>
         </section>
 
-        {/* SELF-HOST & SDK QUICKSTART SECTION */}
-        <section id="self-host" className="py-14">
+        {/* DUAL API & COOLIFY 1-CLICK DOCKER SHOWCASE */}
+        <section id="self-host" className="py-12">
           <div className="mx-auto max-w-3xl text-center">
             <Badge variant="outline" className="border-primary/40 font-mono text-xs text-primary">
               {dict.landing.codeBadge}
             </Badge>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-4xl">
               {dict.landing.codeTitle}
             </h2>
-            <p className="mt-3 text-base text-muted-foreground">{dict.landing.codeSubtitle}</p>
+            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
+              {dict.landing.codeSubtitle}
+            </p>
           </div>
 
-          <Card className="mt-10 border-border/80 bg-card/85 p-6">
-            <Tabs defaultValue="npm">
-              <TabsList>
-                <TabsTrigger value="npm">{dict.sites.tabNpm}</TabsTrigger>
-                <TabsTrigger value="node">{dict.sites.tabNode}</TabsTrigger>
-                <TabsTrigger value="script">{dict.sites.tabScript}</TabsTrigger>
-                <TabsTrigger value="docker">Docker Compose</TabsTrigger>
+          <Card className="mt-8 border-border bg-card p-4 sm:p-6">
+            <Tabs defaultValue="thumbmark">
+              <TabsList className="flex flex-wrap">
+                <TabsTrigger value="thumbmark">{dict.landing.tabThumbmark}</TabsTrigger>
+                <TabsTrigger value="fppro">{dict.landing.tabFingerprintPro}</TabsTrigger>
+                <TabsTrigger value="script">{dict.landing.tabScript}</TabsTrigger>
+                <TabsTrigger value="coolify">{dict.landing.tabCoolify}</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="npm">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-background/90 p-5 font-mono text-xs leading-relaxed text-foreground">
+              <TabsContent value="thumbmark">
+                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
 {`import { BloumeID } from "@bloumeid/sdk";
 
-const bloumeid = new BloumeID({
+const tm = new BloumeID({
   apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY,
   endpoint: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_URL,
-  options: {
-    exclude: [],
-    timeout: 5000,
-    cacheLifetimeMs: 60_000,
-  },
 });
 
-const { visitorId, thumbmark, hardwareHash, requestId, confidence, info } = await bloumeid.get();
-console.log({ visitorId, thumbmark, dangerLevel: info.dangerLevel, isBot: info.isBot });`}
+const { visitorId, thumbmark, requestId, confidence, info } = await tm.get();
+console.log({ visitorId, thumbmark, dangerLevel: info.dangerLevel, action: info.action });`}
                 </pre>
               </TabsContent>
 
-              <TabsContent value="node">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-background/90 p-5 font-mono text-xs leading-relaxed text-foreground">
-{`import { BloumeIDServer } from "@bloumeid/sdk/server";
+              <TabsContent value="fppro">
+                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
+{`import FingerprintJS from "@bloumeid/sdk";
 
-const bloumeServer = new BloumeIDServer({
-  secretKey: process.env.BLOUMEID_SECRET_KEY!, // bid_sec_...
-  endpoint: process.env.BLOUMEID_PUBLIC_URL!,
+// 100% Drop-in replacement for @fingerprintjs/fingerprintjs-pro
+const fpPromise = FingerprintJS.load({
+  apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY!,
+  endpoint: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_URL!,
 });
 
-const verified = await bloumeServer.verifyRequest(requestId);
-if (!verified.verified || verified.dangerLevel >= 4 || verified.flags.isBot) {
-  throw new Error("High-risk or spoofed request rejected");
-}`}
+const agent = await fpPromise;
+const result = await agent.get({
+  extendedResult: true,
+  linkedId: "user_account_42",
+  tag: { checkoutStep: "payment" },
+});
+console.log(result.visitorId, result.requestId, result.visitorFound, result.ipLocation);`}
                 </pre>
               </TabsContent>
 
               <TabsContent value="script">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-background/90 p-5 font-mono text-xs leading-relaxed text-foreground">
+                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
 {`<script src="\${BLOUMEID_PUBLIC_URL}/sdk/v1/bloumeid.js"></script>
 <script>
-  const client = new window.BloumeID({
+  // Supports both new window.BloumeID() and window.BloumeID.load()
+  window.BloumeID.load({
     apiKey: "bid_pub_YOUR_SITE_KEY",
     endpoint: "\${BLOUMEID_PUBLIC_URL}"
-  });
-  client.get().then((res) => console.log(res.visitorId, res.info.dangerLevel));
+  }).then((agent) => agent.get({ extendedResult: true }))
+    .then((res) => console.log(res.visitorId, res.requestId, res.incognito));
 </script>`}
                 </pre>
               </TabsContent>
 
-              <TabsContent value="docker">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-background/90 p-5 font-mono text-xs leading-relaxed text-foreground">
-{`git clone https://github.com/bloume-sas/bloumeid.git
-cd bloumeid
-cp .env.example .env
-docker compose up -d --build
-curl -fsS http://localhost:3000/api/health`}
+              <TabsContent value="coolify">
+                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
+{`# Option 1: All-in-One Stack (Web + PostgreSQL 17 + Valkey 8 + Auto GeoLite2)
+docker compose -f docker-compose.yml up -d --build
+
+# Option 2: External / Managed PostgreSQL & Redis (Coolify External DBs)
+docker compose -f docker-compose.external-db.yml up -d --build
+
+# Option 3: Coolify Single-Container Dockerfile Buildpack (Root ./Dockerfile)
+docker build -t bloumeid:v1.0.0 -f Dockerfile .`}
                 </pre>
               </TabsContent>
             </Tabs>
@@ -782,10 +802,9 @@ curl -fsS http://localhost:3000/api/health`}
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border/70 bg-card/50 py-10">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2.5">
+      <footer className="border-t border-border bg-card/60 py-8">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 text-xs text-muted-foreground sm:px-6">
+          <div className="flex items-center gap-2">
             <Fingerprint className="h-4 w-4 text-primary" />
             <span className="font-semibold text-foreground">{dict.common.brandName}</span>
             <span>— {dict.landing.footerBuiltBy}</span>
@@ -797,12 +816,7 @@ curl -fsS http://localhost:3000/api/health`}
             <Link href="/dashboard" className="hover:text-foreground">
               {dict.landing.footerDashboard}
             </Link>
-            <a
-              href={GITHUB_REPO_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-foreground"
-            >
+            <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
               {dict.landing.navGithub}
             </a>
           </div>

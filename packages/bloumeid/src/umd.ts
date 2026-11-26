@@ -1,3 +1,4 @@
-import { BloumeID } from "./index";
+import { BloumeID, FingerprintJS, load } from "./index";
+
+export { BloumeID, FingerprintJS, load };
 export default BloumeID;
-export { BloumeID };

@@ -3,10 +3,12 @@ import type {
   AudioComponent,
   CanvasComponent,
   ConnectionComponent,
+  CssMediaMatrixComponent,
   FontsComponent,
   HardwareComponent,
   LanguagesComponent,
   MathComponent,
+  MediaCodecsComponent,
   ScreenComponent,
   SpeechComponent,
   StorageComponent,
@@ -114,17 +116,35 @@ export const OS_FONT_CANDIDATES: readonly string[] = [
   "Yu Gothic",
 ];
 
+const UNICODE_EMOJI_PROBES = ["🇺🇳", "👨‍👩‍👧‍👦", "﷽", "🏴‍☠️", "🧘🏽‍♂️"] as const;
+
 function renderCanvasScene(canvas: HTMLCanvasElement): {
   dataUrl: string;
   geometryData: string;
   textData: string;
   winding: boolean;
+  emojiSubpixelHash: string;
+  emojiAscentSum: number;
+  emojiDescentSum: number;
 } {
   canvas.width = 280;
   canvas.height = 70;
-  const ctx = canvas.getContext("2d");
+  let ctx: CanvasRenderingContext2D | null = null;
+  try {
+    ctx = canvas.getContext("2d");
+  } catch {
+    ctx = null;
+  }
   if (!ctx) {
-    return { dataUrl: "no_ctx", geometryData: "no_ctx", textData: "no_ctx", winding: false };
+    return {
+      dataUrl: "no_ctx",
+      geometryData: "no_ctx",
+      textData: "no_ctx",
+      winding: false,
+      emojiSubpixelHash: sha256Hex("no_ctx"),
+      emojiAscentSum: 0,
+      emojiDescentSum: 0,
+    };
   }
 
   ctx.rect(0, 0, 10, 10);
@@ -136,11 +156,26 @@ function renderCanvasScene(canvas: HTMLCanvasElement): {
   ctx.fillRect(100, 2, 82, 24);
   ctx.fillStyle = "#38bdf8";
   ctx.font = "14px 'Arial'";
-  ctx.fillText("BloumeID-fp-2026 🚀✨", 4, 18);
+  ctx.fillText("BloumeID-v1.0.0 🚀✨", 4, 18);
   ctx.fillStyle = "rgba(167, 139, 250, 0.75)";
   ctx.font = "16pt Georgia";
   ctx.fillText("Cwm fjordbank glyphs vext quiz", 6, 44);
   const textData = canvas.toDataURL();
+
+  // Unicode & Emoji Subpixel TextMetrics probe
+  let emojiAscentSum = 0;
+  let emojiDescentSum = 0;
+  const emojiMetricsList: string[] = [];
+  ctx.font = "20px sans-serif";
+  for (const glyph of UNICODE_EMOJI_PROBES) {
+    const m = ctx.measureText(glyph);
+    const asc = Number(m.actualBoundingBoxAscent ?? 0);
+    const desc = Number(m.actualBoundingBoxDescent ?? 0);
+    const w = Number(m.width ?? 0);
+    emojiAscentSum += asc;
+    emojiDescentSum += desc;
+    emojiMetricsList.push(`${w.toFixed(4)}:${asc.toFixed(4)}:${desc.toFixed(4)}`);
+  }
 
   ctx.globalCompositeOperation = "multiply";
   ctx.fillStyle = "rgb(255,0,255)";
@@ -160,6 +195,9 @@ function renderCanvasScene(canvas: HTMLCanvasElement): {
     geometryData,
     textData,
     winding,
+    emojiSubpixelHash: sha256Hex(emojiMetricsList.join("|")),
+    emojiAscentSum: Number(emojiAscentSum.toFixed(4)),
+    emojiDescentSum: Number(emojiDescentSum.toFixed(4)),
   };
 }
 
@@ -171,6 +209,9 @@ export function collectCanvas(): CanvasComponent {
       doubleRenderConsistent: true,
       geometryHash: sha256Hex("ssr_geo"),
       textHash: sha256Hex("ssr_text"),
+      emojiSubpixelHash: sha256Hex("ssr_emoji"),
+      emojiAscentSum: 0,
+      emojiDescentSum: 0,
     };
   }
   try {
@@ -178,13 +219,16 @@ export function collectCanvas(): CanvasComponent {
     const c2 = document.createElement("canvas");
     const r1 = renderCanvasScene(c1);
     const r2 = renderCanvasScene(c2);
-    const doubleRenderConsistent = r1.dataUrl === r2.dataUrl && r1.dataUrl.length > 32;
+    const doubleRenderConsistent = r1.dataUrl === r2.dataUrl && r1.dataUrl.length > 5;
     return {
       hash: sha256Hex(r1.dataUrl),
       winding: r1.winding,
       doubleRenderConsistent,
       geometryHash: sha256Hex(r1.geometryData),
       textHash: sha256Hex(r1.textData),
+      emojiSubpixelHash: r1.emojiSubpixelHash,
+      emojiAscentSum: r1.emojiAscentSum,
+      emojiDescentSum: r1.emojiDescentSum,
     };
   } catch {
     return {
@@ -193,6 +237,9 @@ export function collectCanvas(): CanvasComponent {
       doubleRenderConsistent: true,
       geometryHash: sha256Hex("canvas_error"),
       textHash: sha256Hex("canvas_error"),
+      emojiSubpixelHash: sha256Hex("canvas_error"),
+      emojiAscentSum: 0,
+      emojiDescentSum: 0,
     };
   }
 }
@@ -214,15 +261,26 @@ export function collectWebGL(): WebGLComponent {
       maxViewportDims: [0, 0],
       maxAnisotropy: 0,
       shaderPrecisionHash: sha256Hex("none"),
+      maxVertexUniformVectors: 0,
+      aliasedLineWidthRange: [1, 1],
+      pixelRenderHash: sha256Hex("none"),
     };
   }
 
   try {
     const canvas = document.createElement("canvas");
-    const gl2 = canvas.getContext("webgl2");
-    const gl = (gl2 || canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) as
-      | WebGLRenderingContext
-      | null;
+    canvas.width = 16;
+    canvas.height = 16;
+    let gl2: WebGL2RenderingContext | null = null;
+    let gl: WebGLRenderingContext | null = null;
+    try {
+      gl2 = canvas.getContext("webgl2");
+      gl = (gl2 ||
+        canvas.getContext("webgl") ||
+        canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
+    } catch {
+      gl = null;
+    }
 
     if (!gl) {
       return {
@@ -240,6 +298,9 @@ export function collectWebGL(): WebGLComponent {
         maxViewportDims: [0, 0],
         maxAnisotropy: 0,
         shaderPrecisionHash: sha256Hex("unavailable"),
+        maxVertexUniformVectors: 0,
+        aliasedLineWidthRange: [1, 1],
+        pixelRenderHash: sha256Hex("unavailable"),
       };
     }
 
@@ -258,10 +319,15 @@ export function collectWebGL(): WebGLComponent {
     );
     const extensions = (gl.getSupportedExtensions() ?? []).slice().sort();
     const maxTextureSize = Number(gl.getParameter(gl.MAX_TEXTURE_SIZE) ?? 0);
+    const maxVertexUniformVectors = Number(gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) ?? 0);
     const viewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array | number[] | null;
     const maxViewportDims: [number, number] = viewport
       ? [Number(viewport[0] ?? 0), Number(viewport[1] ?? 0)]
       : [0, 0];
+    const lineRange = gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE) as Float32Array | number[] | null;
+    const aliasedLineWidthRange: [number, number] = lineRange
+      ? [Number(lineRange[0] ?? 1), Number(lineRange[1] ?? 1)]
+      : [1, 1];
 
     const extAniso =
       gl.getExtension("EXT_texture_filter_anisotropic") ||
@@ -295,6 +361,20 @@ export function collectWebGL(): WebGLComponent {
       }
     }
 
+    // Mini deterministic WebGL clear/pixel hash probe
+    let pixelRenderHash = sha256Hex(`${unmaskedVendor}:${unmaskedRenderer}:${maxVertexUniformVectors}`);
+    try {
+      if (typeof gl.clearColor === "function" && typeof gl.readPixels === "function") {
+        gl.clearColor(0.37, 0.21, 0.85, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        const pixels = new Uint8Array(16);
+        gl.readPixels(0, 0, 2, 2, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        pixelRenderHash = sha256Hex(`${Array.from(pixels).join(",")}:${unmaskedRenderer}`);
+      }
+    } catch {
+      // Fallback to parameter-based hash
+    }
+
     return {
       webgl1Available: true,
       webgl2Available: Boolean(gl2),
@@ -310,6 +390,9 @@ export function collectWebGL(): WebGLComponent {
       maxViewportDims,
       maxAnisotropy,
       shaderPrecisionHash: sha256Hex(precisions.join("|")),
+      maxVertexUniformVectors,
+      aliasedLineWidthRange,
+      pixelRenderHash,
     };
   } catch {
     return {
@@ -327,6 +410,9 @@ export function collectWebGL(): WebGLComponent {
       maxViewportDims: [0, 0],
       maxAnisotropy: 0,
       shaderPrecisionHash: sha256Hex("error"),
+      maxVertexUniformVectors: 0,
+      aliasedLineWidthRange: [1, 1],
+      pixelRenderHash: sha256Hex("error"),
     };
   }
 }
@@ -343,6 +429,7 @@ export async function collectWebGPU(): Promise<WebGPUComponent> {
               device?: string;
               description?: string;
             };
+            features?: Iterable<string>;
             limits?: Record<string, unknown>;
           } | null>;
         }
@@ -356,6 +443,9 @@ export async function collectWebGPU(): Promise<WebGPUComponent> {
         device: "unavailable",
         description: "unavailable",
         limitsHash: sha256Hex("unavailable"),
+        features: [],
+        maxTextureDimension2D: 0,
+        maxBindGroups: 0,
       };
     }
 
@@ -368,13 +458,22 @@ export async function collectWebGPU(): Promise<WebGPUComponent> {
         device: "no_adapter",
         description: "no_adapter",
         limitsHash: sha256Hex("no_adapter"),
+        features: [],
+        maxTextureDimension2D: 0,
+        maxBindGroups: 0,
       };
     }
 
     const info = adapter.info ?? {};
+    const features = adapter.features ? Array.from(adapter.features).sort() : [];
     const limitsObj: Record<string, number | string> = {};
     if (adapter.limits) {
-      for (const key of ["maxTextureDimension2D", "maxBufferSize", "maxComputeWorkgroupSizeX"]) {
+      for (const key of [
+        "maxTextureDimension2D",
+        "maxBufferSize",
+        "maxComputeWorkgroupSizeX",
+        "maxBindGroups",
+      ]) {
         const val = (adapter.limits as Record<string, unknown>)[key];
         if (typeof val === "number" || typeof val === "string") {
           limitsObj[key] = val;
@@ -388,7 +487,10 @@ export async function collectWebGPU(): Promise<WebGPUComponent> {
       architecture: String(info.architecture ?? "unknown"),
       device: String(info.device ?? "unknown"),
       description: String(info.description ?? "unknown"),
-      limitsHash: sha256Hex(stableStringify(limitsObj)),
+      limitsHash: sha256Hex(stableStringify({ limitsObj, features })),
+      features,
+      maxTextureDimension2D: Number(limitsObj.maxTextureDimension2D ?? 8192),
+      maxBindGroups: Number(limitsObj.maxBindGroups ?? 4),
     };
   } catch {
     return {
@@ -398,11 +500,19 @@ export async function collectWebGPU(): Promise<WebGPUComponent> {
       device: "error",
       description: "error",
       limitsHash: sha256Hex("error"),
+      features: [],
+      maxTextureDimension2D: 0,
+      maxBindGroups: 0,
     };
   }
 }
 
-async function runSingleOfflineAudioRender(): Promise<{ sum: number; samples: string; sampleRate: number; maxChannels: number } | null> {
+async function runSingleOfflineAudioRender(): Promise<{
+  sum: number;
+  samples: string;
+  sampleRate: number;
+  maxChannels: number;
+} | null> {
   const win = typeof window !== "undefined" ? (window as unknown as Record<string, unknown>) : {};
   const OfflineCtx = (win.OfflineAudioContext || win.webkitOfflineAudioContext) as
     | (new (channels: number, length: number, sampleRate: number) => OfflineAudioContext)
@@ -496,6 +606,7 @@ export function collectHardware(): HardwareComponent {
       cookieEnabled: false,
       doNotTrack: null,
       architectureHint: "unknown",
+      globalPrivacyControl: false,
     };
   }
 
@@ -519,6 +630,7 @@ export function collectHardware(): HardwareComponent {
     cookieEnabled: Boolean(navigator.cookieEnabled),
     doNotTrack: typeof navigator.doNotTrack === "string" ? navigator.doNotTrack : null,
     architectureHint,
+    globalPrivacyControl: Boolean(nav.globalPrivacyControl ?? false),
   };
 }
 
@@ -571,6 +683,139 @@ export function collectScreen(): ScreenComponent {
     prefersReducedMotion: mq("(prefers-reduced-motion: reduce)"),
     touchSupport:
       "ontouchstart" in window || (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0),
+  };
+}
+
+export function collectCssMediaMatrix(): CssMediaMatrixComponent {
+  const mq = (query: string): boolean => {
+    try {
+      return typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia(query).matches
+        : false;
+    } catch {
+      return false;
+    }
+  };
+
+  const prefersColorScheme = mq("(prefers-color-scheme: dark)")
+    ? "dark"
+    : mq("(prefers-color-scheme: light)")
+      ? "light"
+      : "no-preference";
+
+  const prefersContrast = mq("(prefers-contrast: more)")
+    ? "more"
+    : mq("(prefers-contrast: less)")
+      ? "less"
+      : "no-preference";
+
+  let colorGamut: "rec2020" | "p3" | "srgb" | "unknown" = "unknown";
+  if (mq("(color-gamut: rec2020)")) colorGamut = "rec2020";
+  else if (mq("(color-gamut: p3)")) colorGamut = "p3";
+  else if (mq("(color-gamut: srgb)")) colorGamut = "srgb";
+
+  const anyPointer = mq("(any-pointer: fine)")
+    ? "fine"
+    : mq("(any-pointer: coarse)")
+      ? "coarse"
+      : "none";
+
+  return {
+    prefersColorScheme,
+    prefersReducedMotion: mq("(prefers-reduced-motion: reduce)"),
+    prefersContrast,
+    forcedColors: mq("(forced-colors: active)"),
+    dynamicRangeHigh: mq("(dynamic-range: high)"),
+    colorGamut,
+    anyPointer,
+    anyHover: mq("(any-hover: hover)"),
+    invertedColors: mq("(inverted-colors: inverted)"),
+    monochrome: mq("(monochrome)"),
+  };
+}
+
+export async function collectMediaCodecs(): Promise<MediaCodecsComponent> {
+  let audioInputCount = 0;
+  let videoInputCount = 0;
+  let audioOutputCount = 0;
+
+  try {
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.mediaDevices &&
+      typeof navigator.mediaDevices.enumerateDevices === "function"
+    ) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      for (const d of devices) {
+        if (d.kind === "audioinput") audioInputCount += 1;
+        else if (d.kind === "videoinput") videoInputCount += 1;
+        else if (d.kind === "audiooutput") audioOutputCount += 1;
+      }
+    }
+  } catch {
+    // Ignore device enumeration errors
+  }
+
+  let av1Supported = false;
+  let hevcSupported = false;
+  let vp9Supported = false;
+  let opusSupported = false;
+  let flacSupported = false;
+
+  try {
+    if (typeof document !== "undefined") {
+      const video = document.createElement("video");
+      const audio = document.createElement("audio");
+      if (typeof video.canPlayType === "function") {
+        av1Supported = Boolean(video.canPlayType('video/mp4; codecs="av01.0.05M.08"'));
+        hevcSupported = Boolean(video.canPlayType('video/mp4; codecs="hev1.1.6.L93.B0"'));
+        vp9Supported = Boolean(video.canPlayType('video/webm; codecs="vp9"'));
+      }
+      if (typeof audio.canPlayType === "function") {
+        opusSupported = Boolean(audio.canPlayType('audio/ogg; codecs="opus"'));
+        flacSupported = Boolean(audio.canPlayType("audio/flac"));
+      }
+    }
+  } catch {
+    // Ignore codec check errors
+  }
+
+  let keyboardLayoutHash = sha256Hex("no_keyboard_map");
+  let keyboardKeysCount = 0;
+
+  try {
+    const nav = typeof navigator !== "undefined" ? (navigator as unknown as Record<string, unknown>) : {};
+    const kb = nav.keyboard as
+      | {
+          getLayoutMap?: () => Promise<Map<string, string>>;
+        }
+      | undefined;
+
+    if (kb && typeof kb.getLayoutMap === "function") {
+      const map = await kb.getLayoutMap();
+      const entries: string[] = [];
+      map.forEach((v, k) => {
+        entries.push(`${k}:${v}`);
+      });
+      entries.sort();
+      keyboardKeysCount = entries.length;
+      keyboardLayoutHash = sha256Hex(entries.join(","));
+    }
+  } catch {
+    // Ignore keyboard layout errors
+  }
+
+  return {
+    audioInputCount,
+    videoInputCount,
+    audioOutputCount,
+    av1Supported,
+    hevcSupported,
+    vp9Supported,
+    opusSupported,
+    flacSupported,
+    keyboardLayoutHash,
+    keyboardKeysCount,
   };
 }
 
@@ -650,6 +895,7 @@ export function collectFonts(): FontsComponent {
 export function collectTimezoneIntl(): TimezoneIntlComponent {
   try {
     const resolved = Intl.DateTimeFormat().resolvedOptions();
+    const tz = resolved.timeZone || "UTC";
     const offset = new Date().getTimezoneOffset();
     const formatted = new Intl.DateTimeFormat("en-US", {
       timeZoneName: "longOffset",
@@ -660,8 +906,11 @@ export function collectTimezoneIntl(): TimezoneIntlComponent {
     const numFormatted = new Intl.NumberFormat().format(1234567.89);
     const pr = new Intl.PluralRules().resolvedOptions().pluralCategories;
 
+    // DST & UTC offset consistency check
+    const dstConsistent = !(tz === "UTC" && offset !== 0);
+
     return {
-      timezone: resolved.timeZone || "UTC",
+      timezone: tz,
       timezoneOffsetMinutes: offset,
       locale: resolved.locale || "en-US",
       calendar: resolved.calendar || "gregory",
@@ -669,6 +918,7 @@ export function collectTimezoneIntl(): TimezoneIntlComponent {
       dateTimeFormatHash: sha256Hex(formatted),
       numberFormatSymbol: numFormatted,
       pluralCategories: [...pr].sort(),
+      dstConsistent,
     };
   } catch {
     return {
@@ -680,6 +930,7 @@ export function collectTimezoneIntl(): TimezoneIntlComponent {
       dateTimeFormatHash: sha256Hex("fallback"),
       numberFormatSymbol: "1,234,567.89",
       pluralCategories: ["one", "other"],
+      dstConsistent: true,
     };
   }
 }
@@ -694,9 +945,10 @@ export function collectLanguages(): LanguagesComponent {
   }
 
   const primary = navigator.language || "en-US";
-  const list = Array.isArray(navigator.languages) && navigator.languages.length > 0
-    ? [...navigator.languages]
-    : [primary];
+  const list =
+    Array.isArray(navigator.languages) && navigator.languages.length > 0
+      ? [...navigator.languages]
+      : [primary];
   const firstInList = list[0] ?? primary;
   const consistentMainLanguage =
     primary.toLowerCase().slice(0, 2) === firstInList.toLowerCase().slice(0, 2);

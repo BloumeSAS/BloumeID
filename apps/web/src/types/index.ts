@@ -1,7 +1,9 @@
-import type { FingerprintComponents } from "@bloumeid/sdk";
+import type { FingerprintComponents, SecurityRuleAction } from "@bloumeid/sdk";
+import type { SecurityRuleCondition } from "@/lib/engine/rules";
 
-export type SnowflakePrefix = "site" | "vis" | "req" | "feed";
+export type SnowflakePrefix = "site" | "vis" | "req" | "feed" | "rule" | "whd";
 export type ApiKeyPrefix = "bid_pub" | "bid_sec";
+export type VisitorTrustStatus = "neutral" | "trusted" | "blocked";
 
 export interface SiteCollectorsConfig {
   webrtc: boolean;
@@ -23,6 +25,8 @@ export interface PublicSiteDTO {
   riskThreshold: number;
   config: SiteCollectorsConfig;
   isActive: boolean;
+  requests24h?: number;
+  requests30d?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +39,8 @@ export interface PublicVisitorDTO {
   lastSeenAt: string;
   visitCount: number;
   maxDangerLevel: number;
+  trustStatus: VisitorTrustStatus;
+  mergedIntoId: string | null;
   tags: string[];
   notes: string | null;
 }
@@ -52,6 +58,8 @@ export interface PublicFingerprintEventDTO {
   asnOrg: string | null;
   country: string | null;
   city: string | null;
+  latitude: number | null;
+  longitude: number | null;
   isVpn: boolean;
   isProxy: boolean;
   isTor: boolean;
@@ -62,12 +70,45 @@ export interface PublicFingerprintEventDTO {
   crossBrowserMatched: boolean;
   dangerLevel: number;
   confidence: number;
+  ruleAction: SecurityRuleAction;
+  matchedRuleId: string | null;
+  linkedId: string | null;
+  tag: Record<string, unknown> | string | null;
   browser: string | null;
   os: string | null;
   device: string | null;
   userAgent: string;
   origin: string | null;
   components: FingerprintComponents;
+  createdAt: string;
+}
+
+export interface PublicSecurityRuleDTO {
+  publicId: string;
+  sitePublicId: string | null;
+  name: string;
+  description: string | null;
+  action: SecurityRuleAction;
+  conditions: SecurityRuleCondition[];
+  priority: number;
+  isEnabled: boolean;
+  hitCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicWebhookDeliveryDTO {
+  publicId: string;
+  sitePublicId: string;
+  eventType: string;
+  requestId: string;
+  targetUrl: string;
+  statusCode: number | null;
+  durationMs: number;
+  delivered: boolean;
+  attempts: number;
+  payload: Record<string, unknown>;
+  responseExcerpt: string | null;
   createdAt: string;
 }
 
@@ -81,22 +122,27 @@ export interface PublicThreatFeedDTO {
 }
 
 export interface DashboardMetricsDTO {
-  period: "24h" | "7d" | "30d";
+  period: "1h" | "24h" | "7d" | "30d" | "90d";
   totalEvents: number;
   totalEventsDelta: number;
+  throughputPerMin: number;
   uniqueVisitors: number;
   uniqueVisitorsDelta: number;
+  returnRatePercent: number;
   highRiskDetections: number;
   highRiskDelta: number;
   botSpoofRate: number;
   botSpoofDelta: number;
   crossBrowserMatches: number;
   vpnTorCount: number;
+  vpnSharePercent: number;
   avgCollectionMs: number;
   activeTrieCidrs: number;
   trendSeries: Array<{
     bucket: string;
     total: number;
+    clean: number;
+    suspicious: number;
     highRisk: number;
     bots: number;
   }>;
@@ -117,6 +163,10 @@ export interface DashboardMetricsDTO {
     asn: string;
     count: number;
   }>;
+  topAsns: Array<{
+    asnNumber: number;
+    asnOrg: string;
+    count: number;
+  }>;
   recentHighRiskEvents: PublicFingerprintEventDTO[];
 }
-

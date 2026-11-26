@@ -3,6 +3,7 @@ import { z } from "zod";
 import { computeAntiReplaySignature, type FingerprintComponents } from "@bloumeid/sdk";
 import { constantTimeEqual, generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
+  evaluateClientHintsConsistency,
   evaluateJa4Consistency,
   extractIpSubnet,
   extractRealClientIp,
@@ -17,12 +18,17 @@ import {
 import { evaluateIpThreatIntel } from "@/lib/engine/feeds";
 import { computeDangerScore } from "@/lib/engine/scoring";
 import { reconcileVisitorIdentity } from "@/lib/engine/reconcile";
+import { evaluateSecurityRules } from "@/lib/engine/rules";
 import {
   findSiteByPublicKey,
   getReconciliationStore,
+  getVisitorByPublicId,
+  listSecurityRules,
   recordFingerprintEvent,
+  recordWebhookDelivery,
+  updateSecurityRule,
 } from "@/lib/engine/repository";
-import { enqueueWebhookAsync, shouldTriggerWebhook } from "@/lib/engine/webhooks";
+import { dispatchSignedWebhook, shouldTriggerWebhook } from "@/lib/engine/webhooks";
 
 const FingerprintPayloadSchema = z.object({
   timestamp: z.number().int(),
@@ -31,6 +37,8 @@ const FingerprintPayloadSchema = z.object({
   fullHash: z.string().min(16).max(128),
   hardwareHash: z.string().min(16).max(128),
   durationMs: z.number().min(0).max(60000).optional().default(10),
+  linkedId: z.string().max(256).optional(),
+  tag: z.union([z.record(z.unknown()), z.string()]).optional(),
   components: z.record(z.unknown()),
 });
 
@@ -76,7 +84,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  // Strict per-site CORS Origin validation
   if (!isOriginAllowedForSite(origin, site.domains)) {
     return NextResponse.json(
       { error: `Origin '${origin ?? "none"}' is not allowed for site ${site.publicId}` },
@@ -86,7 +93,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const ipAddress = extractRealClientIp(request.headers);
 
-  // Sliding-window rate limit per IP + Site (120 req / 60s)
   const rateLimit = await checkSlidingWindowRateLimit({
     key: `fp:${site.publicId}:${ipAddress}`,
     windowSeconds: 60,
@@ -120,7 +126,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const payload = parsed.data;
 
-  // Anti-replay timestamp window check (±5 minutes)
   const now = Date.now();
   if (Math.abs(now - payload.timestamp) > 5 * 60 * 1000) {
     return NextResponse.json(
@@ -129,7 +134,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  // Anti-replay HMAC integrity check
   const expectedSig = computeAntiReplaySignature(
     apiKey,
     payload.timestamp,
@@ -145,7 +149,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  // Single-use nonce deduplication in Redis
   const isFreshNonce = await consumeAntiReplayNonce(site.publicId, payload.nonce);
   if (!isFreshNonce) {
     return NextResponse.json(
@@ -160,15 +163,19 @@ export async function POST(request: Request): Promise<NextResponse> {
   const uaSummary = parseUserAgentSummary(userAgent);
   const ja4Eval = evaluateJa4Consistency(ja4Hash, userAgent);
 
-  // Network Threat Intel (Patricia/Radix CIDR Trie + ASN Classifier + MaxMind GeoLite2)
+  const comp = payload.components as unknown as FingerprintComponents;
+  const chEval = evaluateClientHintsConsistency(
+    request.headers,
+    comp.hardware?.platform ?? comp.userAgentData?.platform
+  );
+
   const netIntel = await evaluateIpThreatIntel(ipAddress);
 
-  const comp = payload.components as unknown as FingerprintComponents;
   const isBotClient = Boolean(comp.antiSpoof?.isBot);
-  const isSpoofedClient = Boolean(comp.antiSpoof?.isSpoofed) || ja4Eval.inconsistent;
+  const isSpoofedClient =
+    Boolean(comp.antiSpoof?.isSpoofed) || ja4Eval.inconsistent || chEval.inconsistent;
   const isIncognitoClient = Boolean(comp.antiSpoof?.isIncognito);
 
-  // First reconcile visitor identity (3-level reconciliation)
   const store = getReconciliationStore();
   const initialDangerScore = computeDangerScore({
     isBot: isBotClient,
@@ -178,7 +185,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     isDatacenter: netIntel.isDatacenter,
     isProxy: netIntel.isProxy,
     isIncognito: isIncognitoClient,
-    ja4Inconsistent: ja4Eval.inconsistent,
+    ja4Inconsistent: ja4Eval.inconsistent || chEval.inconsistent,
     ipVelocityAnomaly: false,
     geoVelocityAnomaly: false,
   });
@@ -192,7 +199,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     isSpoofed: isSpoofedClient,
   });
 
-  // Check Redis velocity anomalies (>5 visitorIds per IP in 10m, >5 countries per visitor in 1h)
   const velocity = await recordAndCheckVelocity({
     ipAddress,
     visitorPublicId: reconciled.visitorPublicId,
@@ -207,10 +213,32 @@ export async function POST(request: Request): Promise<NextResponse> {
     isDatacenter: netIntel.isDatacenter,
     isProxy: netIntel.isProxy,
     isIncognito: isIncognitoClient,
-    ja4Inconsistent: ja4Eval.inconsistent,
+    ja4Inconsistent: ja4Eval.inconsistent || chEval.inconsistent,
     ipVelocityAnomaly: velocity.ipVelocityAnomaly,
     geoVelocityAnomaly: velocity.geoVelocityAnomaly,
   });
+
+  // Evaluate Custom Security Rules Engine
+  const visitorProfile = await getVisitorByPublicId(reconciled.visitorPublicId);
+  const siteRules = await listSecurityRules(site.publicId);
+  const ruleVerdict = evaluateSecurityRules(siteRules, {
+    sitePublicId: site.publicId,
+    visitorPublicId: reconciled.visitorPublicId,
+    visitorTrustStatus: visitorProfile?.visitor.trustStatus ?? "neutral",
+    isTor: netIntel.isTor,
+    isVpn: netIntel.isVpn,
+    isDatacenter: netIntel.isDatacenter,
+    isBot: isBotClient,
+    isSpoofed: isSpoofedClient,
+    dangerLevel: finalScoring.dangerLevel,
+    country: netIntel.country,
+    asnNumber: netIntel.asnNumber,
+    ipSubnet,
+  });
+
+  if (ruleVerdict.matchedRuleId && ruleVerdict.matchedRuleId.startsWith("rule_")) {
+    await updateSecurityRule(ruleVerdict.matchedRuleId, { incrementHit: true });
+  }
 
   const requestId = generateSnowflakeId("req");
 
@@ -227,6 +255,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     asnOrg: netIntel.asnOrg,
     country: netIntel.country,
     city: netIntel.city,
+    latitude: netIntel.latitude,
+    longitude: netIntel.longitude,
     isVpn: netIntel.isVpn,
     isProxy: netIntel.isProxy,
     isTor: netIntel.isTor,
@@ -237,6 +267,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     crossBrowserMatched: reconciled.crossBrowserMatched,
     dangerLevel: finalScoring.dangerLevel,
     confidence: reconciled.confidence,
+    ruleAction: ruleVerdict.action,
+    matchedRuleId: ruleVerdict.matchedRuleId,
+    linkedId: payload.linkedId ?? null,
+    tag: payload.tag ?? null,
     browser: uaSummary.browser,
     os: uaSummary.os,
     device: uaSummary.device,
@@ -255,38 +289,61 @@ export async function POST(request: Request): Promise<NextResponse> {
       isBot: isBotClient,
     })
   ) {
-    enqueueWebhookAsync({
-      webhookUrl: site.webhookUrl,
-      webhookSecret: site.webhookSecret,
-      payload: {
-        event: "threat.detected",
-        timestamp: new Date().toISOString(),
-        siteId: site.publicId,
-        requestId,
-        visitorId: reconciled.visitorPublicId,
-        thumbmark: payload.fullHash,
-        hardwareHash: payload.hardwareHash,
-        dangerLevel: finalScoring.dangerLevel,
-        confidence: reconciled.confidence,
-        flags: {
-          isBot: isBotClient,
-          isSpoofed: isSpoofedClient,
-          isVpn: netIntel.isVpn,
-          isTor: netIntel.isTor,
-          isDatacenter: netIntel.isDatacenter,
-          isProxy: netIntel.isProxy,
-          isIncognito: isIncognitoClient,
-          crossBrowserMatched: reconciled.crossBrowserMatched,
-        },
-        network: {
-          ipAddress,
-          asnNumber: netIntel.asnNumber,
-          asnOrg: netIntel.asnOrg,
-          country: netIntel.country,
-        },
+    const whPayload = {
+      event: "threat.detected" as const,
+      timestamp: new Date().toISOString(),
+      siteId: site.publicId,
+      requestId,
+      visitorId: reconciled.visitorPublicId,
+      thumbmark: payload.fullHash,
+      hardwareHash: payload.hardwareHash,
+      dangerLevel: finalScoring.dangerLevel,
+      confidence: reconciled.confidence,
+      flags: {
+        isBot: isBotClient,
+        isSpoofed: isSpoofedClient,
+        isVpn: netIntel.isVpn,
+        isTor: netIntel.isTor,
+        isDatacenter: netIntel.isDatacenter,
+        isProxy: netIntel.isProxy,
+        isIncognito: isIncognitoClient,
+        crossBrowserMatched: reconciled.crossBrowserMatched,
       },
-    });
+      network: {
+        ipAddress,
+        asnNumber: netIntel.asnNumber,
+        asnOrg: netIntel.asnOrg,
+        country: netIntel.country,
+      },
+    };
+
+    const webhookUrl = site.webhookUrl;
+    const webhookSecret = site.webhookSecret;
+    setTimeout(() => {
+      const startMs = Date.now();
+      void dispatchSignedWebhook({
+        webhookUrl,
+        webhookSecret,
+        payload: whPayload,
+      }).then((res) =>
+        recordWebhookDelivery({
+          sitePublicId: site.publicId,
+          eventType: "threat.detected",
+          requestId,
+          targetUrl: webhookUrl,
+          statusCode: res.statusCode ?? null,
+          durationMs: Date.now() - startMs,
+          delivered: res.delivered,
+          attempts: res.attempts,
+          payload: whPayload as unknown as Record<string, unknown>,
+        })
+      );
+    }, 0);
   }
+
+  const isoNow = new Date().toISOString();
+  const firstSeen = visitorProfile?.visitor.firstSeenAt ?? isoNow;
+  const lastSeen = visitorProfile?.visitor.lastSeenAt ?? isoNow;
 
   return NextResponse.json(
     {
@@ -294,16 +351,41 @@ export async function POST(request: Request): Promise<NextResponse> {
       thumbmark: payload.fullHash,
       hardwareHash: payload.hardwareHash,
       requestId,
+      visitorFound: reconciled.matchType !== "new_visitor",
       confidence: {
         score: reconciled.confidence,
+        revision: "1.0.0",
         comment:
           reconciled.matchType === "cross_browser_hardware_subnet"
             ? "Reconciled across browsers via hardwareHash + IP subnet"
-            : "Deterministic fingerprint evaluation",
+            : "Deterministic fingerprint evaluation (v1.0.0)",
       },
+      incognito: isIncognitoClient,
+      browserName: uaSummary.browser,
+      browserVersion: "131.0",
+      os: uaSummary.os,
+      osVersion: "",
+      device: uaSummary.device,
+      ip: ipAddress,
+      ipLocation: {
+        city: { name: netIntel.city },
+        country: { code: netIntel.country, name: netIntel.countryName },
+        latitude: netIntel.latitude,
+        longitude: netIntel.longitude,
+        asn: {
+          asn: netIntel.asnNumber ? `AS${netIntel.asnNumber}` : null,
+          name: netIntel.asnOrg,
+        },
+      },
+      firstSeenAt: { global: firstSeen, subscription: firstSeen },
+      lastSeenAt: { global: lastSeen, subscription: lastSeen },
+      linkedId: payload.linkedId ?? null,
+      tag: payload.tag ?? null,
       components: comp,
       info: {
         dangerLevel: finalScoring.dangerLevel,
+        action: ruleVerdict.action,
+        matchedRuleId: ruleVerdict.matchedRuleId,
         isBot: isBotClient,
         isSpoofed: isSpoofedClient,
         isIncognito: isIncognitoClient,
@@ -311,17 +393,25 @@ export async function POST(request: Request): Promise<NextResponse> {
         isTor: netIntel.isTor,
         isDatacenter: netIntel.isDatacenter,
         isProxy: netIntel.isProxy,
+        isVirtualMachine: Boolean(comp.antiSpoof?.isVirtualMachine),
         crossBrowserMatched: reconciled.crossBrowserMatched,
+        vpn: netIntel.isVpn,
+        proxy: netIntel.isProxy,
+        tor: netIntel.isTor,
+        datacenter: netIntel.isDatacenter,
+        bot: isBotClient,
+        spoofed: isSpoofedClient,
         ipAddress,
         asnNumber: netIntel.asnNumber,
         asnOrg: netIntel.asnOrg,
         country: netIntel.country,
         city: netIntel.city,
+        latitude: netIntel.latitude,
+        longitude: netIntel.longitude,
         durationMs: payload.durationMs,
-        collectorCount: 48,
+        collectorCount: 72,
       },
     },
     { status: 200, headers: corsHeaders }
   );
 }
-

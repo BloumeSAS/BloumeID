@@ -188,3 +188,75 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
   - `apps/web/package.json`
   - `HISTORY.md`
 - **Statut de vérification** : docker compose build OK / 3 conteneurs healthy OK / prisma migrate deploy OK / smoke tests API live OK
+
+## [2026-11-26 02:28] BloumeID v1.0.0 — Phase 1 : Clean Slate Theme, Responsive Admin Shell & Landing Page
+- **Résumé des changements** :
+  - Passage de toutes les versions de packages (`package.json`, `apps/web/package.json`, `packages/bloumeid/package.json`) à **`1.0.0`**.
+  - Intégration du thème **Clean Slate** (`https://tweakcn.com/r/themes/clean-slate.json`) dans `apps/web/src/app/globals.css` avec support complet du **Light Mode** et du **Dark Mode**, tout en préservant `--font-sans` (`Inter`), `--font-mono` (`JetBrains Mono`) et `--font-serif` (`Georgia, "Times New Roman", serif`).
+  - Mise à jour de `I18nProvider` (`apps/web/src/i18n/provider.tsx`) pour gérer la bascule persistante Light/Dark (`theme`, `toggleTheme`), le sélecteur global de site (`selectedSiteId`) et le sélecteur de période (`1h`, `24h`, `7d`, `30d`, `90d`).
+  - Refonte 100 % responsive de `DashboardShell` (`apps/web/src/components/dashboard-shell.tsx`) : sidebar repliable sur Desktop (`lg:`), barre supérieure sticky avec tiroir `Sheet` sur Mobile/Tablette (`< lg`), sélecteur de site global, sélecteur de période et indicateur temps réel du moteur Threat Intel.
+  - Refonte de la Landing Page (`apps/web/src/app/page.tsx`) pour **BloumeID v1.0.0** avec widget de scan live, matrice comparative 4 colonnes (**BloumeID v1.0.0 vs. ThumbmarkJS vs. Fingerprint.com vs. CreepJS**) et onglets d'intégration Dual API + Coolify Docker.
+- **Fichiers clés touchés** :
+  - `package.json`, `apps/web/package.json`, `packages/bloumeid/package.json`
+  - `apps/web/src/app/globals.css`, `apps/web/src/i18n/provider.tsx`, `apps/web/src/i18n/dictionaries/{en,fr}.json`
+  - `apps/web/src/components/dashboard-shell.tsx`, `apps/web/src/app/page.tsx`
+- **Statut de vérification** : Phase 1 prête pour Phase 2 (SDK v1.0.0 70+ signaux & Dual API)
+
+## [2026-11-26 02:33] BloumeID v1.0.0 — Phase 2 : SDK 70+ Signaux, Sondes Prototypes/VM & Dual API (`ThumbmarkJS` + `Fingerprint.com`)
+- **Résumé des changements** :
+  - Extension de `@bloumeid/sdk` (`v1.0.0`) à **72 signaux déterministes** dans `packages/bloumeid/src/collectors.ts` :
+    - **WebGL étendu** : `MAX_TEXTURE_SIZE`, `MAX_VIEWPORT_DIMS`, `MAX_VERTEX_UNIFORM_VECTORS`, `ALIASED_LINE_WIDTH_RANGE`, précision des shaders et `pixelRenderHash` déterministe.
+    - **WebGPU profond** : `adapter.info` (`vendor`, `architecture`, `device`), `adapter.features` triées et limites (`maxTextureDimension2D`, `maxBindGroups`).
+    - **Canvas Winding & Sous-pixels Unicode/Emoji `TextMetrics`** : `actualBoundingBoxAscent`/`Descent` sur `🇺🇳`, `👨‍👩‍👧‍👦`, `﷽`, `🏴‍☠️`, `🧘🏽‍♂️`.
+    - **Matrice CSS Media & Préférences** (`collectCssMediaMatrix`) : `prefers-color-scheme`, `prefers-reduced-motion`, `prefers-contrast`, `forced-colors`, `dynamic-range: high`, `color-gamut`, `any-pointer`, `any-hover`, `globalPrivacyControl`.
+    - **Codecs Multimédia & Périphériques** (`collectMediaCodecs`) : compteurs `enumerateDevices()` (`audioinput`, `videoinput`, `audiooutput`), matrice `canPlayType` (AV1, HEVC, VP9, Opus, FLAC) et `navigator.keyboard.getLayoutMap()`.
+  - Extension des sondes anti-spoof (`packages/bloumeid/src/probes.ts`) : détection de GPU logiciel / VM (`SwiftShader`, `llvmpipe`, `VirtualBox`, `VMware`, `Parallels`, `QEMU`), inspection des hooks sur les prototypes natifs via `Function.prototype.toString` (`Navigator.prototype.userAgent`, `HTMLCanvasElement.prototype.toDataURL`, `AudioBuffer.prototype.getChannelData`, `WebGLRenderingContext.prototype.getParameter`), géométrie `outerWidth === 0`, cohérence `Error.stack` vs `User-Agent` et cohérence DST `Intl` vs `getTimezoneOffset()`.
+  - **Double compatibilité d'API** (`packages/bloumeid/src/index.ts`) :
+    - Mode **ThumbmarkJS Pro** : `new BloumeID({ apiKey, endpoint, options })` -> `get()`, `getFingerprint()`, `getFingerprintData()`.
+    - Mode **Fingerprint.com (`@fingerprintjs/fingerprintjs-pro`)** : `FingerprintJS.load({ apiKey, endpoint, region })` et `BloumeID.load()` -> `agent.get({ extendedResult: true, linkedId, tag })`, retournant `visitorId`, `requestId`, `visitorFound`, `confidence: { score, revision: "1.0.0" }`, `incognito`, `browserName`, `browserVersion`, `os`, `osVersion`, `device`, `ip`, `ipLocation`, `firstSeenAt`, `lastSeenAt`, `thumbmark` et `info`.
+- **Fichiers clés touchés** :
+  - `packages/bloumeid/src/{types,collectors,probes,index,umd,index.test}.ts`
+  - `apps/web/public/sdk/v1/bloumeid.js` (36.52 Ko brut < 150 Ko)
+- **Statut de vérification** : build OK (UMD 36.5 Ko) / typecheck OK / tests 8/8 OK / lint OK
+
+## [2026-11-26 02:39] BloumeID v1.0.0 — Phase 3 : Auto GeoLite2 Downloader, Migration Prisma Additive & API Fingerprint.com
+- **Résumé des changements** :
+  - Implémentation du téléchargeur/extracteur automatique double-mode MaxMind GeoLite2 `.mmdb` dans `apps/web/src/lib/engine/geoip.ts` :
+    - **Mode A (`official_maxmind`)** : télécharge les archives `.tar.gz` officielles via `MAXMIND_LICENSE_KEY` et extrait les binaires `.mmdb` en mémoire via `zlib.gunzipSync` + parseur d'en-têtes POSIX tar 512 octets.
+    - **Mode B (`open_mirror`)** : télécharge automatiquement sans configuration les fichiers `GeoLite2-City.mmdb` et `GeoLite2-ASN.mmdb` depuis un miroir communautaire open-source si aucune clé de licence n'est fournie, avec rechargement à chaud des lecteurs `maxmind`.
+  - Ajout de la migration Prisma additive `apps/web/prisma/migrations/20261126023000_v1_rules_webhooks_dual_api/migration.sql` : modèles `SecurityRule` et `WebhookDelivery`, colonnes `trustStatus` / `mergedIntoId` sur `Visitor`, et `latitude` / `longitude` / `ruleAction` / `matchedRuleId` / `linkedId` / `tag` sur `FingerprintEvent`.
+  - Implémentation du moteur de règles `apps/web/src/lib/engine/rules.ts` (`allow`, `challenge`, `block`, `flag`) et vérification `Sec-CH-UA-Platform` (`evaluateClientHintsConsistency`).
+  - Ajout des endpoints Server API compatibles Fingerprint.com : `POST /api/v1/events`, `GET /api/v1/events/[requestId]` (schéma `products.identification`, `botd`, `vpn`, `tor`, `tampering`, `suspectScore`) et `GET /api/v1/visitors/[visitorId]/visits`.
+- **Fichiers clés touchés** :
+  - `apps/web/prisma/schema.prisma`, `apps/web/prisma/migrations/20261126023000_v1_rules_webhooks_dual_api/migration.sql`
+  - `apps/web/src/lib/engine/{geoip,feeds,rules,network,repository}.ts`
+  - `apps/web/src/app/api/v1/{fingerprint,events}/**`, `apps/web/src/app/api/v1/visitors/[visitorId]/visits/route.ts`
+  - `apps/web/src/app/api/admin/{events,rules,dashboard,sites,visitors,settings}/route.ts`
+- **Statut de vérification** : Endpoints & schéma Prisma prêts pour les pages Admin Phase 4
+
+## [2026-11-26 02:45] Phase 14 : Cap-Style Deep Analytics & Complete Pro Admin Panel (v1.0.0)
+- Résumé des changements :
+  - `/dashboard` : Graphique chronologique empilé Cap-style (Clean vs Suspicious vs Blocked/Malicious), 8 cartes KPI, classements Top Countries (drapeau, code ISO, barre de progression, score de risque moyen) et Top ASNs (numéro ASN monospace copiable, organisation, pourcentage de trafic risqué), et répartition Navigateurs/OS.
+  - `/events` : Journal d'audit temps réel avec bascule Live Polling (5 s), filtres multicritères (Site, Danger, Pays, ASN, Action, Recherche `req_`/`vis_`/IP), export CSV/JSON et tiroir d'inspection forensique (`Sheet`).
+  - `/rules` : Interface complète du moteur de règles de sécurité personnalisées (`allow`, `challenge`, `block`, `flag`) avec priorité, compteur d'activations (`hitCount`) et suppression.
+  - `/visitors` & `/visitors/[visitorId]` : Statut de confiance (`Neutral` / `Trusted` / `Blocked`), boutons d'action rapide (Trust, Block, Reset) et outil de fusion d'identités (`Merge Visitor IDs`).
+  - `/sites` : Badges de volume `requests24h` / `requests30d`, tableau des livraisons de webhooks récentes (`WebhookDelivery`) et onglet d'intégration `Fingerprint.com Mode`.
+  - `/playground` : Sélecteur bi-mode permettant d'exécuter en direct le SDK en mode `ThumbmarkJS Pro` ou `Fingerprint.com (FingerprintJS Pro)`.
+  - `/settings` : Gestionnaire GeoLite2 avec bouton de téléchargement/mise à jour immédiate et testeur interactif de résolution IP en direct (`Live IP Lookup Tester`).
+- Fichiers clés touchés : `apps/web/src/app/(dashboard)/dashboard/page.tsx`, `apps/web/src/app/(dashboard)/events/page.tsx`, `apps/web/src/app/(dashboard)/rules/page.tsx`, `apps/web/src/app/(dashboard)/visitors/page.tsx`, `apps/web/src/app/(dashboard)/visitors/[visitorId]/page.tsx`, `apps/web/src/app/(dashboard)/sites/page.tsx`, `apps/web/src/app/(dashboard)/playground/page.tsx`, `apps/web/src/app/(dashboard)/settings/page.tsx`.
+- Décisions et caveats :
+  - 100 % des chaînes UI proviennent des dictionnaires `en.json` et `fr.json`.
+- Statut de vérification : UI & routes prêtes pour validation globale
+
+## [2026-11-26 02:51] Phase 15 : Modular Coolify Docker Deployments & Final Verification (v1.0.0)
+- Résumé des changements :
+  - Création du `Dockerfile` à la racine du dépôt (compatible Coolify 1-Click Dockerfile Buildpack) en complément de `docker/Dockerfile`.
+  - Mise à jour de `docker-compose.yml` (Option 1 : pile tout-en-un auto-hébergée `bloumeid-web` + `postgres:17-alpine` + `valkey/valkey:8-alpine` avec prise en charge optionnelle de `MAXMIND_LICENSE_KEY`).
+  - Création de `docker-compose.external-db.yml` (Option 2 : déploiement modulaire `bloumeid-web` seul connecté à des instances PostgreSQL et Redis/Valkey externes gérées par Coolify ou cloud).
+  - Mise à jour de `.env.example` et de `README.md` avec le guide complet de déploiement Coolify 1-Click (3 topologies) et la documentation Dual API (`ThumbmarkJS Pro` + `Fingerprint.com`).
+  - Mise à jour des suites de tests `apps/web/tests/admin.test.ts` et `apps/web/tests/engine.test.ts` pour couvrir `/api/v1/events`, `/api/v1/events/[requestId]`, `/api/v1/visitors/[visitorId]/visits`, `/api/admin/events`, `/api/admin/rules`, l'extracteur `.tar.gz` GeoLite2, le testeur IP interactif et la vérification `useI18n()` sur les 10 pages.
+  - Reconstruction et redémarrage de la pile Docker live (`docker compose up -d --build`) : migration additive `20261126023000_v1_rules_webhooks_dual_api` appliquée automatiquement par `prisma migrate deploy`, `GET /api/health` retourne `200 OK` (`version: "1.0.0"`).
+- Fichiers clés touchés : `Dockerfile`, `docker-compose.yml`, `docker-compose.external-db.yml`, `.env.example`, `README.md`, `apps/web/tests/admin.test.ts`, `apps/web/tests/engine.test.ts`, `HISTORY.md`.
+- Décisions et caveats :
+  - L'ensemble du monorepo cible strictement la version `1.0.0`.
+- Statut de vérification : build OK / typecheck OK / tests 26/26 (8 SDK + 18 Web) / lint OK / Docker Live Stack `1.0.0` OK
