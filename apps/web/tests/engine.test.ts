@@ -358,7 +358,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(body1.visitorId).toMatch(/^vis_/);
     expect(body1.visitorFound).toBe(false);
     expect(body1.confidence.score).toBe(0.95);
-    expect(body1.confidence.revision).toBe("1.0.0");
+    expect(body1.confidence.revision).toBe(APP_VERSION);
     expect(body1.info.crossBrowserMatched).toBe(false);
 
     // 2. Second visit via Fingerprint.com /api/v1/events endpoint -> Level 1 (Same visitor, confidence 0.99, visitorFound: true)

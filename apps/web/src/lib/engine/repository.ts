@@ -1182,8 +1182,8 @@ export async function listFingerprintEventsPaginated(filters?: {
         createdAt: evt.createdAt.toISOString(),
       }));
 
-      if (totalItems > 0) {
-        return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+      if (items.length > 0) {
+        return { items, pagination: computePaginationMeta(page, pageSize, Math.max(totalItems, items.length)) };
       }
     } catch {
       // Fallback to memory
@@ -1483,6 +1483,7 @@ export async function listVisitors(filters?: {
   if (await isDatabaseConnected()) {
     try {
       const visitors = await prisma.visitor.findMany({
+        where: { mergedIntoId: null },
         include: { site: true },
         orderBy: { lastSeenAt: "desc" },
         take: 100,
@@ -1602,8 +1603,8 @@ export async function listVisitorsPaginated(filters?: {
         notes: v.notes,
       }));
 
-      if (totalItems > 0) {
-        return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+      if (items.length > 0) {
+        return { items, pagination: computePaginationMeta(page, pageSize, Math.max(totalItems, items.length)) };
       }
     } catch {
       // Fallback
