@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { APP_VERSION, APP_VERSION_TAG } from "@/lib/version";
 import { computeAntiReplaySignature, type FingerprintComponents } from "@bloume/id";
 import { constantTimeEqual, generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
@@ -384,11 +385,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       visitorFound: reconciled.matchType !== "new_visitor",
       confidence: {
         score: reconciled.confidence,
-        revision: "1.0.0",
+        revision: APP_VERSION,
         comment:
           reconciled.matchType === "cross_browser_hardware_subnet"
             ? "Reconciled across browsers via hardwareHash + IP subnet"
-            : "Deterministic fingerprint evaluation (v1.0.0)",
+            : `Deterministic fingerprint evaluation (${APP_VERSION_TAG})`,
       },
       incognito: isIncognitoClient,
       browserName: uaSummary.browser,

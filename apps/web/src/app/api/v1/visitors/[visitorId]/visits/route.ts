@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { APP_VERSION } from "@/lib/version";
 import { z } from "zod";
 import { getVisitorByPublicId, verifySiteSecretKey } from "@/lib/engine/repository";
 
@@ -83,7 +84,7 @@ export async function GET(
       url: e.origin ?? "",
       tag: e.tag ?? {},
       linkedId: e.linkedId ?? "",
-      confidence: { score: e.confidence, revision: "1.0.0" },
+      confidence: { score: e.confidence, revision: APP_VERSION },
       visitorFound: true,
       dangerLevel: e.dangerLevel,
       action: e.ruleAction,

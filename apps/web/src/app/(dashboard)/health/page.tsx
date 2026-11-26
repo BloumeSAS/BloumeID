@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Cpu, Database, Globe, HeartPulse, Server } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
+import { APP_VERSION } from "@/lib/version";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -57,7 +58,7 @@ export default function HealthPage() {
     {
       title: dict.healthPage.sdkCard,
       icon: HeartPulse,
-      value: `v${health?.version ?? "1.0.0"} (36.5 KB)`,
+      value: `v${health?.version ?? APP_VERSION} (37 KB)`,
       ok: true,
     },
   ];

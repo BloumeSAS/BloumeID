@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CheckCircle2, FileText, Sparkles } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
+import { APP_VERSION_TAG } from "@/lib/version";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -30,7 +31,7 @@ export default function ReleaseNotesPage() {
               <Sparkles className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">{dict.releasesPage.v1Title}</CardTitle>
             </div>
-            <Badge className="font-mono text-xs">v1.0.0</Badge>
+            <Badge className="font-mono text-xs">{APP_VERSION_TAG}</Badge>
           </div>
           <CardDescription className="font-mono text-xs">
             {dict.releasesPage.v1Date}
