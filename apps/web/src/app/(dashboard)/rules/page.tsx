@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -21,6 +22,7 @@ import type { PublicSecurityRuleDTO } from "@/types";
 export default function SecurityRulesPage() {
   const { dict, selectedSiteId } = useI18n();
   const [rules, setRules] = React.useState<PublicSecurityRuleDTO[]>([]);
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [action, setAction] = React.useState<SecurityRuleAction>("block");
   const [field, setField] = React.useState<RuleConditionField>("isTor");
@@ -75,6 +77,7 @@ export default function SecurityRulesPage() {
 
     if (res.ok) {
       setName("");
+      setCreateOpen(false);
       await loadRules();
     }
   };
@@ -153,9 +156,15 @@ export default function SecurityRulesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{dict.rules.title}</h1>
-        <p className="text-xs text-muted-foreground sm:text-sm">{dict.rules.subtitle}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{dict.rules.title}</h1>
+          <p className="text-xs text-muted-foreground sm:text-sm">{dict.rules.subtitle}</p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} data-testid="open-create-rule-btn">
+          <Plus className="h-4 w-4" />
+          <span>{dict.rules.createRule}</span>
+        </Button>
       </div>
 
       {/* 1-Click Enterprise Policy Templates */}
@@ -245,108 +254,107 @@ export default function SecurityRulesPage() {
         </CardContent>
       </Card>
 
+      <Dialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        title={dict.rules.createRule}
+        closeLabel={dict.common.close}
+      >
+        <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label htmlFor="rule-name">{dict.rules.ruleName}</Label>
+            <Input
+              id="rule-name"
+              data-testid="new-rule-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={dict.rules.ruleNamePlaceholder}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-field">{dict.rules.conditionField}</Label>
+            <select
+              id="rule-field"
+              value={field}
+              onChange={(e) => setField(e.target.value as RuleConditionField)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-medium"
+            >
+              <option value="isTor">isTor</option>
+              <option value="isVpn">isVpn</option>
+              <option value="isDatacenter">isDatacenter</option>
+              <option value="isBot">isBot</option>
+              <option value="isSpoofed">isSpoofed</option>
+              <option value="dangerLevel">dangerLevel</option>
+              <option value="country">country (ISO)</option>
+              <option value="asnNumber">asnNumber</option>
+              <option value="ipSubnet">ipSubnet</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-op">{dict.rules.conditionOperator}</Label>
+            <select
+              id="rule-op"
+              value={operator}
+              onChange={(e) => setOperator(e.target.value as RuleConditionOperator)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-medium"
+            >
+              <option value="eq">eq (=)</option>
+              <option value="neq">neq (!=)</option>
+              <option value="gte">gte (&gt;=)</option>
+              <option value="in">in (list)</option>
+              <option value="not_in">not_in</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-val">{dict.rules.conditionValue}</Label>
+            <Input
+              id="rule-val"
+              value={valueStr}
+              onChange={(e) => setValueStr(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-priority">{dict.rules.priority}</Label>
+            <Input
+              id="rule-priority"
+              type="number"
+              min={1}
+              max={1000}
+              value={priority}
+              onChange={(e) => setPriority(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="flex items-end gap-2 sm:col-span-2">
+            <div className="flex-1 space-y-1.5">
+              <Label htmlFor="rule-action">{dict.rules.ruleAction}</Label>
+              <select
+                id="rule-action"
+                value={action}
+                onChange={(e) => setAction(e.target.value as SecurityRuleAction)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-semibold"
+              >
+                <option value="block">{dict.rules.actionBlock}</option>
+                <option value="challenge">{dict.rules.actionChallenge}</option>
+                <option value="flag">{dict.rules.actionFlag}</option>
+                <option value="allow">{dict.rules.actionAllow}</option>
+              </select>
+            </div>
+            <Button type="submit" data-testid="create-rule-btn">
+              <Plus className="h-4 w-4" />
+              <span>{dict.common.create}</span>
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
       <div className="grid gap-6 lg:grid-cols-12">
-        {/* Create Custom Rule Form */}
-        <Card className="lg:col-span-7">
-          <CardHeader>
-            <CardTitle className="text-base">{dict.rules.createRule}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="rule-name">{dict.rules.ruleName}</Label>
-                <Input
-                  id="rule-name"
-                  data-testid="new-rule-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={dict.rules.ruleNamePlaceholder}
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="rule-field">{dict.rules.conditionField}</Label>
-                <select
-                  id="rule-field"
-                  value={field}
-                  onChange={(e) => setField(e.target.value as RuleConditionField)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-medium"
-                >
-                  <option value="isTor">isTor</option>
-                  <option value="isVpn">isVpn</option>
-                  <option value="isDatacenter">isDatacenter</option>
-                  <option value="isBot">isBot</option>
-                  <option value="isSpoofed">isSpoofed</option>
-                  <option value="dangerLevel">dangerLevel</option>
-                  <option value="country">country (ISO)</option>
-                  <option value="asnNumber">asnNumber</option>
-                  <option value="ipSubnet">ipSubnet</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="rule-op">{dict.rules.conditionOperator}</Label>
-                <select
-                  id="rule-op"
-                  value={operator}
-                  onChange={(e) => setOperator(e.target.value as RuleConditionOperator)}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-medium"
-                >
-                  <option value="eq">eq (=)</option>
-                  <option value="neq">neq (!=)</option>
-                  <option value="gte">gte (&gt;=)</option>
-                  <option value="in">in (list)</option>
-                  <option value="not_in">not_in</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="rule-val">{dict.rules.conditionValue}</Label>
-                <Input
-                  id="rule-val"
-                  value={valueStr}
-                  onChange={(e) => setValueStr(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="rule-priority">{dict.rules.priority}</Label>
-                <Input
-                  id="rule-priority"
-                  type="number"
-                  min={1}
-                  max={1000}
-                  value={priority}
-                  onChange={(e) => setPriority(Number(e.target.value))}
-                />
-              </div>
-
-              <div className="flex items-end gap-2 sm:col-span-2">
-                <div className="flex-1 space-y-1.5">
-                  <Label htmlFor="rule-action">{dict.rules.ruleAction}</Label>
-                  <select
-                    id="rule-action"
-                    value={action}
-                    onChange={(e) => setAction(e.target.value as SecurityRuleAction)}
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-xs font-semibold"
-                  >
-                    <option value="block">{dict.rules.actionBlock}</option>
-                    <option value="challenge">{dict.rules.actionChallenge}</option>
-                    <option value="flag">{dict.rules.actionFlag}</option>
-                    <option value="allow">{dict.rules.actionAllow}</option>
-                  </select>
-                </div>
-                <Button type="submit" data-testid="create-rule-btn">
-                  <Plus className="h-4 w-4" />
-                  <span>{dict.common.create}</span>
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
         {/* Interactive Live Rule Simulator Sandbox */}
         <Card className="border-border bg-card lg:col-span-5">
           <CardHeader className="pb-3">

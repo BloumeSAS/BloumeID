@@ -47,8 +47,14 @@ export function generateSnowflakeId(prefix: SnowflakePrefix): string {
   return snowflake.nextId(prefix);
 }
 
+const ALPHANUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
 export function generateApiKey(prefix: ApiKeyPrefix): string {
-  const token = crypto.randomBytes(24).toString("base64url");
+  const bytes = crypto.randomBytes(32);
+  let token = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    token += ALPHANUM[bytes[i]! % ALPHANUM.length];
+  }
   return `${prefix}_${token}`;
 }
 

@@ -1,14 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Save, Send, ShieldCheck, Trash2, Webhook } from "lucide-react";
+import { Save, Send, Settings2, ShieldCheck, Trash2, Webhook } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Pagination } from "@/components/ui/pagination";
 import {
   Table,
   TableBody,
@@ -20,12 +22,31 @@ import {
 import type { PublicSiteDTO, PublicWebhookDeliveryDTO } from "@/types";
 
 export default function WebhooksPage() {
-  const { dict, refreshTick } = useI18n();
+  const { dict, refreshTick, selectedSiteId } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [deliveries, setDeliveries] = React.useState<PublicWebhookDeliveryDTO[]>([]);
   const [urlDrafts, setUrlDrafts] = React.useState<Record<string, string>>({});
   const [thresholdDrafts, setThresholdDrafts] = React.useState<Record<string, number>>({});
+  const [editingSite, setEditingSite] = React.useState<PublicSiteDTO | null>(null);
+  const [deliveriesPage, setDeliveriesPage] = React.useState(1);
   const [toast, setToast] = React.useState<string | null>(null);
+  const pageSize = 10;
+  const displayedSites = React.useMemo(
+    () => (selectedSiteId === "all" ? sites : sites.filter((s) => s.publicId === selectedSiteId)),
+    [sites, selectedSiteId],
+  );
+  const filteredDeliveries = React.useMemo(
+    () =>
+      selectedSiteId === "all"
+        ? deliveries
+        : deliveries.filter((d) => d.sitePublicId === selectedSiteId),
+    [deliveries, selectedSiteId],
+  );
+  const totalDeliveryPages = Math.max(1, Math.ceil(filteredDeliveries.length / pageSize));
+  const paginatedDeliveries = React.useMemo(
+    () => filteredDeliveries.slice((deliveriesPage - 1) * pageSize, deliveriesPage * pageSize),
+    [filteredDeliveries, deliveriesPage],
+  );
 
   const loadData = React.useCallback(async () => {
     const res = await fetch("/api/admin/sites");
@@ -67,6 +88,7 @@ export default function WebhooksPage() {
     });
     if (res.ok) {
       setToast(dict.webhooksPage.webhookSaved);
+      setEditingSite(null);
       await loadData();
       setTimeout(() => setToast(null), 3000);
     }
@@ -94,9 +116,6 @@ export default function WebhooksPage() {
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
               {dict.webhooksPage.title}
             </h1>
-            <Badge variant="outline" className="border-primary/40 text-xs text-primary">
-              {dict.webhooksPage.optionalBadge}
-            </Badge>
           </div>
           <p className="mt-1 max-w-4xl text-xs text-muted-foreground sm:text-sm">
             {dict.webhooksPage.subtitle}
@@ -113,86 +132,81 @@ export default function WebhooksPage() {
       <div className="grid gap-6 lg:grid-cols-12">
         <Card className="lg:col-span-7">
           <CardHeader>
-            <CardTitle className="text-base">{dict.webhooksPage.endpointConfigTitle}</CardTitle>
+            <CardTitle className="text-base">
+              {selectedSiteId !== "all" && displayedSites[0]
+                ? `${displayedSites[0].name} — ${dict.webhooksPage.endpointConfigTitle}`
+                : dict.webhooksPage.endpointConfigTitle}
+            </CardTitle>
             <CardDescription>{dict.sites.subtitle}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {sites.map((site) => {
-              const hasWebhook = Boolean(site.webhookUrl && site.webhookUrl.trim().length > 0);
-              return (
-                <div
-                  key={site.publicId}
-                  className="space-y-3 rounded-xl border border-border bg-secondary/20 p-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-foreground">{site.name}</span>
-                      <CopyableMono
-                        value={site.publicId}
-                        copyLabel={dict.common.copy}
-                        copiedLabel={dict.common.copied}
-                      />
-                      <Badge variant={hasWebhook ? "success" : "secondary"}>
-                        {hasWebhook ? dict.common.enabled : dict.common.disabled}
-                      </Badge>
+            {selectedSiteId !== "all" && displayedSites[0] ? (
+              (() => {
+                const site = displayedSites[0];
+                const hasWebhook = Boolean(site.webhookUrl && site.webhookUrl.trim().length > 0);
+                return (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <CopyableMono
+                          value={site.publicId}
+                          copyLabel={dict.common.copy}
+                          copiedLabel={dict.common.copied}
+                        />
+                        <Badge variant={hasWebhook ? "success" : "secondary"}>
+                          {hasWebhook ? dict.common.enabled : dict.common.disabled}
+                        </Badge>
+                      </div>
+                      {hasWebhook ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleTestWebhook(site.publicId)}
+                        >
+                          <Send className="h-3.5 w-3.5 text-primary" />
+                          <span>{dict.webhooksPage.triggerTest}</span>
+                        </Button>
+                      ) : null}
                     </div>
 
-                    {hasWebhook ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleTestWebhook(site.publicId)}
-                      >
-                        <Send className="h-3.5 w-3.5 text-primary" />
-                        <span>{dict.webhooksPage.triggerTest}</span>
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  {/* Optional Webhook URL & Risk Threshold Editor */}
-                  <div className="grid gap-3 sm:grid-cols-12">
-                    <div className="space-y-1 sm:col-span-8">
-                      <Label htmlFor={`wh-url-${site.publicId}`} className="text-xs">
-                        {dict.sites.webhookUrl} ({dict.webhooksPage.optionalBadge})
-                      </Label>
-                      <Input
-                        id={`wh-url-${site.publicId}`}
-                        value={urlDrafts[site.publicId] ?? ""}
-                        onChange={(e) =>
-                          setUrlDrafts((prev) => ({
-                            ...prev,
-                            [site.publicId]: e.target.value,
-                          }))
-                        }
-                        placeholder={dict.sites.webhookUrlPlaceholder}
-                        className="font-mono text-xs"
-                      />
+                    <div className="grid gap-3 sm:grid-cols-12">
+                      <div className="space-y-1.5 sm:col-span-8">
+                        <Label htmlFor="single-wh-url">{dict.sites.webhookUrl}</Label>
+                        <Input
+                          id="single-wh-url"
+                          value={urlDrafts[site.publicId] ?? ""}
+                          onChange={(e) =>
+                            setUrlDrafts((prev) => ({
+                              ...prev,
+                              [site.publicId]: e.target.value,
+                            }))
+                          }
+                          placeholder={dict.sites.webhookUrlPlaceholder}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1.5 sm:col-span-4">
+                        <Label htmlFor="single-wh-th">{dict.sites.riskThreshold}</Label>
+                        <Input
+                          id="single-wh-th"
+                          type="number"
+                          min={0}
+                          max={5}
+                          value={thresholdDrafts[site.publicId] ?? site.riskThreshold}
+                          onChange={(e) =>
+                            setThresholdDrafts((prev) => ({
+                              ...prev,
+                              [site.publicId]: Number(e.target.value),
+                            }))
+                          }
+                          className="font-mono text-xs"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1 sm:col-span-4">
-                      <Label htmlFor={`wh-th-${site.publicId}`} className="text-xs">
-                        {dict.sites.riskThreshold}
-                      </Label>
-                      <Input
-                        id={`wh-th-${site.publicId}`}
-                        type="number"
-                        min={0}
-                        max={5}
-                        value={thresholdDrafts[site.publicId] ?? site.riskThreshold}
-                        onChange={(e) =>
-                          setThresholdDrafts((prev) => ({
-                            ...prev,
-                            [site.publicId]: Number(e.target.value),
-                          }))
-                        }
-                        className="font-mono text-xs"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                    <div>
-                      <p className="text-[11px] text-muted-foreground">
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground">
                         {dict.webhooksPage.signatureHeader} (HMAC-SHA256)
                       </p>
                       <CopyableMono
@@ -202,7 +216,7 @@ export default function WebhooksPage() {
                       />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                       {hasWebhook ? (
                         <Button
                           type="button"
@@ -224,9 +238,58 @@ export default function WebhooksPage() {
                       </Button>
                     </div>
                   </div>
+                );
+              })()
+            ) : (
+              displayedSites.map((site) => {
+              const hasWebhook = Boolean(site.webhookUrl && site.webhookUrl.trim().length > 0);
+              return (
+                <div
+                  key={site.publicId}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-secondary/20 p-4"
+                >
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-foreground">{site.name}</span>
+                      <CopyableMono
+                        value={site.publicId}
+                        copyLabel={dict.common.copy}
+                        copiedLabel={dict.common.copied}
+                      />
+                      <Badge variant={hasWebhook ? "success" : "secondary"}>
+                        {hasWebhook ? dict.common.enabled : dict.common.disabled}
+                      </Badge>
+                    </div>
+                    <p className="truncate font-mono text-xs text-muted-foreground">
+                      {hasWebhook ? site.webhookUrl : dict.sites.webhookUrlPlaceholder}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {hasWebhook ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleTestWebhook(site.publicId)}
+                      >
+                        <Send className="h-3.5 w-3.5 text-primary" />
+                        <span>{dict.webhooksPage.triggerTest}</span>
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingSite(site)}
+                    >
+                      <Settings2 className="h-3.5 w-3.5" />
+                      <span>{dict.webhooksPage.title}</span>
+                    </Button>
+                  </div>
                 </div>
               );
-            })}
+            }))}
           </CardContent>
         </Card>
 
@@ -291,7 +354,7 @@ export default function WebhooksPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                deliveries.map((wh) => (
+                paginatedDeliveries.map((wh) => (
                   <TableRow key={wh.publicId}>
                     <TableCell>
                       <CopyableMono
@@ -320,8 +383,97 @@ export default function WebhooksPage() {
               )}
             </TableBody>
           </Table>
+          <Pagination
+            page={deliveriesPage}
+            totalPages={totalDeliveryPages}
+            totalItems={filteredDeliveries.length}
+            onPageChange={setDeliveriesPage}
+          />
         </CardContent>
       </Card>
+
+      <Dialog
+        open={Boolean(editingSite)}
+        onOpenChange={(open) => {
+          if (!open) setEditingSite(null);
+        }}
+        title={editingSite ? `${editingSite.name} — ${dict.webhooksPage.title}` : dict.webhooksPage.title}
+        description={editingSite?.publicId}
+        closeLabel={dict.common.close}
+      >
+        {editingSite ? (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="modal-wh-url">
+                {dict.sites.webhookUrl}
+              </Label>
+              <Input
+                id="modal-wh-url"
+                value={urlDrafts[editingSite.publicId] ?? ""}
+                onChange={(e) =>
+                  setUrlDrafts((prev) => ({
+                    ...prev,
+                    [editingSite.publicId]: e.target.value,
+                  }))
+                }
+                placeholder={dict.sites.webhookUrlPlaceholder}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="modal-wh-th">{dict.sites.riskThreshold}</Label>
+              <Input
+                id="modal-wh-th"
+                type="number"
+                min={0}
+                max={5}
+                value={thresholdDrafts[editingSite.publicId] ?? editingSite.riskThreshold}
+                onChange={(e) =>
+                  setThresholdDrafts((prev) => ({
+                    ...prev,
+                    [editingSite.publicId]: Number(e.target.value),
+                  }))
+                }
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                {dict.webhooksPage.signatureHeader} (HMAC-SHA256)
+              </p>
+              <CopyableMono
+                value={editingSite.webhookSecret ?? "whsec_bloumeid_cosmic_secret_2026"}
+                copyLabel={dict.common.copy}
+                copiedLabel={dict.common.copied}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+              {Boolean(editingSite.webhookUrl && editingSite.webhookUrl.trim().length > 0) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleSaveWebhook(editingSite.publicId, true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  <span>{dict.webhooksPage.disableWebhook}</span>
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleSaveWebhook(editingSite.publicId, false)}
+              >
+                <Save className="h-3.5 w-3.5" />
+                <span>{dict.webhooksPage.saveWebhook}</span>
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

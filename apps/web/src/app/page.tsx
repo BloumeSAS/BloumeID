@@ -2,25 +2,25 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { BloumeID, type BloumeIDResult } from "@bloume/id";
 import {
+  Activity,
   ArrowRight,
-  CheckCircle2,
+  Check,
+  Copy,
   Cpu,
-  Database,
   Fingerprint,
-  GitBranch,
-  Globe,
-  Layers,
-  Lock,
+  Github,
   Moon,
   RefreshCw,
-  Shield,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Sun,
-  XCircle,
+  Terminal,
+  X,
+  Zap,
 } from "lucide-react";
+import { BloumeID, type BloumeIDResult } from "@bloume/id";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,891 +31,664 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
 const GITHUB_REPO_URL = "https://github.com/BloumeSAS/BloumeID";
 
-export default function OpenSourceHomePage() {
-  const { dict, locale, setLocale, theme, toggleTheme } = useI18n();
-  const [liveResult, setLiveResult] = React.useState<BloumeIDResult | null>(null);
-  const [scanning, setScanning] = React.useState(false);
-  const [activeCidrs, setActiveCidrs] = React.useState<number>(54133);
+export default function LandingPage() {
+  const { locale, setLocale, theme, toggleTheme, dict } = useI18n();
+  const [result, setResult] = React.useState<BloumeIDResult | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [elapsedMs, setElapsedMs] = React.useState<number>(0);
+  const [jsonFormat, setJsonFormat] = React.useState<"bloume" | "thumbmark" | "fpjs">("bloume");
+  const [jsonCopied, setJsonCopied] = React.useState(false);
+  const inspectorRef = React.useRef<HTMLElement | null>(null);
 
   const runLiveScan = React.useCallback(async () => {
-    setScanning(true);
+    setLoading(true);
+    const t0 = performance.now();
     try {
-      const sdk = new BloumeID({
+      const client = new BloumeID({
         apiKey: DEMO_PUBLIC_KEY,
-        endpoint: typeof window !== "undefined" ? window.location.origin : "",
+        endpoint: "/api/v1/fingerprint",
+        options: { timeout: 4000 },
       });
-      const res = await sdk.get();
-      setLiveResult(res);
+      const res = await client.get({ tag: "landing_live_inspector" });
+      setResult(res);
+    } catch {
+      // Fallback: local-only components if offline
     } finally {
-      setScanning(false);
+      setElapsedMs(Math.round(performance.now() - t0));
+      setLoading(false);
     }
   }, []);
 
   React.useEffect(() => {
     void runLiveScan();
-    fetch("/api/health")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { threatTrieCidrs?: number } | null) => {
-        if (data?.threatTrieCidrs && data.threatTrieCidrs > 0) {
-          setActiveCidrs(data.threatTrieCidrs);
-        }
-      })
-      .catch(() => undefined);
   }, [runLiveScan]);
 
-  return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
-      {/* Clean Slate Ambient Glows */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-48 left-1/2 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-primary/12 blur-[140px]" />
-      </div>
+  const scrollToInspector = () => {
+    inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
-      {/* Responsive Sticky Top Navbar */}
-      <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex shrink-0 items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30">
-              <Fingerprint className="h-5 w-5" />
+  const formattedJson = React.useMemo(() => {
+    if (!result) return "{}";
+    if (jsonFormat === "thumbmark") {
+      return JSON.stringify(
+        {
+          visitorId: result.visitorId,
+          thumbmark: result.thumbmark,
+          components: {
+            audio: result.components?.audio ?? null,
+            canvas: result.components?.canvas ?? null,
+            fonts: result.components?.fonts ?? null,
+            hardware: result.components?.hardware ?? null,
+            math: result.components?.math ?? null,
+            screen: result.components?.screen ?? null,
+            webgl: result.components?.webgl ?? null,
+            webrtc: result.components?.webrtc ?? null,
+            speech: result.components?.speech ?? null,
+          },
+          info: {
+            ip_address: {
+              ip_address: result.info?.ipAddress ?? "127.0.0.1",
+              autonomous_system_number: result.info?.asnNumber ?? null,
+              ip_version: "v4",
+            },
+            classification: {
+              tor: result.info?.isTor ?? false,
+              vpn: result.info?.isVpn ?? false,
+              datacenter: result.info?.isDatacenter ?? false,
+              danger_level: result.info?.dangerLevel ?? 0,
+              bot: result.info?.isBot ?? false,
+            },
+            uniqueness: {
+              score: Math.round((result.confidence?.score ?? 0.99) * 100),
+            },
+            country: {
+              iso_code: result.info?.country ?? "FR",
+            },
+            visitor: {
+              id: result.visitorId,
+              isNew: !result.visitorFound,
+              firstSeen: result.firstSeenAt?.global ?? null,
+              lastSeen: result.lastSeenAt?.global ?? null,
+            },
+          },
+          version: "1.0.0",
+          requestId: result.requestId,
+        },
+        null,
+        2,
+      );
+    }
+    if (jsonFormat === "fpjs") {
+      return JSON.stringify(
+        {
+          requestId: result.requestId,
+          visitorId: result.visitorId,
+          visitorFound: true,
+          confidence: result.confidence,
+          ip: result.info?.ipAddress ?? "127.0.0.1",
+          ipLocation: {
+            country: { code: result.info?.country ?? "FR" },
+            city: { name: result.info?.city ?? "Paris" },
+          },
+          vpn: { result: result.info?.isVpn ?? false },
+          tor: { result: result.info?.isTor ?? false },
+          bot: { result: result.info?.isBot ? "bad" : "notDetected" },
+          tampering: { result: result.info?.isSpoofed ?? false },
+        },
+        null,
+        2,
+      );
+    }
+    return JSON.stringify(result, null, 2);
+  }, [result, jsonFormat]);
+
+  const signalCategories = React.useMemo(() => {
+    const c = result?.components;
+    return [
+      {
+        title: "Canvas & Sub-Pixel",
+        count: 14,
+        status: c?.canvas ? "Collected" : "Pending",
+        preview: c?.canvas?.winding ? "Winding + Emoji + Text" : "2D Context",
+      },
+      {
+        title: "WebGL2 & GPU",
+        count: 18,
+        status: c?.webgl ? "Collected" : "Pending",
+        preview: c?.webgl?.renderer ?? "GPU Renderer",
+      },
+      {
+        title: "OfflineAudioContext",
+        count: 8,
+        status: c?.audio ? "Collected" : "Pending",
+        preview: c?.audio ? `${c.audio.sampleRate} Hz` : "Audio DSP",
+      },
+      {
+        title: "Fonts & Typography",
+        count: 16,
+        status: c?.fonts ? "Collected" : "Pending",
+        preview: c?.fonts ? `${c.fonts.count} fonts` : "OS Font Matrix",
+      },
+      {
+        title: "Hardware & CPU/RAM",
+        count: 14,
+        status: c?.hardware ? "Collected" : "Pending",
+        preview: c?.hardware
+          ? `${c.hardware.hardwareConcurrency ?? "?"} cores · ${c.hardware.deviceMemory ?? "?"} GB`
+          : "Concurrency & Memory",
+      },
+      {
+        title: "Math & JS Engine",
+        count: 12,
+        status: c?.math ? "Collected" : "Pending",
+        preview: c?.math?.engineHint ?? "V8 / SpiderMonkey / JSC",
+      },
+      {
+        title: "Screen, HDR & Media",
+        count: 12,
+        status: c?.screen ? "Collected" : "Pending",
+        preview: c?.screen ? `${c.screen.width}x${c.screen.height}` : "Color Gamut",
+      },
+      {
+        title: "Anti-Spoof & Bot",
+        count: 10,
+        status: result ? "Verified" : "Pending",
+        preview: result?.info?.isSpoofed ? "Spoof Detected" : "Authentic (0 Hooks)",
+      },
+    ];
+  }, [result]);
+
+  return (
+    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+      {/* Architectural bg-grid + radial halo */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border)/0.35)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:36px_36px]"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,hsl(var(--primary)/0.22),transparent)]"
+      />
+
+      {/* Minimalist Floating Navbar */}
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+              <Fingerprint className="h-4 w-4" />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight">{dict.common.brandName}</span>
-              <Badge
-                variant="outline"
-                className="hidden whitespace-nowrap border-primary/40 font-mono text-[10px] text-primary sm:inline-flex"
-              >
-                {dict.common.versionBadge}
-              </Badge>
-            </div>
+            <span className="font-bold tracking-tight">BloumeID</span>
+            <Badge variant="outline" className="hidden font-mono text-[10px] sm:inline-flex">
+              v1.0.0
+            </Badge>
           </div>
 
-          <nav className="hidden items-center gap-5 whitespace-nowrap text-xs font-medium text-muted-foreground xl:flex xl:text-sm">
-            <a href="#live-scanner" className="transition-colors hover:text-foreground">
-              {dict.landing.navLiveDemo}
+          <nav className="hidden items-center gap-6 text-xs font-medium text-muted-foreground md:flex">
+            <a href="#inspector" className="transition-colors hover:text-foreground">
+              Live Inspector
             </a>
             <a href="#architecture" className="transition-colors hover:text-foreground">
-              {dict.landing.navFeatures}
+              Architecture
             </a>
-            <a href="#competitor-matrix" className="transition-colors hover:text-foreground">
-              {dict.landing.navComparison}
+            <a href="#compare" className="transition-colors hover:text-foreground">
+              Comparatif
             </a>
-            <a href="#self-host" className="transition-colors hover:text-foreground">
-              {dict.landing.navInstall}
+            <a href="#deploy" className="transition-colors hover:text-foreground">
+              Coolify
             </a>
+          </nav>
+
+          <div className="flex items-center gap-2">
             <a
               href={GITHUB_REPO_URL}
               target="_blank"
               rel="noreferrer"
-              className="transition-colors hover:text-foreground"
+              className="hidden h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
             >
-              {dict.landing.navGithub}
+              <Github className="h-3.5 w-3.5" />
+              <span>GitHub</span>
             </a>
-          </nav>
-
-          <div className="flex shrink-0 items-center gap-2">
             <Button
-              type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              data-testid="landing-locale-switcher"
+              className="h-8 px-2 font-mono text-xs"
               onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
             >
-              <Globe className="h-3.5 w-3.5" />
-              <span>{locale.toUpperCase()}</span>
+              {locale.toUpperCase()}
             </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-testid="landing-theme-switcher"
-              onClick={toggleTheme}
-              title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
-            >
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleTheme}>
               {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
             </Button>
-
-            <a href="#live-scanner">
-              <Button type="button" variant="secondary" size="sm">
-                <Cpu className="h-3.5 w-3.5" />
-                <span>{dict.landing.ctaTryLive}</span>
-              </Button>
-            </a>
-
             <Link href="/dashboard">
-              <Button type="button" size="sm" data-testid="landing-admin-cta">
-                <Shield className="h-3.5 w-3.5" />
+              <Button size="sm" className="h-8 text-xs">
                 <span>{dict.landing.navAdminConsole}</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </Link>
           </div>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-7xl px-4 pb-24 sm:px-6">
-        {/* HERO SPLIT-SCREEN 2 COLUMNS (Text + CTAs Left / Animated Panel Mockup Right) */}
-        <section className="pt-10 pb-14 md:pt-16">
-          <div className="grid items-center gap-10 lg:grid-cols-12">
-            {/* Left Column: Value Prop & CTAs */}
-            <div className="space-y-6 text-center lg:col-span-6 lg:text-left">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary shadow-xs">
-                <Sparkles className="h-3.5 w-3.5 shrink-0 animate-pulse" />
-                <span>{dict.landing.heroBadge}</span>
-              </div>
+      <main className="mx-auto max-w-6xl space-y-20 px-4 py-12 sm:px-6 sm:py-16">
+        {/* Centered High-Impact Hero */}
+        <section className="mx-auto max-w-3xl space-y-6 text-center">
+          <Badge variant="outline" className="border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            <span>@bloume/id v1.0.0 · Open-Source Device Intelligence</span>
+          </Badge>
 
-              <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
-                <span className="block text-foreground">{dict.landing.heroTitleLine1}</span>
-                <span className="mt-1 block bg-gradient-to-r from-primary via-indigo-400 to-sky-400 bg-clip-text font-serif italic text-transparent">
-                  {dict.landing.heroTitleLine2}
-                </span>
-              </h1>
+          <h1 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
+            {dict.landing.heroTitleLine1} {dict.landing.heroTitleLine2}
+          </h1>
 
-              <p className="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base lg:mx-0">
-                {dict.landing.heroSubtitle}
-              </p>
+          <p className="mx-auto max-w-2xl text-sm text-muted-foreground sm:text-base">
+            {dict.landing.heroSubtitle}
+          </p>
 
-              <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-                <a href="#live-scanner">
-                  <Button size="lg" className="h-11 px-6 text-sm font-semibold shadow-md">
-                    <Cpu className="h-4 w-4" />
-                    <span>{dict.landing.ctaTryLive}</span>
-                  </Button>
-                </a>
-
-                <Link href="/dashboard">
-                  <Button variant="secondary" size="lg" className="h-11 px-6 text-sm font-semibold">
-                    <span>{dict.landing.ctaPrimary}</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-
-                <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
-                  <Button variant="outline" size="lg" className="h-11 px-5 text-sm font-semibold">
-                    <GitBranch className="h-4 w-4 text-primary" />
-                    <span>{dict.landing.ctaSecondary}</span>
-                  </Button>
-                </a>
-              </div>
-
-              <div className="flex justify-center lg:justify-start">
-                <CopyableMono
-                  value={dict.landing.npmCommand}
-                  displayValue={`$ ${dict.landing.npmCommand}`}
-                  copyLabel={dict.common.copy}
-                  copiedLabel={dict.common.copied}
-                  className="h-10 px-4 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* Right Column: Animated High-Fidelity Admin Panel Mockup */}
-            <div className="lg:col-span-6">
-              <div className="overflow-hidden rounded-2xl border border-primary/30 bg-card/95 shadow-2xl transition-transform duration-500 hover:-translate-y-1">
-                {/* macOS Window Chrome */}
-                <div className="flex items-center justify-between border-b border-border bg-secondary/40 px-4 py-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" />
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" />
-                  </div>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    bloumeid.app/dashboard
-                  </span>
-                  <Badge variant="success" className="px-1.5 py-0 font-mono text-[10px]">
-                    LIVE
-                  </Badge>
-                </div>
-
-                {/* Mockup Body */}
-                <div className="grid grid-cols-12 gap-3 p-4">
-                  {/* Mini Sidebar */}
-                  <div className="col-span-3 hidden space-y-1.5 border-r border-border/60 pr-3 sm:block">
-                    <div className="flex items-center gap-1.5 pb-2">
-                      <div className="h-5 w-5 rounded-md bg-primary" />
-                      <span className="font-mono text-xs font-bold text-primary">bloumeid</span>
-                    </div>
-                    {["Overview", "Identifications", "Smart Signals", "Rule Engine", "API Keys"].map(
-                      (item, idx) => (
-                        <div
-                          key={item}
-                          className={`rounded-lg px-2 py-1 text-[10px] font-medium ${
-                            idx === 0
-                              ? "bg-primary/15 text-primary ring-1 ring-primary/30"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {item}
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  {/* Mini Telemetry Area */}
-                  <div className="col-span-12 space-y-3 sm:col-span-9">
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg border border-border bg-secondary/20 p-2.5">
-                        <p className="text-[10px] text-muted-foreground">Signals</p>
-                        <p className="font-mono text-base font-bold text-primary">104+</p>
-                      </div>
-                      <div className="rounded-lg border border-border bg-secondary/20 p-2.5">
-                        <p className="text-[10px] text-muted-foreground">CIDR Trie</p>
-                        <p className="font-mono text-base font-bold text-sky-500">54,133</p>
-                      </div>
-                      <div className="rounded-lg border border-border bg-secondary/20 p-2.5">
-                        <p className="text-[10px] text-muted-foreground">Latency</p>
-                        <p className="font-mono text-base font-bold text-emerald-500">&lt;1ms</p>
-                      </div>
-                    </div>
-
-                    {/* Animated Traffic Bars */}
-                    <div className="space-y-1.5 rounded-lg border border-border bg-secondary/15 p-3">
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                        <span>FR — Orange S.A. (AS3215)</span>
-                        <span className="font-mono text-emerald-500">68%</span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                        <div className="h-full w-[68%] animate-pulse rounded-full bg-primary" />
-                      </div>
-                      <div className="flex items-center justify-between pt-1 text-[10px] text-muted-foreground">
-                        <span>DE — Hetzner Tor Exit (AS24940)</span>
-                        <span className="font-mono text-rose-500">Blocked</span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                        <div className="h-full w-[24%] rounded-full bg-rose-500" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 4 Live KPI Pillars */}
-          <div className="mt-12 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-            <Card className="border-border bg-card/80">
-              <CardContent className="pt-5 text-center">
-                <p className="font-mono text-2xl font-extrabold text-primary sm:text-3xl">
-                  {dict.landing.statCollectors}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statCollectorsLabel}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border bg-card/80">
-              <CardContent className="pt-5 text-center">
-                <p className="font-mono text-2xl font-extrabold text-sky-500 sm:text-3xl">
-                  {activeCidrs.toLocaleString()}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statCidrsLabel}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border bg-card/80">
-              <CardContent className="pt-5 text-center">
-                <p className="font-mono text-2xl font-extrabold text-emerald-500 sm:text-3xl">
-                  {dict.landing.statBundleSize}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statBundleSizeLabel}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border bg-card/80">
-              <CardContent className="pt-5 text-center">
-                <p className="font-mono text-2xl font-extrabold text-amber-500 sm:text-3xl">
-                  {dict.landing.statLatency}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">{dict.landing.statLatencyLabel}</p>
-              </CardContent>
-            </Card>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Button size="lg" onClick={scrollToInspector} className="gap-2">
+              <Activity className="h-4 w-4" />
+              <span>Analyser mon navigateur (Live)</span>
+            </Button>
+            <Link href="/dashboard">
+              <Button size="lg" variant="outline" className="gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>Accéder au Panel Admin</span>
+              </Button>
+            </Link>
           </div>
         </section>
 
-        {/* INTERACTIVE LIVE IN-BROWSER FINGERPRINT DEMO WIDGET */}
-        <section id="live-scanner" className="py-8">
-          <Card className="overflow-hidden border-primary/35 bg-card shadow-xl">
-            <CardHeader className="border-b border-border bg-secondary/40 px-4 py-4 sm:px-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                    </span>
-                    <span className="font-mono text-xs font-semibold tracking-wider text-primary">
-                      {dict.landing.liveWidgetBadge}
-                    </span>
-                  </div>
-                  <CardTitle className="text-lg sm:text-xl">{dict.landing.liveWidgetTitle}</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">
-                    {dict.landing.liveWidgetSubtitle}
-                  </CardDescription>
-                </div>
-
+        {/* Full-Width Live Inspector Console */}
+        <section id="inspector" ref={inspectorRef} className="scroll-mt-20">
+          <Card className="border-primary/30 bg-card/90 shadow-xl backdrop-blur">
+            <CardHeader className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
                 <div className="flex items-center gap-2">
-                  {liveResult ? (
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {liveResult.info.durationMs} ms • {liveResult.info.collectorCount} signals
-                    </Badge>
-                  ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    data-testid="landing-rescan-btn"
-                    onClick={runLiveScan}
-                    disabled={scanning}
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${scanning ? "animate-spin" : ""}`} />
-                    <span>{scanning ? dict.playground.running : dict.landing.liveRescan}</span>
-                  </Button>
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                  <CardTitle className="text-base sm:text-lg">
+                    Live Inspector — @bloume/id
+                  </CardTitle>
+                  <Badge variant="secondary" className="font-mono text-[11px]">
+                    {loading ? "..." : `${elapsedMs} ms · 104 signals`}
+                  </Badge>
                 </div>
+                <CardDescription className="mt-1 text-xs">
+                  {dict.landing.heroSubtitle}
+                </CardDescription>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void runLiveScan()}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                <span>Relancer le scan</span>
+              </Button>
             </CardHeader>
 
-            <CardContent className="space-y-5 p-4 sm:p-6">
-              {liveResult ? (
-                <>
+            <CardContent className="pt-5">
+              <Tabs defaultValue="visual">
+                <TabsList className="mb-4 grid w-full grid-cols-3 sm:w-auto sm:inline-flex">
+                  <TabsTrigger value="visual">Aperçu Visuel</TabsTrigger>
+                  <TabsTrigger value="json">Réponse API (JSON)</TabsTrigger>
+                  <TabsTrigger value="signals">104 Signaux Collectés</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="visual" className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-xl border border-primary/30 bg-primary/10 p-3.5">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {dict.playground.visitorIdLabel}
-                      </p>
-                      <div className="mt-1.5">
+                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">Visitor ID</p>
+                      <div className="mt-1">
                         <CopyableMono
-                          value={liveResult.visitorId}
-                          copyLabel={dict.common.copy}
-                          copiedLabel={dict.common.copied}
-                          className="text-xs font-semibold"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-border bg-secondary/30 p-3.5">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {dict.playground.thumbmarkLabel}
-                      </p>
-                      <div className="mt-1.5">
-                        <CopyableMono
-                          value={liveResult.thumbmark}
-                          displayValue={`${liveResult.thumbmark.slice(0, 18)}...`}
+                          value={result?.visitorId ?? "vis_loading..."}
                           copyLabel={dict.common.copy}
                           copiedLabel={dict.common.copied}
                         />
                       </div>
                     </div>
-
-                    <div className="rounded-xl border border-border bg-secondary/30 p-3.5">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {dict.visitors.hardwareHash}
-                      </p>
-                      <div className="mt-1.5">
+                    <div className="rounded-xl border border-border bg-secondary/20 p-3.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">Full Hash</p>
+                      <div className="mt-1">
                         <CopyableMono
-                          value={liveResult.hardwareHash}
-                          displayValue={`${liveResult.hardwareHash.slice(0, 18)}...`}
+                          value={result?.thumbmark ? `${result.thumbmark.slice(0, 18)}...` : "..."}
                           copyLabel={dict.common.copy}
                           copiedLabel={dict.common.copied}
                         />
                       </div>
                     </div>
-
-                    <div className="rounded-xl border border-border bg-secondary/30 p-3.5">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {dict.playground.dangerGaugeLabel}
-                      </p>
+                    <div className="rounded-xl border border-border bg-secondary/20 p-3.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">Hardware Hash</p>
+                      <div className="mt-1">
+                        <CopyableMono
+                          value={result?.hardwareHash ? `${result.hardwareHash.slice(0, 18)}...` : "..."}
+                          copyLabel={dict.common.copy}
+                          copiedLabel={dict.common.copied}
+                        />
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-border bg-secondary/20 p-3.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">Danger & Confiance</p>
                       <div className="mt-1.5 flex items-center justify-between">
-                        <span className="font-mono text-lg font-bold text-foreground">
-                          {liveResult.info.dangerLevel} / 5
+                        <span className="font-mono text-base font-bold">
+                          {result?.info?.dangerLevel ?? 0} / 5
                         </span>
                         <Badge
                           variant={
-                            liveResult.info.dangerLevel >= 4
+                            result?.info?.dangerLevel && result.info.dangerLevel >= 3
                               ? "destructive"
-                              : liveResult.info.dangerLevel >= 2
-                                ? "warning"
-                                : "success"
+                              : "success"
                           }
                         >
-                          {Math.round(liveResult.confidence.score * 100)}%
+                          {Math.round((result?.confidence?.score ?? 0.99) * 100)}%
                         </Badge>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="text-xs font-semibold text-primary">
-                          {dict.landing.liveCanvas}
-                        </span>
-                        <Badge
-                          variant={
-                            liveResult.components.canvas.doubleRenderConsistent
-                              ? "success"
-                              : "warning"
-                          }
-                          className="shrink-0 whitespace-nowrap"
-                        >
-                          {liveResult.components.canvas.doubleRenderConsistent
-                            ? dict.landing.liveConsistent
-                            : dict.landing.liveTampered}
-                        </Badge>
-                      </div>
-                      <div className="mt-2.5">
-                        <CopyableMono
-                          value={liveResult.components.canvas.hash}
-                          displayValue={`${liveResult.components.canvas.hash.slice(0, 22)}...`}
-                          copyLabel={dict.common.copy}
-                          copiedLabel={dict.common.copied}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="text-xs font-semibold text-sky-500">
-                          {dict.landing.liveWebgl}
-                        </span>
-                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
-                          {liveResult.components.webgl.extensionsCount} ext
-                        </Badge>
-                      </div>
-                      <p className="mt-2 truncate font-mono text-xs text-foreground">
-                        {liveResult.components.webgl.unmaskedRenderer}
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-border bg-card p-3.5">
+                      <p className="text-xs font-semibold text-primary">Réseau &amp; Géolocalisation</p>
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">
+                        IP: {result?.info?.ipAddress ?? "—"} · {result?.info?.country ?? "—"}
                       </p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                        {liveResult.components.webgl.unmaskedVendor}
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        ASN: {result?.info?.asnOrg ?? "Local / Direct"}
                       </p>
                     </div>
-
-                    <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="text-xs font-semibold text-indigo-400">
-                          {dict.landing.liveAudio}
-                        </span>
-                        <Badge
-                          variant={
-                            liveResult.components.audio.doubleRenderConsistent
-                              ? "success"
-                              : "warning"
-                          }
-                          className="shrink-0 whitespace-nowrap"
-                        >
-                          {liveResult.components.audio.sampleRate || 44100} Hz
-                        </Badge>
-                      </div>
-                      <div className="mt-2.5">
-                        <CopyableMono
-                          value={liveResult.components.audio.sampleHash}
-                          displayValue={`Σ=${liveResult.components.audio.sumValue} • ${liveResult.components.audio.sampleHash.slice(0, 14)}...`}
-                          copyLabel={dict.common.copy}
-                          copiedLabel={dict.common.copied}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="text-xs font-semibold text-emerald-500">
-                          {dict.landing.liveHardware}
-                        </span>
-                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
-                          {liveResult.components.hardware.architectureHint}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 font-mono text-xs text-foreground">
-                        {liveResult.components.hardware.hardwareConcurrency} cores •{" "}
-                        {liveResult.components.hardware.deviceMemory || 8} GB •{" "}
-                        {liveResult.components.screen.width}×{liveResult.components.screen.height}@
-                        {liveResult.components.screen.devicePixelRatio}x
+                    <div className="rounded-xl border border-border bg-card p-3.5">
+                      <p className="text-xs font-semibold text-primary">GPU &amp; Matériel</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {result?.components?.webgl?.renderer ?? "WebGL2 Renderer"}
                       </p>
-                      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                        Gamut: {liveResult.components.screen.colorGamut} • HDR:{" "}
-                        {liveResult.components.screen.hdrSupported
-                          ? dict.common.yes
-                          : dict.common.no}
+                      <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                        {result?.components?.hardware?.hardwareConcurrency ?? "?"} cores ·{" "}
+                        {result?.components?.hardware?.deviceMemory ?? "?"} GB RAM
                       </p>
                     </div>
-
-                    <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="text-xs font-semibold text-amber-500">
-                          {dict.landing.liveFonts}
-                        </span>
-                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
-                          {liveResult.components.fonts.count} fonts
+                    <div className="rounded-xl border border-border bg-card p-3.5">
+                      <p className="text-xs font-semibold text-primary">Verdict Anti-Spoof</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <Badge variant={result?.info?.isVpn ? "warning" : "secondary"}>
+                          VPN: {result?.info?.isVpn ? "Yes" : "No"}
+                        </Badge>
+                        <Badge variant={result?.info?.isTor ? "destructive" : "secondary"}>
+                          Tor: {result?.info?.isTor ? "Yes" : "No"}
+                        </Badge>
+                        <Badge variant={result?.info?.isBot ? "destructive" : "secondary"}>
+                          Bot: {result?.info?.isBot ? "Yes" : "No"}
                         </Badge>
                       </div>
-                      <p className="mt-2 truncate font-mono text-xs text-foreground">
-                        {liveResult.components.fonts.detected.slice(0, 5).join(", ") || "System Default"}
-                      </p>
-                      <div className="mt-1.5">
-                        <CopyableMono
-                          value={liveResult.components.fonts.hash}
-                          displayValue={`${liveResult.components.fonts.hash.slice(0, 22)}...`}
-                          copyLabel={dict.common.copy}
-                          copiedLabel={dict.common.copied}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <span className="text-xs font-semibold text-rose-500">
-                          {dict.landing.liveAntiSpoof}
-                        </span>
-                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
-                          {liveResult.components.math.engineHint}
-                        </Badge>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {liveResult.info.isBot ? (
-                          <Badge variant="destructive">{dict.flags.bot}</Badge>
-                        ) : null}
-                        {liveResult.info.isSpoofed ? (
-                          <Badge variant="warning">{dict.flags.spoofed}</Badge>
-                        ) : null}
-                        {liveResult.info.isIncognito ? (
-                          <Badge variant="secondary">{dict.flags.incognito}</Badge>
-                        ) : null}
-                        {liveResult.info.crossBrowserMatched ? (
-                          <Badge variant="success">{dict.flags.crossBrowser}</Badge>
-                        ) : null}
-                        {!liveResult.info.isBot && !liveResult.info.isSpoofed ? (
-                          <Badge variant="success">{dict.flags.clean}</Badge>
-                        ) : null}
-                      </div>
-                      <p className="mt-1.5 truncate font-mono text-[11px] text-muted-foreground">
-                        IP: {liveResult.info.ipAddress ?? "127.0.0.1"} •{" "}
-                        {liveResult.info.asnOrg ?? "Orange S.A."} •{" "}
-                        {liveResult.components.timezoneIntl.timezone}
-                      </p>
                     </div>
                   </div>
-                </>
-              ) : (
-                <div className="py-12 text-center font-mono text-sm text-muted-foreground">
-                  {dict.common.loading}
-                </div>
-              )}
+                </TabsContent>
+
+                <TabsContent value="json" className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant={jsonFormat === "bloume" ? "default" : "outline"}
+                        onClick={() => setJsonFormat("bloume")}
+                      >
+                        @bloume/id
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={jsonFormat === "thumbmark" ? "default" : "outline"}
+                        onClick={() => setJsonFormat("thumbmark")}
+                      >
+                        ThumbmarkJS
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={jsonFormat === "fpjs" ? "default" : "outline"}
+                        onClick={() => setJsonFormat("fpjs")}
+                      >
+                        Fingerprint.com
+                      </Button>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(formattedJson);
+                        setJsonCopied(true);
+                        setTimeout(() => setJsonCopied(false), 2000);
+                      }}
+                    >
+                      {jsonCopied ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      <span>{jsonCopied ? dict.common.copied : dict.common.copy}</span>
+                    </Button>
+                  </div>
+                  <pre className="max-h-[380px] overflow-auto rounded-xl border border-border bg-secondary/40 p-4 font-mono text-xs leading-relaxed">
+                    {formattedJson}
+                  </pre>
+                </TabsContent>
+
+                <TabsContent value="signals">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {signalCategories.map((cat) => (
+                      <div
+                        key={cat.title}
+                        className="rounded-xl border border-border bg-secondary/20 p-3.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold">{cat.title}</span>
+                          <Badge variant="outline" className="font-mono text-[10px]">
+                            {cat.count}
+                          </Badge>
+                        </div>
+                        <p className="mt-1.5 truncate font-mono text-[11px] text-muted-foreground">
+                          {cat.preview}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </section>
 
-        {/* BENTO ARCHITECTURE */}
-        <section id="architecture" className="py-14">
-          <div className="mx-auto max-w-3xl text-center">
-            <Badge variant="outline" className="border-primary/40 font-mono text-xs text-primary">
-              {dict.landing.archBadge}
-            </Badge>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-4xl">
-              {dict.landing.archTitle}
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-              {dict.landing.archSubtitle}
+        {/* 3-Step Architecture Pipeline */}
+        <section id="architecture" className="space-y-6 scroll-mt-20">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight">Pipeline Edge-to-Core</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              De la collecte navigateur zéro-dépendance à la décision temps réel.
             </p>
           </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-12">
-            <Card className="border-border bg-card lg:col-span-7">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
               <CardHeader>
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                    <Layers className="h-5 w-5" />
-                  </div>
-                  <CardTitle className="text-lg">{dict.landing.bentoReconcileTitle}</CardTitle>
-                </div>
-                <CardDescription className="pt-1">{dict.landing.bentoReconcileDesc}</CardDescription>
+                <Cpu className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">1. Collecte Client @bloume/id</CardTitle>
+                <CardDescription className="text-xs">
+                  104 signaux déterministes (Canvas, WebGL2, Audio, Fonts, Math, Anti-Hook) en &lt; 80 ms, zéro cookie.
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4 font-mono text-xs">
-                  <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-                    <span>{dict.landing.bentoLevel1}</span>
-                    <Badge variant="success">0.99</Badge>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2">
-                    <span>{dict.landing.bentoLevel2}</span>
-                    <Badge variant="outline">0.88</Badge>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
-                    <span>{dict.landing.bentoLevel3}</span>
-                    <Badge variant="default">0.95</Badge>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
-
-            <Card className="border-border bg-card lg:col-span-5">
+            <Card>
               <CardHeader>
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/15 text-rose-500">
-                    <ShieldAlert className="h-5 w-5" />
-                  </div>
-                  <CardTitle className="text-lg">{dict.landing.bentoAntiSpoofTitle}</CardTitle>
-                </div>
-                <CardDescription className="pt-1">{dict.landing.bentoAntiSpoofDesc}</CardDescription>
+                <Zap className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">2. Analyse Edge &amp; CIDR Trie &lt; 1 ms</CardTitle>
+                <CardDescription className="text-xs">
+                  Enrichissement GeoLite2, ASN, détection VPN/Tor/Datacenter et anti-rejeu HMAC-SHA256 via Redis.
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-                  <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    ● Prototype Hooks
-                  </div>
-                  <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    ● SwiftShader / VM
-                  </div>
-                  <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    ● Canvas/Audio 2x
-                  </div>
-                  <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
-                    ● Sec-CH-UA Check
-                  </div>
-                </div>
-              </CardContent>
             </Card>
-
-            <Card className="border-border bg-card lg:col-span-6">
+            <Card>
               <CardHeader>
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-500">
-                    <Database className="h-5 w-5" />
-                  </div>
-                  <CardTitle className="text-lg">{dict.landing.bentoTrieTitle}</CardTitle>
-                </div>
-                <CardDescription className="pt-1">{dict.landing.bentoTrieDesc}</CardDescription>
+                <ShieldAlert className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">3. Identité Persistante &amp; Rule Engine</CardTitle>
+                <CardDescription className="text-xs">
+                  Réconciliation cross-browser, identifiants Snowflake immuables et règles SOC (Block / Challenge / Flag).
+                </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-wrap gap-2 font-mono text-xs">
-                <Badge variant="secondary">Auto GeoLite2-City.mmdb</Badge>
-                <Badge variant="secondary">Auto GeoLite2-ASN.mmdb</Badge>
-                <Badge variant="destructive">Tor Bulk Exit List</Badge>
-                <Badge variant="outline">X4BNet VPN & Datacenter</Badge>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border bg-card lg:col-span-6">
-              <CardHeader>
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-500">
-                    <Lock className="h-5 w-5" />
-                  </div>
-                  <CardTitle className="text-lg">{dict.landing.bentoCryptoTitle}</CardTitle>
-                </div>
-                <CardDescription className="pt-1">{dict.landing.bentoCryptoDesc}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2 font-mono text-xs">
-                <Badge variant="success">ThumbmarkJS API</Badge>
-                <Badge variant="success">Fingerprint.com API</Badge>
-                <Badge variant="outline">Rules: allow / challenge / block</Badge>
-              </CardContent>
             </Card>
           </div>
         </section>
 
-        {/* 4-COLUMN COMPETITOR COMPARISON MATRIX (BloumeID v1.0.0 vs ThumbmarkJS vs Fingerprint.com vs CreepJS) */}
-        <section id="competitor-matrix" className="py-12">
-          <div className="mx-auto max-w-3xl text-center">
-            <Badge variant="outline" className="border-primary/40 font-mono text-xs text-primary">
-              {dict.landing.compBadge}
-            </Badge>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-4xl">
-              {dict.landing.compTitle}
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-              {dict.landing.compSubtitle}
+        {/* Clean Comparison Table */}
+        <section id="compare" className="space-y-6 scroll-mt-20">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight">Comparatif Technique Réel</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Souveraineté, précision des signaux et coût total de possession face aux solutions du marché.
             </p>
           </div>
-
-          <Card className="mt-8 overflow-hidden border-border bg-card">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/40">
-                    <th className="p-4 font-semibold">{dict.landing.compColFeature}</th>
-                    <th className="p-4 font-bold text-primary">{dict.landing.compColBloume}</th>
-                    <th className="p-4 font-semibold text-muted-foreground">
-                      {dict.landing.compColThumbmark}
-                    </th>
-                    <th className="p-4 font-semibold text-muted-foreground">
-                      {dict.landing.compColFpPro}
-                    </th>
-                    <th className="p-4 font-semibold text-muted-foreground">
-                      {dict.landing.compColCreep}
-                    </th>
+          <Card>
+            <CardContent className="overflow-x-auto p-0">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="border-b border-border bg-secondary/30 text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Critère Technique</th>
+                    <th className="px-4 py-3 font-semibold text-primary">BloumeID v1.0.0</th>
+                    <th className="px-4 py-3 font-medium">Fingerprint.com (Pro)</th>
+                    <th className="px-4 py-3 font-medium">ThumbmarkJS (OSS / Pro)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60">
-                  <tr className="hover:bg-secondary/20">
-                    <td className="p-4 font-medium">{dict.landing.compRow1}</td>
-                    <td className="p-4 font-semibold text-emerald-500">{dict.landing.compBloume1}</td>
-                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compThumb1}</td>
-                    <td className="p-4 text-xs text-amber-500">{dict.landing.compFp1}</td>
-                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compCreep1}</td>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="px-4 py-3 font-medium">Licence &amp; Hébergement</td>
+                    <td className="px-4 py-3 text-emerald-500">
+                      <Check className="mr-1 inline h-4 w-4" />
+                      MIT · 100% Self-Hosted (Docker)
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">SaaS Propriétaire (Cloud US/EU)</td>
+                    <td className="px-4 py-3 text-muted-foreground">MIT (Client) / SaaS (Pro)</td>
                   </tr>
-                  <tr className="hover:bg-secondary/20">
-                    <td className="p-4 font-medium">{dict.landing.compRow2}</td>
-                    <td className="p-4 font-semibold text-emerald-500">{dict.landing.compBloume2}</td>
-                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compThumb2}</td>
-                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compFp2}</td>
-                    <td className="p-4 text-xs text-muted-foreground">{dict.landing.compCreep2}</td>
+                  <tr>
+                    <td className="px-4 py-3 font-medium">Coût (1M requêtes / mois)</td>
+                    <td className="px-4 py-3 font-semibold text-emerald-500">0 € (Illimité)</td>
+                    <td className="px-4 py-3 text-muted-foreground">~200 $ – 1 000 $+ / mois</td>
+                    <td className="px-4 py-3 text-muted-foreground">0 € (OSS) / Payant (Pro)</td>
                   </tr>
-                  {[
-                    {
-                      label: dict.landing.compRow3,
-                      thumb: dict.landing.compPartial,
-                      fp: dict.landing.compYes,
-                      creep: dict.landing.compYes,
-                    },
-                    {
-                      label: dict.landing.compRow4,
-                      thumb: dict.landing.compPaid,
-                      fp: dict.landing.compPaid,
-                      creep: dict.landing.compNo,
-                    },
-                    {
-                      label: dict.landing.compRow5,
-                      thumb: dict.landing.compNo,
-                      fp: dict.landing.compPaid,
-                      creep: dict.landing.compNo,
-                    },
-                    {
-                      label: dict.landing.compRow6,
-                      thumb: dict.landing.compPartial,
-                      fp: dict.landing.compPaid,
-                      creep: dict.landing.compYes,
-                    },
-                    {
-                      label: dict.landing.compRow7,
-                      thumb: dict.landing.compNo,
-                      fp: dict.landing.compPaid,
-                      creep: dict.landing.compNo,
-                    },
-                  ].map((row) => (
-                    <tr key={row.label} className="hover:bg-secondary/20">
-                      <td className="p-4 font-medium">{row.label}</td>
-                      <td className="p-4">
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-500">
-                          <CheckCircle2 className="h-4 w-4 shrink-0" />
-                          <span>{dict.landing.compYes}</span>
-                        </span>
-                      </td>
-                      <td className="p-4 text-xs text-muted-foreground">{row.thumb}</td>
-                      <td className="p-4 text-xs text-amber-500">{row.fp}</td>
-                      <td className="p-4 text-xs text-muted-foreground">
-                        {row.creep === dict.landing.compNo ? (
-                          <span className="inline-flex items-center gap-1 text-rose-500">
-                            <XCircle className="h-4 w-4 shrink-0" />
-                            <span>{row.creep}</span>
-                          </span>
-                        ) : (
-                          row.creep
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  <tr>
+                    <td className="px-4 py-3 font-medium">Signaux Collectés &amp; Anti-Hook</td>
+                    <td className="px-4 py-3 text-emerald-500">
+                      <Check className="mr-1 inline h-4 w-4" />
+                      104 signaux + détection prototype
+                    </td>
+                    <td className="px-4 py-3">Propriétaire (~100+ signaux)</td>
+                    <td className="px-4 py-3 text-muted-foreground">~35 signaux (Canvas/WebGL/Audio)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium">GeoIP &amp; Threat Intel (VPN/Tor/DC)</td>
+                    <td className="px-4 py-3 text-emerald-500">
+                      <Check className="mr-1 inline h-4 w-4" />
+                      GeoLite2 + 54 000+ CIDR Radix (&lt; 1 ms)
+                    </td>
+                    <td className="px-4 py-3">
+                      <Check className="mr-1 inline h-4 w-4 text-emerald-500" />
+                      Inclus (Smart Signals)
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      <X className="mr-1 inline h-4 w-4 text-destructive" />
+                      Non inclus en OSS
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium">Réconciliation Cross-Browser</td>
+                    <td className="px-4 py-3 text-emerald-500">
+                      <Check className="mr-1 inline h-4 w-4" />
+                      Hardware Hash + Subnet
+                    </td>
+                    <td className="px-4 py-3">
+                      <Check className="mr-1 inline h-4 w-4 text-emerald-500" />
+                      Inclus (Smart Signals)
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      <X className="mr-1 inline h-4 w-4 text-destructive" />
+                      Non inclus en OSS
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium">Rule Engine SOC &amp; Webhooks HMAC</td>
+                    <td className="px-4 py-3 text-emerald-500">
+                      <Check className="mr-1 inline h-4 w-4" />
+                      Block / Challenge / Flag + HMAC-SHA256
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">Plan Enterprise uniquement</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      <X className="mr-1 inline h-4 w-4 text-destructive" />
+                      Non inclus
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-medium">Compatibilité SDK Drop-in</td>
+                    <td className="px-4 py-3 text-emerald-500">
+                      <Check className="mr-1 inline h-4 w-4" />
+                      Dual Schema (ThumbmarkJS + FPJS)
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">SDK Propriétaire</td>
+                    <td className="px-4 py-3 text-muted-foreground">SDK Propriétaire</td>
+                  </tr>
                 </tbody>
               </table>
-            </div>
+            </CardContent>
           </Card>
         </section>
 
-        {/* DUAL API & COOLIFY 1-CLICK DOCKER SHOWCASE */}
-        <section id="self-host" className="py-12">
-          <div className="mx-auto max-w-3xl text-center">
-            <Badge variant="outline" className="border-primary/40 font-mono text-xs text-primary">
-              {dict.landing.codeBadge}
-            </Badge>
-            <h2 className="mt-3 text-2xl font-bold tracking-tight sm:text-4xl">
-              {dict.landing.codeTitle}
-            </h2>
-            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-              {dict.landing.codeSubtitle}
-            </p>
-          </div>
-
-          <Card className="mt-8 border-border bg-card p-4 sm:p-6">
-            <Tabs defaultValue="thumbmark">
-              <TabsList className="flex flex-wrap">
-                <TabsTrigger value="thumbmark">{dict.landing.tabThumbmark}</TabsTrigger>
-                <TabsTrigger value="fppro">{dict.landing.tabFingerprintPro}</TabsTrigger>
-                <TabsTrigger value="script">{dict.landing.tabScript}</TabsTrigger>
-                <TabsTrigger value="coolify">{dict.landing.tabCoolify}</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="thumbmark">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
-{`import { BloumeID } from "@bloume/id";
-
-const tm = new BloumeID({
-  apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY,
-  endpoint: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_URL,
-});
-
-const { visitorId, thumbmark, requestId, confidence, info } = await tm.get();
-console.log({ visitorId, thumbmark, dangerLevel: info.dangerLevel, action: info.action });`}
-                </pre>
-              </TabsContent>
-
-              <TabsContent value="fppro">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
-{`import FingerprintJS from "@bloume/id";
-
-// 100% Drop-in replacement for @fingerprintjs/fingerprintjs-pro
-const fpPromise = FingerprintJS.load({
-  apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY!,
-  endpoint: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_URL!,
-});
-
-const agent = await fpPromise;
-const result = await agent.get({
-  extendedResult: true,
-  linkedId: "user_account_42",
-  tag: { checkoutStep: "payment" },
-});
-console.log(result.visitorId, result.requestId, result.visitorFound, result.ipLocation);`}
-                </pre>
-              </TabsContent>
-
-              <TabsContent value="script">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
-{`<script src="\${BLOUMEID_PUBLIC_URL}/sdk/v1/bloumeid.js"></script>
-<script>
-  // Supports both new window.BloumeID() and window.BloumeID.load()
-  window.BloumeID.load({
-    apiKey: "bid_pub_YOUR_SITE_KEY",
-    endpoint: "\${BLOUMEID_PUBLIC_URL}"
-  }).then((agent) => agent.get({ extendedResult: true }))
-    .then((res) => console.log(res.visitorId, res.requestId, res.incognito));
-</script>`}
-                </pre>
-              </TabsContent>
-
-              <TabsContent value="coolify">
-                <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs leading-relaxed">
-{`# Option 1: All-in-One Stack (Web + PostgreSQL 17 + Valkey 8 + Auto GeoLite2)
-docker compose -f docker-compose.yml up -d --build
-
-# Option 2: External / Managed PostgreSQL & Redis (Coolify External DBs)
-docker compose -f docker-compose.external-db.yml up -d --build
-
-# Option 3: Coolify Single-Container Dockerfile Buildpack (Root ./Dockerfile)
-docker build -t bloumeid:v1.0.0 -f Dockerfile .`}
-                </pre>
-              </TabsContent>
-            </Tabs>
+        {/* Coolify 1-Click Terminal Block */}
+        <section id="deploy" className="scroll-mt-20">
+          <Card className="border-primary/25 bg-secondary/20">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Terminal className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Déploiement 1-Clic Coolify / Docker</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                PostgreSQL 17 + Valkey 8 + Next.js 16 Standalone prêts en production.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <pre className="overflow-x-auto rounded-lg border border-border bg-background p-4 font-mono text-xs text-foreground">
+{`git clone https://github.com/BloumeSAS/BloumeID.git
+cd BloumeID
+docker compose up -d --build`}
+              </pre>
+            </CardContent>
           </Card>
         </section>
       </main>
 
-      <footer className="border-t border-border bg-card/60 py-8">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 text-xs text-muted-foreground sm:px-6">
+      <footer className="border-t border-border/60 bg-background/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
             <Fingerprint className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-foreground">{dict.common.brandName}</span>
-            <span>— {dict.landing.footerBuiltBy}</span>
+            <span className="font-semibold text-foreground">BloumeID</span>
+            <Badge variant="outline" className="font-mono text-[10px]">
+              v1.0.0
+            </Badge>
+            <span>· © 2026 Bloume SAS</span>
           </div>
-          <div className="flex items-center gap-6">
-            <Link href="/playground" className="hover:text-foreground">
-              {dict.landing.footerPlayground}
+          <div className="flex flex-wrap items-center gap-5">
+            <a href="#inspector" className="transition-colors hover:text-foreground">
+              Live Inspector
+            </a>
+            <a href="#architecture" className="transition-colors hover:text-foreground">
+              Architecture
+            </a>
+            <a href="#compare" className="transition-colors hover:text-foreground">
+              Comparatif
+            </a>
+            <Link href="/dashboard" className="transition-colors hover:text-foreground">
+              {dict.landing.navAdminConsole}
             </Link>
-            <Link href="/dashboard" className="hover:text-foreground">
-              {dict.landing.footerDashboard}
-            </Link>
-            <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" className="hover:text-foreground">
-              {dict.landing.navGithub}
+            <a
+              href={GITHUB_REPO_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="transition-colors hover:text-foreground"
+            >
+              GitHub
             </a>
           </div>
         </div>

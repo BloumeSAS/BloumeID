@@ -499,5 +499,26 @@
     "hideSecret": "Hide Secret Key",
     "promptTitle": "Generated AI Migration Prompt (Ready to Paste)",
     "copyPrompt": "Copy AI Prompt"
+  },
+  "errors": {
+    "backHome": "Back to Home",
+    "openAdmin": "Admin Console",
+    "retry": "Try Again",
+    "code400Title": "Bad Request",
+    "code400Desc": "The request payload or parameters could not be validated.",
+    "code401Title": "Authentication Required",
+    "code401Desc": "Please sign in with your ADMIN_MASTER_KEY to access this resource.",
+    "code403Title": "Access Forbidden",
+    "code403Desc": "Your origin or security policy does not permit access to this resource.",
+    "code404Title": "Page Not Found",
+    "code404Desc": "The requested route or resource does not exist or has been moved.",
+    "code429Title": "Too Many Requests",
+    "code429Desc": "Rate limit exceeded. Please wait a moment before retrying.",
+    "code500Title": "Internal Server Error",
+    "code500Desc": "An unexpected error occurred on the BloumeID control plane.",
+    "code502Title": "Bad Gateway",
+    "code502Desc": "The upstream service or reverse proxy returned an invalid response.",
+    "code503Title": "Service Unavailable",
+    "code503Desc": "The service is temporarily unavailable or undergoing maintenance."
   }
 }

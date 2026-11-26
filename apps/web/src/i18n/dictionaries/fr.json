@@ -499,5 +499,26 @@
     "hideSecret": "Masquer",
     "promptTitle": "Prompt de Migration IA Généré (Prêt à copier)",
     "copyPrompt": "Copier le Prompt IA"
+  },
+  "errors": {
+    "backHome": "Retour à l'accueil",
+    "openAdmin": "Console Admin",
+    "retry": "Réessayer",
+    "code400Title": "Requête Invalide",
+    "code400Desc": "Les paramètres ou le corps de la requête n'ont pas pu être validés.",
+    "code401Title": "Authentification Requise",
+    "code401Desc": "Veuillez vous connecter avec votre clé ADMIN_MASTER_KEY pour accéder à cette ressource.",
+    "code403Title": "Accès Refusé",
+    "code403Desc": "Votre origine ou politique de sécurité n'autorise pas l'accès à cette ressource.",
+    "code404Title": "Page Introuvable",
+    "code404Desc": "La route ou ressource demandée n'existe pas ou a été déplacée.",
+    "code429Title": "Trop de Requêtes",
+    "code429Desc": "Limite de débit atteinte. Veuillez patienter avant de réessayer.",
+    "code500Title": "Erreur Interne du Serveur",
+    "code500Desc": "Une erreur inattendue s'est produite sur le plan de contrôle BloumeID.",
+    "code502Title": "Passerelle Défaillante",
+    "code502Desc": "Le service amont ou le proxy inverse a retourné une réponse invalide.",
+    "code503Title": "Service Indisponible",
+    "code503Desc": "Le service est temporairement indisponible ou en cours de maintenance."
   }
 }

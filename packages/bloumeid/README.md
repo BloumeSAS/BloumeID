@@ -1,10 +1,51 @@
 # `@bloume/id`
 
-Zero-dependency browser fingerprinting, anti-spoofing, bot detection and server verification SDK for **BloumeID** (Bloume SAS).
+Official, zero-dependency browser & server SDK for **BloumeID** — open-source device intelligence, anti-spoofing, and fraud prevention.
 
-## Features
-- **48+ Deterministic Browser Signals**: Canvas 2D (with double-render noise probing), WebGL 1/2 & shader precision, WebGPU adapter limits, `OfflineAudioContext` compressor dynamics, hardware & screen HDR/gamut, 100+ OS font probing, Intl/timezone, math engine constants (`V8`, `SpiderMonkey`, `JavaScriptCore`), WebRTC ICE & Network Information API.
-- **Anti-Spoof & Bot Detection**: Detects `navigator.webdriver`, Playwright/Puppeteer/CDP/Selenium globals, malformed `window.chrome`, inconsistent `Permissions.query`, Web Worker vs Main Thread navigator tampering, and private/incognito quota heuristics.
-- **100% ThumbmarkJS Pro Compatible API**: `new BloumeID({ apiKey, endpoint, options })`, `get()`, `getFingerprint()`, `getFingerprintData()`, `setOption()`.
-- **Server-Side Verification (`@bloume/id/server`)**: `BloumeIDServer` with `verifyRequest(requestId)` and `getVisitor(visitorId)`.
+- **104 deterministic signals** (Canvas, WebGL2, WebGPU, OfflineAudioContext, Fonts, Math, Screen/HDR, Anti-Hook)
+- **Zero runtime dependencies** (`dependencies: {}`)
+- **Dual-API drop-in compatibility** with **ThumbmarkJS** and **Fingerprint.com (FingerprintJS Pro)**
+- **ESM, CJS, UMD (`window.BloumeID`)** + full TypeScript types
 
+## Installation
+
+```bash
+npm install @bloume/id
+# or
+pnpm add @bloume/id
+```
+
+## Quick Start (Browser)
+
+```ts
+import { BloumeID } from "@bloume/id";
+
+const client = new BloumeID({
+  apiKey: "bid_pub_your_public_key",
+  endpoint: "https://your-bloumeid-instance.com/api/v1/fingerprint",
+});
+
+const result = await client.get({ tag: "checkout" });
+console.log(result.visitorId, result.thumbmark, result.info.dangerLevel);
+```
+
+## Server Verification (`@bloume/id/server`)
+
+```ts
+import { BloumeIDServer } from "@bloume/id/server";
+
+const server = new BloumeIDServer({
+  secretKey: process.env.BLOUMEID_SECRET_KEY!,
+  endpoint: "https://your-bloumeid-instance.com",
+});
+
+const verified = await server.verifyRequest(requestId);
+if (verified.info.isBot || verified.info.dangerLevel >= 3) {
+  // Block or challenge request
+}
+```
+
+## Repository & License
+
+- Source: [BloumeSAS/bloumeid-sdk](https://github.com/BloumeSAS/bloumeid-sdk) (synced from [BloumeSAS/BloumeID](https://github.com/BloumeSAS/BloumeID))
+- License: MIT © 2026 Bloume SAS

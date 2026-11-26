@@ -64,7 +64,41 @@ export default function MigratePage() {
    - Frontend : Initialise \`new BloumeID({ apiKey: "${pubKey}", endpoint: "${endpointUrl}" })\` (ou \`FingerprintJS.load({ apiKey: "${pubKey}", endpoint: "${endpointUrl}" })\`) et récupère \`visitorId\`, \`requestId\`, \`info.dangerLevel\`.
    - Backend : Utilise \`import { BloumeIDServer } from "@bloume/id/server"\` avec \`secretKey: process.env.BLOUMEID_SECRET_KEY\` pour appeler \`verifyRequest(requestId)\`.
 ${webhookSection}
-5. **Vérification :** Exécute \`typecheck\`, \`lint\` et \`build\` pour confirmer zéro erreur TypeScript.`;
+5. **Exemple complet de réponse API \`@bloume/id\` (\`BloumeIDResult\`) pour adapter ton mapping :**
+\`\`\`json
+{
+  "visitorId": "vis_251505519892631552",
+  "thumbmark": "fb964b2fcb3e1d6e5ba469c2182c7e8eed4039617fd8bf056add82077ad6a963",
+  "hardwareHash": "eb1b20cae6d7e451f70fb6e1d97180f415d52bc62a2ddd0e9e464cf3ea73f84b",
+  "requestId": "req_251566900457246720",
+  "visitorFound": true,
+  "confidence": { "score": 0.99 },
+  "incognito": false,
+  "browserName": "Chrome",
+  "os": "Windows",
+  "device": "Desktop",
+  "ip": "82.64.12.34",
+  "ipLocation": {
+    "country": { "code": "FR", "name": "France" },
+    "city": { "name": "Paris" },
+    "asn": { "asn": "3215", "name": "Orange S.A." }
+  },
+  "info": {
+    "dangerLevel": 0,
+    "action": "allow",
+    "isVpn": false,
+    "isTor": false,
+    "isProxy": false,
+    "isDatacenter": false,
+    "isBot": false,
+    "isSpoofed": false,
+    "isIncognito": false,
+    "crossBrowserMatched": false,
+    "collectorCount": 104
+  }
+}
+\`\`\`
+6. **Vérification :** Exécute \`typecheck\`, \`lint\` et \`build\` pour confirmer zéro erreur TypeScript.`;
   }, [sourceTool, targetStack, includeWebhook, endpointUrl, pubKey, secKey, whSecret, activeSite?.riskThreshold]);
 
   const handleCopyPrompt = async () => {

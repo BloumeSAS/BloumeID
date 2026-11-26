@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   release-sdk:
-    name: Test, Validate & Publish @bloume/id to npm
+    name: Test & Validate @bloume/id (BloumeSAS/BloumeID -> BloumeSAS/bloumeid-sdk)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
