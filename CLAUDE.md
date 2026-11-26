@@ -32,3 +32,9 @@ Ce document formalise les règles d'ingénierie non négociables applicables à 
 - **Thème & Design** : `shadcn/ui` + thème **Clean Slate** (`Light` & `Dark`), polices `Inter` (`--font-sans`), `JetBrains Mono` (`--font-mono`) et `Georgia` (`--font-serif`).
 - **Zéro chaîne UI en dur** : 100 % des textes d'interface proviennent des dictionnaires `apps/web/src/i18n/dictionaries/fr.json` et `en.json` avec parité stricte vérifiée par test automatisé (`apps/web/tests/i18n.test.ts`).
 
+
+---
+
+## Tags, Releases & Vérification des Workflows GitHub Actions
+- **Création systématique de Tag & Release** : Après chaque push significatif sur `main`, l'agent DOIT créer un tag Git versionné (`vX.Y.Z`) et publier la GitHub Release correspondante (sur `BloumeSAS/BloumeID` et, si le SDK a changé, sur `BloumeSAS/bloumeid-sdk`).
+- **Vérification obligatoire des Workflows** : L'agent DOIT vérifier l'état de tous les workflows GitHub Actions (`CI`, `sync-sdk-repo.yml`, `release-sdk.yml`, `publish.yml`) et s'assurer qu'ils sont tous verts avant de clôturer la tâche.

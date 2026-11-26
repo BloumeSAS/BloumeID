@@ -61,3 +61,9 @@ Ce document définit les règles strictes applicables à tous les agents IA et d
   2. Publication npm réelle hors workflow CI (`npm publish`) ou poussée de tags de release.
   3. Déploiement en production, rotation de secrets réels ou modification des règles de protection GitHub.
 
+
+---
+
+## 7. Tags, Releases & Vérification des Workflows GitHub Actions
+- **Création systématique de Tag & Release** : Après chaque push significatif sur `main`, l'agent DOIT créer un tag Git versionné (`vX.Y.Z`) et publier la GitHub Release correspondante (sur `BloumeSAS/BloumeID` et, si le SDK a changé, sur `BloumeSAS/bloumeid-sdk`).
+- **Vérification obligatoire des Workflows** : L'agent DOIT vérifier l'état de tous les workflows GitHub Actions (`CI`, `sync-sdk-repo.yml`, `release-sdk.yml`, `publish.yml`) et s'assurer qu'ils sont tous verts avant de clôturer la tâche.
