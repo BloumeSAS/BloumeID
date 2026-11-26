@@ -138,3 +138,22 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - **Décisions et caveats** :
   - Toutes les chaînes UI proviennent de `useI18n()` (`en.json` / `fr.json`) avec bascule instantanée FR/EN dans l'interface.
 - **Statut de vérification** : build OK / typecheck OK / tests 14/14 OK / lint OK
+
+## [2026-11-26 01:01] Phase 7 : Docker, `docker-compose.yml`, CI/CD GitHub Actions & Documentation
+- **Résumé des changements** :
+  - Création du `docker/Dockerfile` multi-stage sous Node 22 Alpine avec cache pnpm, build du SDK (`@bloumeid/sdk` + copie de `public/sdk/v1/bloumeid.js`), `prisma generate`, `next build` (`output: "standalone"`), utilisateur non-root `nextjs` (UID 1001) et `HEALTHCHECK` sur `/api/health`.
+  - Création de `docker/docker-entrypoint.sh` (attente `pg_isready`, exécution contrôlée de `prisma migrate deploy`, lancement non-bloquant de la synchro des feeds en arrière-plan, puis `exec node` en PID 1 propre).
+  - Création de `docker-compose.yml` (`bloumeid-web`, `bloumeid-db` sous `postgres:17-alpine`, `bloumeid-redis` sous `valkey/valkey:8-alpine --appendonly yes`, réseau interne isolé `bloumeid_internal` et healthchecks `service_healthy`).
+  - Rédaction de `.env.example` et du `README.md` complet (architecture, reverse-proxies Nginx/Caddy/Traefik avec `X-Forwarded-For` et `X-JA4-Fingerprint`, snippets dynamiques `${BLOUMEID_PUBLIC_URL}`, vérification serveur Node et licence GeoLite2 MaxMind).
+  - Création des workflows GitHub Actions :
+    - `.github/workflows/ci.yml` (matrice pnpm, services Postgres 17 & Valkey 8, vérification i18n et absence de `any`, couverture SDK >= 80 %, `publint`, `attw`, E2E Playwright, scan `gitleaks`).
+    - `.github/workflows/release-sdk.yml` (Changesets, `npm publish --provenance --access public` via OIDC `id-token: write`, tag `sdk-vX.Y.Z` et GitHub Release).
+    - `.github/workflows/docker-publish.yml` (multi-arch `linux/amd64` + `linux/arm64` vers `ghcr.io`, scan Trivy bloquant sur `CRITICAL`, SBOM et attestation de provenance).
+    - `.github/workflows/deploy.yml` (déploiement automatique Staging `edge` sur `main`, déploiement Production sur tag `v*` protégé par l'environnement GitHub `production` avec sauvegarde `pg_dump`, `prisma migrate deploy`, healthcheck et rollback automatique).
+    - `.github/workflows/history-check.yml` (vérifie que toute PR touchant `apps/`, `packages/` ou `prisma/` met à jour `HISTORY.md` + analyse SAST CodeQL) et `.github/dependabot.yml`.
+- **Fichiers clés touchés** :
+  - `docker/Dockerfile`, `docker/docker-entrypoint.sh`, `docker-compose.yml`, `.env.example`, `README.md`
+  - `.github/workflows/{ci,release-sdk,docker-publish,deploy,history-check}.yml`, `.github/dependabot.yml`
+- **Décisions et caveats** :
+  - Le démon Docker Desktop n'étant pas démarré sur l'hôte Windows local (`npipe:////./pipe/dockerDesktopLinuxEngine` absent), la validation syntaxique et le test fonctionnel complet du serveur Next.js standalone, de `/api/health` et du bundle UMD sont exécutés directement via Node 22 + Vitest/Playwright en Phase 8.
+- **Statut de vérification** : build OK / typecheck OK / tests 23/23 OK / lint OK

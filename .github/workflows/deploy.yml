@@ -1,0 +1,100 @@
+name: Deploy Staging & Production
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging (edge)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy edge image to Staging over SSH & run smoke tests
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          SSH_KEY: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
+          STAGING_URL: ${{ vars.STAGING_PUBLIC_URL }}
+        run: |
+          if [ -z "$SSH_HOST" ]; then
+            echo "Staging SSH secrets not configured yet; skipping remote SSH execution."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh -o StrictHostKeyChecking=accept-new "${SSH_USER}@${SSH_HOST}" << 'EOF'
+            set -e
+            cd /opt/bloumeid
+            PREV_DIGEST=$(docker inspect --format='{{.Image}}' bloumeid-web 2>/dev/null || echo "")
+            docker compose pull bloumeid-web
+            docker compose up -d
+            sleep 10
+            if ! curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
+              echo "Healthcheck failed on staging! Rolling back..."
+              if [ -n "$PREV_DIGEST" ]; then
+                docker tag "$PREV_DIGEST" ghcr.io/bloume-sas/bloumeid:latest
+                docker compose up -d bloumeid-web
+              fi
+              exit 1
+            fi
+            curl -fsS http://127.0.0.1:3000/sdk/v1/bloumeid.js >/dev/null
+          EOF
+
+  deploy-production:
+    name: Deploy to Production (Requires Human Approval)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Backup Postgres (pg_dump), Migrate, Switch & Verify with Auto-Rollback
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          SSH_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$SSH_HOST" ]; then
+            echo "Production SSH secrets not configured yet; skipping remote SSH execution."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh -o StrictHostKeyChecking=accept-new "${SSH_USER}@${SSH_HOST}" << EOF
+            set -e
+            cd /opt/bloumeid
+            mkdir -p backups
+            TIMESTAMP=\$(date +%Y%m%d_%H%M%S)
+            echo "[1/5] Running pre-migration pg_dump backup..."
+            docker exec bloumeid-db pg_dump -U bloumeid bloumeid | gzip > "backups/bloumeid_\${TIMESTAMP}.sql.gz"
+
+            PREV_IMAGE=\$(docker inspect --format='{{.Config.Image}}' bloumeid-web 2>/dev/null || echo "")
+
+            echo "[2/5] Pulling release image ${RELEASE_TAG}..."
+            docker compose pull
+
+            echo "[3/5] Running controlled prisma migrate deploy..."
+            docker compose run --rm bloumeid-web npx prisma migrate deploy --schema=/app/apps/web/prisma/schema.prisma
+
+            echo "[4/5] Switching production container..."
+            docker compose up -d
+
+            echo "[5/5] Verifying healthcheck & smoke tests..."
+            sleep 12
+            if ! curl -fsS http://127.0.0.1:3000/api/health >/dev/null || ! curl -fsS http://127.0.0.1:3000/sdk/v1/bloumeid.js >/dev/null; then
+              echo "CRITICAL: Production healthcheck failed! Rolling back to \${PREV_IMAGE}..."
+              if [ -n "\$PREV_IMAGE" ]; then
+                docker tag "\$PREV_IMAGE" ghcr.io/bloume-sas/bloumeid:latest
+                docker compose up -d bloumeid-web
+              fi
+              exit 1
+            fi
+            echo "Production deployment of ${RELEASE_TAG} succeeded!"
+          EOF
