@@ -67,13 +67,13 @@ jobs:
           vuln-type: "os,library"
           severity: "CRITICAL"
 
-      - name: Build and push multi-arch Docker image (linux/amd64, linux/arm64)
+      - name: Build and push Docker image (linux/amd64)
         id: push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
