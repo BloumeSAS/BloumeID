@@ -25,6 +25,7 @@ coverage/
 data/
 dumps/
 *.sql
+!apps/web/prisma/migrations/**/*.sql
 *.sql.gz
 *.dump
 
