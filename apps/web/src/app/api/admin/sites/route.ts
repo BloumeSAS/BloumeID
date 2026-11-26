@@ -148,3 +148,4 @@ export async function DELETE(request: Request): Promise<NextResponse> {
   const deleted = await deleteSiteRecord(parsed.data.publicId);
   return NextResponse.json({ deleted }, { status: deleted ? 200 : 404 });
 }
+

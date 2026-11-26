@@ -8,6 +8,7 @@ import {
   Cpu,
   Fingerprint,
   Globe,
+  Home,
   KeyRound,
   LogOut,
   Settings,
@@ -24,11 +25,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const navItems = [
-    { href: "/dashboard", label: dict.nav.dashboard, icon: Activity },
-    { href: "/sites", label: dict.nav.sites, icon: KeyRound },
-    { href: "/visitors", label: dict.nav.visitors, icon: Users },
-    { href: "/playground", label: dict.nav.playground, icon: Cpu },
-    { href: "/settings", label: dict.nav.settings, icon: Settings },
+    { href: "/", label: dict.nav.home, icon: Home, exact: true },
+    { href: "/dashboard", label: dict.nav.dashboard, icon: Activity, exact: false },
+    { href: "/sites", label: dict.nav.sites, icon: KeyRound, exact: false },
+    { href: "/visitors", label: dict.nav.visitors, icon: Users, exact: false },
+    { href: "/playground", label: dict.nav.playground, icon: Cpu, exact: false },
+    { href: "/settings", label: dict.nav.settings, icon: Settings, exact: false },
   ];
 
   const handleLogout = async () => {
@@ -41,19 +43,23 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-background text-foreground">
       <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-card/70">
         <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 text-primary ring-1 ring-primary/40">
-            <Fingerprint className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="font-bold tracking-tight text-foreground">{dict.common.brandName}</p>
-            <p className="text-xs text-muted-foreground">{dict.common.companyName}</p>
-          </div>
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 text-primary ring-1 ring-primary/40">
+              <Fingerprint className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-bold tracking-tight text-foreground">{dict.common.brandName}</p>
+              <p className="text-xs text-muted-foreground">{dict.common.companyName}</p>
+            </div>
+          </Link>
         </div>
 
         <nav className="flex-1 space-y-1 p-4">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active = item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}

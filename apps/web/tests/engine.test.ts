@@ -345,3 +345,4 @@ describe("Phase 5 — Backend Engine, Snowflake, CIDR Trie, Scoring & API v1", (
     expect(rec.matchType).toBe("exact_full_hash");
   });
 });
+

@@ -7,3 +7,4 @@ export default function DashboardGroupLayout({
 }) {
   return <DashboardShell>{children}</DashboardShell>;
 }
+

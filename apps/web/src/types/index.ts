@@ -90,6 +90,10 @@ export interface DashboardMetricsDTO {
   highRiskDelta: number;
   botSpoofRate: number;
   botSpoofDelta: number;
+  crossBrowserMatches: number;
+  vpnTorCount: number;
+  avgCollectionMs: number;
+  activeTrieCidrs: number;
   trendSeries: Array<{
     bucket: string;
     total: number;
@@ -100,5 +104,19 @@ export interface DashboardMetricsDTO {
     vector: string;
     count: number;
   }>;
+  browserDistribution: Array<{
+    name: string;
+    count: number;
+  }>;
+  osDistribution: Array<{
+    name: string;
+    count: number;
+  }>;
+  topCountries: Array<{
+    country: string;
+    asn: string;
+    count: number;
+  }>;
   recentHighRiskEvents: PublicFingerprintEventDTO[];
 }
+

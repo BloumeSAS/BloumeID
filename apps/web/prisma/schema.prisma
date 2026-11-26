@@ -99,3 +99,4 @@ model ThreatFeedStatus {
   status       String    @default("idle")
   errorMessage String?
 }
+

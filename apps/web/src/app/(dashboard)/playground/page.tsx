@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { BloumeID, type BloumeIDResult } from "@bloumeid/sdk";
-import { Cpu, Play } from "lucide-react";
+import { Cpu, Layers, Play, ShieldCheck, Volume2 } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ export default function PlaygroundPage() {
       {result ? (
         <>
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
+            <Card className="border-primary/30">
               <CardHeader className="pb-2">
                 <CardDescription>{dict.playground.visitorIdLabel}</CardDescription>
               </CardHeader>
@@ -117,7 +117,7 @@ export default function PlaygroundPage() {
                           : "success"
                     }
                   >
-                    {result.confidence.score * 100}%
+                    {Math.round(result.confidence.score * 100)}%
                   </Badge>
                 </div>
               </CardContent>
@@ -153,6 +153,91 @@ export default function PlaygroundPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Structured 4-Column Signal Matrix */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{dict.playground.signalMatrixTitle}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                  <Layers className="h-4 w-4" />
+                  <span>{dict.playground.gpuSection}</span>
+                </div>
+                <p className="font-mono text-xs">{result.components.webgl.unmaskedRenderer}</p>
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  {result.components.webgl.unmaskedVendor} • MaxTex:{" "}
+                  {result.components.webgl.maxTextureSize} • Ext:{" "}
+                  {result.components.webgl.extensionsCount}
+                </p>
+                <CopyableMono
+                  value={result.components.canvas.hash}
+                  displayValue={`Canvas: ${result.components.canvas.hash.slice(0, 20)}...`}
+                  copyLabel={dict.common.copy}
+                  copiedLabel={dict.common.copied}
+                />
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-sky-400">
+                  <Volume2 className="h-4 w-4" />
+                  <span>{dict.playground.audioSection}</span>
+                </div>
+                <p className="font-mono text-xs">
+                  SampleRate: {result.components.audio.sampleRate} Hz • Sum:{" "}
+                  {result.components.audio.sumValue}
+                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  Voices: {result.components.speech.voiceCount} ({result.components.speech.defaultVoice})
+                </p>
+                <CopyableMono
+                  value={result.components.audio.sampleHash}
+                  displayValue={`Audio: ${result.components.audio.sampleHash.slice(0, 20)}...`}
+                  copyLabel={dict.common.copy}
+                  copiedLabel={dict.common.copied}
+                />
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                  <Cpu className="h-4 w-4" />
+                  <span>{dict.playground.systemSection}</span>
+                </div>
+                <p className="font-mono text-xs">
+                  {result.components.hardware.platform} ({result.components.hardware.architectureHint}) •{" "}
+                  {result.components.hardware.hardwareConcurrency} Threads •{" "}
+                  {result.components.hardware.deviceMemory || 8} GB RAM
+                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  Screen: {result.components.screen.width}×{result.components.screen.height}@
+                  {result.components.screen.devicePixelRatio}x • Fonts:{" "}
+                  {result.components.fonts.count} • Engine: {result.components.math.engineHint}
+                </p>
+                <CopyableMono
+                  value={result.hardwareHash}
+                  displayValue={`HW: ${result.hardwareHash.slice(0, 22)}...`}
+                  copyLabel={dict.common.copy}
+                  copiedLabel={dict.common.copied}
+                />
+              </div>
+
+              <div className="space-y-2 rounded-xl border border-border bg-secondary/20 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-400">
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>{dict.playground.antiSpoofSection}</span>
+                </div>
+                <p className="font-mono text-xs">
+                  Webdriver: {String(result.components.antiSpoof.webdriver)} • WorkerMismatch:{" "}
+                  {String(result.components.antiSpoof.workerMismatch)}
+                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  Canvas2xNoise: {String(result.components.antiSpoof.canvasNoiseDetected)} •
+                  Audio2xNoise: {String(result.components.antiSpoof.audioNoiseDetected)}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
           <CollapsibleJsonViewer
             title={dict.playground.rawJsonTitle}

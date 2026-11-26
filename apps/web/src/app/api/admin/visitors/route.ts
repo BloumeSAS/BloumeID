@@ -62,3 +62,4 @@ export async function PATCH(request: Request): Promise<NextResponse> {
 
   return NextResponse.json({ visitor: updated }, { status: 200 });
 }
+

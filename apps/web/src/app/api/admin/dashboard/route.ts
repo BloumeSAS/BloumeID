@@ -17,3 +17,4 @@ export async function GET(request: Request): Promise<NextResponse> {
   const metrics = await getDashboardMetrics(period);
   return NextResponse.json(metrics, { status: 200 });
 }
+

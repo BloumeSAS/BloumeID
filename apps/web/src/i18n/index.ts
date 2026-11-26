@@ -14,3 +14,4 @@ export function getDictionary(locale: Locale = "fr"): Dictionary {
 }
 
 export { en, fr };
+

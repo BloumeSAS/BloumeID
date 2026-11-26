@@ -144,3 +144,4 @@ export function parseUserAgentSummary(userAgent: string): ParsedUserAgent {
   const device = /Mobi|Android|iPhone|iPad/i.test(ua) ? "Mobile" : "Desktop";
   return { browser, os, device };
 }
+

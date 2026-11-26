@@ -122,3 +122,4 @@ export async function POST(request: Request): Promise<NextResponse> {
   const purgedCount = await purgeOldFingerprintEvents(parsed.data.retentionDays);
   return NextResponse.json({ purgedCount }, { status: 200 });
 }
+

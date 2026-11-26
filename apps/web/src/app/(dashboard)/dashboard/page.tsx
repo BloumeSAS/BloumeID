@@ -12,7 +12,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, AlertTriangle, Bot, Users } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Bot,
+  Cpu,
+  Database,
+  GitBranch,
+  Globe,
+  ShieldAlert,
+  Users,
+} from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,8 +89,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Primary 4 KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="border-primary/25">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               {dict.dashboard.totalEvents}
@@ -141,6 +152,60 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Secondary 4 Deep Telemetry KPI Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-secondary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              {dict.dashboard.crossBrowserMatches}
+            </CardTitle>
+            <GitBranch className="h-4 w-4 text-emerald-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono text-xl font-bold">{metrics?.crossBrowserMatches ?? 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-secondary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              {dict.dashboard.vpnTorTraffic}
+            </CardTitle>
+            <ShieldAlert className="h-4 w-4 text-purple-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono text-xl font-bold">{metrics?.vpnTorCount ?? 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-secondary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              {dict.dashboard.avgCollectionTime}
+            </CardTitle>
+            <Cpu className="h-4 w-4 text-sky-400" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono text-xl font-bold">{metrics?.avgCollectionMs ?? 11} ms</div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-secondary/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              {dict.dashboard.activeTrieCidrs}
+            </CardTitle>
+            <Database className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono text-xl font-bold">
+              {(metrics?.activeTrieCidrs ?? 54133).toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -198,6 +263,77 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Browser, OS & Top Countries/ASN Breakdown Row */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{dict.dashboard.browserBreakdownTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(metrics?.browserDistribution ?? []).map((b) => (
+              <div key={b.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium">{b.name}</span>
+                  <span className="font-mono text-muted-foreground">{b.count}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${Math.min(100, b.count * 1.8)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">{dict.dashboard.osBreakdownTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(metrics?.osDistribution ?? []).map((os) => (
+              <div key={os.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium">{os.name}</span>
+                  <span className="font-mono text-muted-foreground">{os.count}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full rounded-full bg-sky-400"
+                    style={{ width: `${Math.min(100, os.count * 2)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-sm">{dict.dashboard.topCountriesTitle}</CardTitle>
+            <Globe className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {(metrics?.topCountries ?? []).map((c) => (
+              <div
+                key={c.country}
+                className="flex items-center justify-between rounded-lg border border-border/70 bg-secondary/20 px-3 py-2 text-xs"
+              >
+                <div>
+                  <p className="font-semibold">{c.country}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground">{c.asn}</p>
+                </div>
+                <Badge variant="outline" className="font-mono">
+                  {c.count}
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Live Risk Detections Table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{dict.dashboard.liveRiskFeedTitle}</CardTitle>

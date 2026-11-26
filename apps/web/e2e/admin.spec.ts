@@ -42,3 +42,4 @@ test.describe("BloumeID Admin Panel & Live SDK Playground E2E", () => {
     await expect(page.getByText("x4bnet_vpn_ipv4")).toBeVisible();
   });
 });
+

@@ -178,6 +178,7 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
 
   it("enforces that every dashboard & login page imports useI18n() dictionary and never exposes raw integer database ids", () => {
     const pages = [
+      path.resolve(__dirname, "../src/app/page.tsx"),
       path.resolve(__dirname, "../src/app/login/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/dashboard/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/sites/page.tsx"),
@@ -194,3 +195,4 @@ describe("Phase 6 — Admin Auth, Control Plane APIs & Zero Hardcoded UI Strings
     }
   });
 });
+

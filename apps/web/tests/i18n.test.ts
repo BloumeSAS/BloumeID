@@ -38,3 +38,4 @@ describe("i18n dictionary parity (en.json vs fr.json)", () => {
     checkNonEmpty(fr as Record<string, unknown>, "fr");
   });
 });
+
