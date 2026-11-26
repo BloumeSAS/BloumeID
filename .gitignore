@@ -42,6 +42,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Multi-Repo SDK (BloumeSAS/bloumeid-sdk) — track ONLY packages/bloumeid/README.md in BloumeID
+packages/bloumeid/*
+!packages/bloumeid/README.md
+
 # OS & IDE / History
 .DS_Store
 Thumbs.db
