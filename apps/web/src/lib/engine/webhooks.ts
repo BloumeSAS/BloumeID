@@ -150,6 +150,7 @@ export async function dispatchSignedWebhook(params: {
           "X-BloumeID-Signature": `sha256=${signature}`,
         },
         body,
+        redirect: "manual",
         signal: controller.signal,
       });
       clearTimeout(timer);
