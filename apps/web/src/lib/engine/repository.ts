@@ -1148,7 +1148,9 @@ export async function listFingerprintEventsPaginated(filters?: {
         createdAt: evt.createdAt.toISOString(),
       }));
 
-      return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+      if (totalItems > 0) {
+        return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+      }
     } catch {
       // Fallback to memory
     }
@@ -1566,7 +1568,9 @@ export async function listVisitorsPaginated(filters?: {
         notes: v.notes,
       }));
 
-      return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+      if (totalItems > 0) {
+        return { items, pagination: computePaginationMeta(page, pageSize, totalItems) };
+      }
     } catch {
       // Fallback
     }

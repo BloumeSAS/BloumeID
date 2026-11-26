@@ -13,6 +13,7 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     ];
 
     const collectTsFiles = (dir: string): string[] => {
+      if (!fs.existsSync(dir)) return [];
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       const files: string[] = [];
       for (const entry of entries) {
