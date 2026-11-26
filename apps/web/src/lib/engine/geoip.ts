@@ -304,6 +304,36 @@ const BUILTIN_GEO_HINTS: ReadonlyArray<{
     lat: 40.7128,
     lon: -74.006,
   },
+  {
+    prefix: "172.",
+    asnNumber: 3215,
+    asnOrg: "Orange S.A. / Local Docker Bridge",
+    country: "FR",
+    countryName: "France",
+    city: "Paris",
+    lat: 48.8566,
+    lon: 2.3522,
+  },
+  {
+    prefix: "127.",
+    asnNumber: 3215,
+    asnOrg: "Orange S.A. / Local Loopback",
+    country: "FR",
+    countryName: "France",
+    city: "Paris",
+    lat: 48.8566,
+    lon: 2.3522,
+  },
+  {
+    prefix: "192.168.",
+    asnNumber: 12322,
+    asnOrg: "Free SAS / Local LAN",
+    country: "FR",
+    countryName: "France",
+    city: "Paris",
+    lat: 48.8566,
+    lon: 2.3522,
+  },
 ];
 
 export async function lookupGeoIp(ipAddress: string): Promise<GeoIpLookupResult> {

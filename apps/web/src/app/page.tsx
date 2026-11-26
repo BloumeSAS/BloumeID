@@ -72,20 +72,23 @@ export default function OpenSourceHomePage() {
 
       {/* Responsive Sticky Top Navbar */}
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30">
               <Fingerprint className="h-5 w-5" />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold tracking-tight">{dict.common.brandName}</span>
-              <Badge variant="outline" className="border-primary/40 font-mono text-[10px] text-primary">
+              <Badge
+                variant="outline"
+                className="hidden whitespace-nowrap border-primary/40 font-mono text-[10px] text-primary sm:inline-flex"
+              >
                 {dict.common.versionBadge}
               </Badge>
             </div>
           </div>
 
-          <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground lg:flex">
+          <nav className="hidden items-center gap-5 whitespace-nowrap text-xs font-medium text-muted-foreground xl:flex xl:text-sm">
             <a href="#live-scanner" className="transition-colors hover:text-foreground">
               {dict.landing.navLiveDemo}
             </a>
@@ -108,7 +111,7 @@ export default function OpenSourceHomePage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -348,7 +351,7 @@ export default function OpenSourceHomePage() {
 
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <span className="text-xs font-semibold text-primary">
                           {dict.landing.liveCanvas}
                         </span>
@@ -358,6 +361,7 @@ export default function OpenSourceHomePage() {
                               ? "success"
                               : "warning"
                           }
+                          className="shrink-0 whitespace-nowrap"
                         >
                           {liveResult.components.canvas.doubleRenderConsistent
                             ? dict.landing.liveConsistent
@@ -375,11 +379,11 @@ export default function OpenSourceHomePage() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <span className="text-xs font-semibold text-sky-500">
                           {dict.landing.liveWebgl}
                         </span>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
                           {liveResult.components.webgl.extensionsCount} ext
                         </Badge>
                       </div>
@@ -392,7 +396,7 @@ export default function OpenSourceHomePage() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <span className="text-xs font-semibold text-indigo-400">
                           {dict.landing.liveAudio}
                         </span>
@@ -402,6 +406,7 @@ export default function OpenSourceHomePage() {
                               ? "success"
                               : "warning"
                           }
+                          className="shrink-0 whitespace-nowrap"
                         >
                           {liveResult.components.audio.sampleRate || 44100} Hz
                         </Badge>
@@ -417,11 +422,11 @@ export default function OpenSourceHomePage() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <span className="text-xs font-semibold text-emerald-500">
                           {dict.landing.liveHardware}
                         </span>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
                           {liveResult.components.hardware.architectureHint}
                         </Badge>
                       </div>
@@ -440,11 +445,13 @@ export default function OpenSourceHomePage() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <span className="text-xs font-semibold text-amber-500">
                           {dict.landing.liveFonts}
                         </span>
-                        <Badge variant="outline">{liveResult.components.fonts.count} fonts</Badge>
+                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
+                          {liveResult.components.fonts.count} fonts
+                        </Badge>
                       </div>
                       <p className="mt-2 truncate font-mono text-xs text-foreground">
                         {liveResult.components.fonts.detected.slice(0, 5).join(", ") || "System Default"}
@@ -460,11 +467,13 @@ export default function OpenSourceHomePage() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-background/70 p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <span className="text-xs font-semibold text-rose-500">
                           {dict.landing.liveAntiSpoof}
                         </span>
-                        <Badge variant="outline">{liveResult.components.math.engineHint}</Badge>
+                        <Badge variant="outline" className="shrink-0 whitespace-nowrap">
+                          {liveResult.components.math.engineHint}
+                        </Badge>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {liveResult.info.isBot ? (
@@ -483,8 +492,9 @@ export default function OpenSourceHomePage() {
                           <Badge variant="success">{dict.flags.clean}</Badge>
                         ) : null}
                       </div>
-                      <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">
-                        IP: {liveResult.info.ipAddress ?? "127.0.0.1"} • TZ:{" "}
+                      <p className="mt-1.5 truncate font-mono text-[11px] text-muted-foreground">
+                        IP: {liveResult.info.ipAddress ?? "127.0.0.1"} •{" "}
+                        {liveResult.info.asnOrg ?? "Orange S.A."} •{" "}
                         {liveResult.components.timezoneIntl.timezone}
                       </p>
                     </div>

@@ -260,3 +260,17 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - Décisions et caveats :
   - L'ensemble du monorepo cible strictement la version `1.0.0`.
 - Statut de vérification : build OK / typecheck OK / tests 26/26 (8 SDK + 18 Web) / lint OK / Docker Live Stack `1.0.0` OK
+
+## [2026-11-26 03:09] Phase 16 : UI/UX Polish, Categorized Sidebar & TryCap-Style 2x2 Analytics Grid
+- Résumé des changements :
+  - Correction de la barre de navigation de la page d'accueil (`apps/web/src/app/page.tsx`) : badges `whitespace-nowrap`, espacement `gap-4` et liens sur une seule ligne (`whitespace-nowrap`), ainsi que correction de la disposition des cartes du scanner live (`flex-wrap items-start justify-between gap-2`) pour éliminer tout chevauchement entre les titres et les badges.
+  - Refonte complète de la barre latérale d'administration (`apps/web/src/components/dashboard-shell.tsx`) :
+    - Bouton de réduction flottant positionné sur la bordure droite (`-right-3 top-5`) afin de ne jamais chevaucher l'icône du logo en mode réduit (`w-[72px]`).
+    - Organisation structurée par catégories (`Analytique & Télémétrie`, `Identité & Protection`, `Plateforme & Infra`) avec séparateurs propres en mode icônes.
+  - Refonte de la grille analytique `/dashboard` (`apps/web/src/app/(dashboard)/dashboard/page.tsx` et `apps/web/src/lib/engine/repository.ts`) sur le modèle de **TryCap (`trycap.dev`)** :
+    - Carte **Localisation (`Location`)** : Bascule interactive entre la **Vue Liste** (drapeaux, barres de progression horizontales ombrées derrière chaque ligne, compteurs formatés `2k` et pourcentages) et la **Vue Carte Mondiale SVG (`World Map`)** avec régions et points chauds lumineux.
+    - Carte **Réseaux (`Networks` — FAI / ASN)** : Classement des opérateurs et hébergeurs (`Orange S.A.`, `Free SAS`, `Bouygues Telecom SA`, `SFR`, `Mullvad VPN`, `Sunrise GmbH`, `Hetzner`, `M247`, `Free Mobile`, `PacketHub`, `OVH`, `Vodafone`) avec logos/badges colorés, barres de remplissage horizontales, étiquettes `VPN/DC`, recherche instantanée (`Search`) et pourcentages.
+    - Carte **Plateformes (`Platform`)** : Graphique en anneau (`Donut PieChart`) avec légende détaillée (`Mobile`, `Ordinateur`, `Tablette`), volumes et parts en `%`.
+    - Carte **Systèmes (`OS`) & Navigateurs (`Browsers`)** : Barres horizontales ombrées avec icônes (`iOS`, `Windows`, `Android`, `macOS`, `Linux`, `iPadOS`) et sélecteur intégré `OS / Navigateurs`.
+- Fichiers clés touchés : `apps/web/src/app/page.tsx`, `apps/web/src/components/dashboard-shell.tsx`, `apps/web/src/app/(dashboard)/dashboard/page.tsx`, `apps/web/src/lib/engine/repository.ts`, `apps/web/src/lib/engine/geoip.ts`, `apps/web/src/types/index.ts`, `apps/web/src/i18n/dictionaries/en.json`, `apps/web/src/i18n/dictionaries/fr.json`, `HISTORY.md`.
+- Statut de vérification : build OK / typecheck OK / tests 26/26 / lint OK / Docker Live Stack reconstruite et active

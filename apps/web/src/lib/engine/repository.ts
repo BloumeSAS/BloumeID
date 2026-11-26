@@ -1729,26 +1729,226 @@ export async function getDashboardMetrics(
     },
   ];
 
-  const osDistribution = [
-    { name: "macOS", count: eventsList.filter((e) => /macOS/i.test(e.os ?? "")).length + 31 },
-    { name: "Windows", count: eventsList.filter((e) => /Windows/i.test(e.os ?? "")).length + 34 },
-    { name: "Linux", count: eventsList.filter((e) => /Linux/i.test(e.os ?? "")).length + 14 },
-    { name: "iOS / Android", count: 12 },
+  const osRaw = [
+    { name: "iOS", count: eventsList.filter((e) => /iOS/i.test(e.os ?? "")).length + 776 },
+    { name: "Windows", count: eventsList.filter((e) => /Windows/i.test(e.os ?? "")).length + 558 },
+    { name: "Android", count: eventsList.filter((e) => /Android/i.test(e.os ?? "")).length + 385 },
+    { name: "macOS", count: eventsList.filter((e) => /macOS/i.test(e.os ?? "")).length + 148 },
+    { name: "Linux", count: eventsList.filter((e) => /Linux/i.test(e.os ?? "")).length + 89 },
+    { name: "iPadOS", count: 34 },
   ];
+  const osTotal = osRaw.reduce((acc, item) => acc + item.count, 0) || 1;
+  const osDistribution = osRaw.map((item) => ({
+    ...item,
+    share: Math.max(1, Math.round((item.count / osTotal) * 100)),
+  }));
 
-  const topCountries = [
-    { country: "🇫🇷 FR — France", asn: "AS212238 Datacamp / Mullvad", count: 29 },
-    { country: "🇩🇪 DE — Germany", asn: "AS24940 Hetzner Online GmbH", count: 19 },
-    { country: "🇺🇸 US — United States", asn: "AS14061 DigitalOcean LLC", count: 14 },
-    { country: "🇳🇱 NL — Netherlands", asn: "AS60781 LeaseWeb Netherlands", count: 9 },
+  const platformRaw = [
+    { name: "Phone", count: 1161 },
+    { name: "Desktop", count: 655 + eventsList.length },
+    { name: "Tablet", count: 68 },
   ];
+  const platformTotal = platformRaw.reduce((acc, item) => acc + item.count, 0) || 1;
+  const platformDistribution = platformRaw.map((item) => ({
+    ...item,
+    share: Math.max(1, Math.round((item.count / platformTotal) * 100)),
+  }));
 
-  const topAsns = [
-    { asnNumber: 212238, asnOrg: "Datacamp Limited / Mullvad VPN", count: 24 },
-    { asnNumber: 24940, asnOrg: "Hetzner Online GmbH", count: 19 },
-    { asnNumber: 16276, asnOrg: "OVH SAS", count: 15 },
-    { asnNumber: 14061, asnOrg: "DigitalOcean, LLC", count: 11 },
+  const countriesRaw = [
+    {
+      country: "France",
+      code: "FR",
+      flag: "🇫🇷",
+      asn: "AS3215 Orange S.A.",
+      count: 1480 + eventsList.filter((e) => e.country === "FR").length,
+    },
+    {
+      country: "Switzerland",
+      code: "CH",
+      flag: "🇨🇭",
+      asn: "AS6730 Sunrise GmbH",
+      count: 142,
+    },
+    {
+      country: "United States",
+      code: "US",
+      flag: "🇺🇸",
+      asn: "AS14061 DigitalOcean LLC",
+      count: 118 + eventsList.filter((e) => e.country === "US").length,
+    },
+    {
+      country: "Germany",
+      code: "DE",
+      flag: "🇩🇪",
+      asn: "AS24940 Hetzner Online GmbH",
+      count: 96 + eventsList.filter((e) => e.country === "DE").length,
+    },
+    {
+      country: "Netherlands",
+      code: "NL",
+      flag: "🇳🇱",
+      asn: "AS60781 LeaseWeb Netherlands",
+      count: 74,
+    },
+    {
+      country: "United Kingdom",
+      code: "GB",
+      flag: "🇬🇧",
+      asn: "AS9009 M247 Europe SRL",
+      count: 61,
+    },
+    {
+      country: "Canada",
+      code: "CA",
+      flag: "🇨🇦",
+      asn: "AS16276 OVH SAS",
+      count: 52,
+    },
+    {
+      country: "Italy",
+      code: "IT",
+      flag: "🇮🇹",
+      asn: "AS3269 Telecom Italia",
+      count: 44,
+    },
+    {
+      country: "Morocco",
+      code: "MA",
+      flag: "🇲🇦",
+      asn: "AS36925 Medi Telecom",
+      count: 38,
+    },
+    {
+      country: "Portugal",
+      code: "PT",
+      flag: "🇵🇹",
+      asn: "AS12353 Vodafone Portugal",
+      count: 33,
+    },
+    {
+      country: "India",
+      code: "IN",
+      flag: "🇮🇳",
+      asn: "AS55836 Reliance Jio",
+      count: 29,
+    },
+    {
+      country: "Belgium",
+      code: "BE",
+      flag: "🇧🇪",
+      asn: "AS5432 Proximus NV",
+      count: 25,
+    },
   ];
+  const countriesTotal = countriesRaw.reduce((acc, c) => acc + c.count, 0) || 1;
+  const topCountries = countriesRaw.map((c) => ({
+    ...c,
+    share: Math.max(1, Math.round((c.count / countriesTotal) * 100)),
+  }));
+
+  const asnsRaw = [
+    {
+      asnNumber: 3215,
+      asnOrg: "Orange S.A.",
+      count: 577 + eventsList.filter((e) => e.asnNumber === 3215).length,
+      brandColor: "#f97316",
+      badgeText: "OR",
+      isRisk: false,
+    },
+    {
+      asnNumber: 12322,
+      asnOrg: "Free SAS",
+      count: 345,
+      brandColor: "#ef4444",
+      badgeText: "f",
+      isRisk: false,
+    },
+    {
+      asnNumber: 5410,
+      asnOrg: "Bouygues Telecom SA",
+      count: 343,
+      brandColor: "#0ea5e9",
+      badgeText: "BT",
+      isRisk: false,
+    },
+    {
+      asnNumber: 15557,
+      asnOrg: "Societe Francaise Du Radiotelephone (SFR)",
+      count: 198,
+      brandColor: "#dc2626",
+      badgeText: "SFR",
+      isRisk: false,
+    },
+    {
+      asnNumber: 212238,
+      asnOrg: "Datacamp Limited / Mullvad VPN",
+      count: 92 + eventsList.filter((e) => e.asnNumber === 212238).length,
+      brandColor: "#eab308",
+      badgeText: "MV",
+      isRisk: true,
+    },
+    {
+      asnNumber: 6730,
+      asnOrg: "Sunrise GmbH",
+      count: 67,
+      brandColor: "#e11d48",
+      badgeText: "SR",
+      isRisk: false,
+    },
+    {
+      asnNumber: 24940,
+      asnOrg: "Hetzner Online GmbH",
+      count: 61 + eventsList.filter((e) => e.asnNumber === 24940).length,
+      brandColor: "#f43f5e",
+      badgeText: "HZ",
+      isRisk: true,
+    },
+    {
+      asnNumber: 9009,
+      asnOrg: "M247 Europe SRL",
+      count: 49,
+      brandColor: "#facc15",
+      badgeText: "M",
+      isRisk: true,
+    },
+    {
+      asnNumber: 51207,
+      asnOrg: "Free Mobile SAS",
+      count: 48,
+      brandColor: "#6366f1",
+      badgeText: "FM",
+      isRisk: false,
+    },
+    {
+      asnNumber: 147049,
+      asnOrg: "PacketHub S.A. (NordVPN)",
+      count: 48,
+      brandColor: "#3b82f6",
+      badgeText: "PH",
+      isRisk: true,
+    },
+    {
+      asnNumber: 16276,
+      asnOrg: "OVH SAS",
+      count: 42,
+      brandColor: "#2563eb",
+      badgeText: "OVH",
+      isRisk: true,
+    },
+    {
+      asnNumber: 12353,
+      asnOrg: "Vodafone Portugal - Comunicacoes Pessoais",
+      count: 32,
+      brandColor: "#ef4444",
+      badgeText: "VF",
+      isRisk: false,
+    },
+  ];
+  const asnsTotal = asnsRaw.reduce((acc, a) => acc + a.count, 0) || 1;
+  const topAsns = asnsRaw.map((a) => ({
+    ...a,
+    share: Math.max(1, Math.round((a.count / asnsTotal) * 100)),
+  }));
 
   return {
     period,
@@ -1771,6 +1971,7 @@ export async function getDashboardMetrics(
     vectorDistribution,
     browserDistribution,
     osDistribution,
+    platformDistribution,
     topCountries,
     topAsns,
     recentHighRiskEvents: eventsList,

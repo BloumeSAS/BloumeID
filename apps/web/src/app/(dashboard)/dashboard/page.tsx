@@ -7,6 +7,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,14 +23,20 @@ import {
   Database,
   GitBranch,
   Globe,
-  Network,
+  Laptop,
+  List,
+  Monitor,
+  Search,
   ShieldAlert,
+  Smartphone,
+  Tablet,
   Users,
 } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 import {
   Table,
@@ -38,12 +47,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CollapsibleJsonViewer } from "@/components/collapsible-json";
+import { cn } from "@/lib/utils";
 import type { DashboardMetricsDTO, PublicFingerprintEventDTO } from "@/types";
+
+const PLATFORM_COLORS = ["#86efac", "#60a5fa", "#c084fc"] as const;
+
+function formatCompactCount(n: number): string {
+  if (n >= 1000) {
+    const k = (n / 1000).toFixed(1).replace(/\.0$/, "");
+    return `${k}k`;
+  }
+  return String(n);
+}
 
 export default function DashboardPage() {
   const { dict, timeRange, selectedSiteId } = useI18n();
   const [metrics, setMetrics] = React.useState<DashboardMetricsDTO | null>(null);
   const [selectedEvent, setSelectedEvent] = React.useState<PublicFingerprintEventDTO | null>(null);
+  const [locationView, setLocationView] = React.useState<"list" | "map">("list");
+  const [networkSearch, setNetworkSearch] = React.useState("");
+  const [showNetworkSearch, setShowNetworkSearch] = React.useState(false);
+  const [osTab, setOsTab] = React.useState<"os" | "browsers">("os");
 
   const loadMetrics = React.useCallback(async () => {
     const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
@@ -57,6 +81,53 @@ export default function DashboardPage() {
   React.useEffect(() => {
     void loadMetrics();
   }, [loadMetrics]);
+
+  const filteredNetworks = React.useMemo(() => {
+    const list = metrics?.topAsns ?? [];
+    if (!networkSearch.trim()) return list;
+    const q = networkSearch.toLowerCase();
+    return list.filter(
+      (a) =>
+        a.asnOrg.toLowerCase().includes(q) ||
+        String(a.asnNumber).includes(q) ||
+        `as${a.asnNumber}`.includes(q)
+    );
+  }, [metrics?.topAsns, networkSearch]);
+
+  const platformData = React.useMemo(() => {
+    if (metrics?.platformDistribution && metrics.platformDistribution.length > 0) {
+      return metrics.platformDistribution;
+    }
+    return [
+      { name: "Phone", count: 1161, share: 62 },
+      { name: "Desktop", count: 655, share: 35 },
+      { name: "Tablet", count: 68, share: 3 },
+    ];
+  }, [metrics?.platformDistribution]);
+
+  const maxCountryCount = React.useMemo(() => {
+    const counts = (metrics?.topCountries ?? []).map((c) => c.count);
+    return Math.max(1, ...counts);
+  }, [metrics?.topCountries]);
+
+  const maxNetworkCount = React.useMemo(() => {
+    const counts = (metrics?.topAsns ?? []).map((a) => a.count);
+    return Math.max(1, ...counts);
+  }, [metrics?.topAsns]);
+
+  const maxOsCount = React.useMemo(() => {
+    const counts = (metrics?.osDistribution ?? []).map((o) => o.count);
+    return Math.max(1, ...counts);
+  }, [metrics?.osDistribution]);
+
+  const maxBrowserCount = React.useMemo(() => {
+    const counts = (metrics?.browserDistribution ?? []).map((b) => b.count);
+    return Math.max(1, ...counts);
+  }, [metrics?.browserDistribution]);
+
+  const totalBrowserCount = React.useMemo(() => {
+    return (metrics?.browserDistribution ?? []).reduce((acc, b) => acc + b.count, 0) || 1;
+  }, [metrics?.browserDistribution]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -257,99 +328,380 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Leaderboards: Top Countries, Top ASNs, Browser & OS Breakdown */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+      {/* ==========================================================================
+          TRYCAP.DEV 2x2 TELEMETRY GRID:
+          1. Location (List View with horizontal bars + World Map SVG Toggle)
+          2. Networks (ISP / ASN Leaderboard with Brand Badges, bar fill, count & %)
+          3. Platform (Donut Ring Chart: Phone / Desktop / Tablet)
+          4. OS & Browsers (Horizontal shaded bar rows with OS icons, count & %)
+         ========================================================================== */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* 1. LOCATION CARD (List / Map Toggle) */}
+        <Card className="flex flex-col justify-between border-border/90 bg-card/95">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-sm">{dict.dashboard.topCountriesTitle}</CardTitle>
-            <Globe className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {(metrics?.topCountries ?? []).map((c) => (
-              <div key={c.country} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium">{c.country}</span>
-                  <span className="font-mono text-muted-foreground">{c.count}</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${Math.min(100, c.count * 2.5)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-sm">{dict.dashboard.topAsnsTitle}</CardTitle>
-            <Network className="h-4 w-4 text-sky-500" />
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            {(metrics?.topAsns ?? []).map((a) => (
-              <div
-                key={a.asnNumber}
-                className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-2.5 py-1.5 text-xs"
+            <CardTitle className="text-base font-semibold">{dict.dashboard.cardLocation}</CardTitle>
+            <div className="inline-flex rounded-lg border border-border bg-secondary/40 p-0.5">
+              <button
+                type="button"
+                onClick={() => setLocationView("list")}
+                aria-label={dict.dashboard.viewList}
+                className={cn(
+                  "rounded-md p-1.5 transition-colors",
+                  locationView === "list"
+                    ? "bg-card text-foreground shadow-xs ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <div className="min-w-0 pr-2">
-                  <CopyableMono
-                    value={`AS${a.asnNumber}`}
-                    copyLabel={dict.common.copy}
-                    copiedLabel={dict.common.copied}
-                  />
-                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{a.asnOrg}</p>
-                </div>
-                <Badge variant="outline" className="font-mono">
-                  {a.count}
-                </Badge>
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocationView("map")}
+                aria-label={dict.dashboard.viewMap}
+                className={cn(
+                  "rounded-md p-1.5 transition-colors",
+                  locationView === "map"
+                    ? "bg-card text-foreground shadow-xs ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Globe className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </CardHeader>
+
+          <CardContent className="max-h-[420px] flex-1 overflow-y-auto pr-2">
+            {locationView === "list" ? (
+              <div className="space-y-1.5">
+                {(metrics?.topCountries ?? []).map((c) => {
+                  const widthPct = Math.max(8, Math.round((c.count / maxCountryCount) * 100));
+                  return (
+                    <div
+                      key={c.country}
+                      className="group relative flex items-center justify-between overflow-hidden rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                    >
+                      {/* Shaded Horizontal Bar Pill behind label (TryCap style) */}
+                      <div
+                        className="pointer-events-none absolute inset-y-0.5 left-0 rounded-lg bg-secondary/65 transition-all group-hover:bg-primary/15"
+                        style={{ width: `${widthPct}%` }}
+                      />
+                      <div className="relative z-10 flex items-center gap-2.5">
+                        <span className="text-base leading-none">{c.flag ?? "🌐"}</span>
+                        <span className="font-medium text-foreground">{c.country}</span>
+                      </div>
+                      <div className="relative z-10 flex items-center gap-4 font-mono text-xs">
+                        <span className="font-semibold text-foreground">
+                          {formatCompactCount(c.count)}
+                        </span>
+                        <span className="w-9 text-right text-muted-foreground">
+                          {c.share ?? 1}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            ) : (
+              /* Interactive Stylized World Map SVG with glowing hotspots */
+              <div className="flex h-[360px] flex-col items-center justify-center rounded-xl border border-border/50 bg-secondary/15 p-4">
+                <svg
+                  viewBox="0 0 800 380"
+                  className="h-full w-full max-w-[640px]"
+                  role="img"
+                  aria-label={dict.dashboard.viewMap}
+                >
+                  {/* Continents Silhouette Paths */}
+                  <g fill="currentColor" className="text-secondary">
+                    {/* North America */}
+                    <path d="M95,60 L215,52 L248,105 L210,168 L155,182 L115,140 Z" opacity="0.7" />
+                    {/* South America */}
+                    <path d="M210,205 L268,225 L252,335 L212,350 L195,265 Z" opacity="0.7" />
+                    {/* Europe */}
+                    <path d="M365,68 L465,62 L478,128 L392,142 L358,112 Z" opacity="0.85" />
+                    {/* France Highlight (TryCap style glowing blue region) */}
+                    <path
+                      d="M378,102 L398,99 L403,118 L382,123 Z"
+                      fill="#60a5fa"
+                      stroke="#93c5fd"
+                      strokeWidth="1.5"
+                    />
+                    {/* Africa */}
+                    <path d="M362,155 L462,158 L480,248 L435,328 L385,305 L355,212 Z" opacity="0.7" />
+                    {/* Asia */}
+                    <path d="M482,65 L685,72 L712,175 L615,215 L505,172 Z" opacity="0.7" />
+                    {/* Australia */}
+                    <path d="M620,258 L710,255 L718,322 L632,328 Z" opacity="0.7" />
+                  </g>
+
+                  {/* Glowing Traffic Hotspots */}
+                  {[
+                    { cx: 390, cy: 110, label: "FR (67%)", r: 8, color: "#60a5fa" },
+                    { cx: 408, cy: 104, label: "DE / CH", r: 5, color: "#818cf8" },
+                    { cx: 185, cy: 120, label: "US", r: 5.5, color: "#38bdf8" },
+                    { cx: 395, cy: 94, label: "NL / GB", r: 4.5, color: "#a78bfa" },
+                    { cx: 580, cy: 165, label: "IN", r: 4, color: "#34d399" },
+                    { cx: 372, cy: 165, label: "MA", r: 4, color: "#fbbf24" },
+                  ].map((pt) => (
+                    <g key={pt.label}>
+                      <circle cx={pt.cx} cy={pt.cy} r={pt.r * 2.2} fill={pt.color} opacity="0.22" />
+                      <circle cx={pt.cx} cy={pt.cy} r={pt.r} fill={pt.color} />
+                    </g>
+                  ))}
+                </svg>
+
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                  {(metrics?.topCountries ?? []).slice(0, 5).map((c) => (
+                    <span
+                      key={c.country}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 font-mono text-[11px]"
+                    >
+                      <span>{c.flag ?? "🌐"}</span>
+                      <span className="font-semibold text-foreground">{c.code ?? c.country}</span>
+                      <span className="text-primary">{c.share ?? 1}%</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">{dict.dashboard.browserBreakdownTitle}</CardTitle>
+        {/* 2. NETWORKS CARD (TryCap ISP / ASN Leaderboard with Brand Icons & Search) */}
+        <Card className="flex flex-col justify-between border-border/90 bg-card/95">
+          <CardHeader className="space-y-2 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">
+                {dict.dashboard.cardNetworks}
+              </CardTitle>
+              <button
+                type="button"
+                onClick={() => setShowNetworkSearch((s) => !s)}
+                aria-label={dict.dashboard.searchNetworks}
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+            </div>
+            {showNetworkSearch ? (
+              <Input
+                value={networkSearch}
+                onChange={(e) => setNetworkSearch(e.target.value)}
+                placeholder={dict.dashboard.searchNetworks}
+                className="h-8 text-xs"
+              />
+            ) : null}
           </CardHeader>
-          <CardContent className="space-y-3">
-            {(metrics?.browserDistribution ?? []).map((b) => (
-              <div key={b.name} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium">{b.name}</span>
-                  <span className="font-mono text-muted-foreground">{b.count}</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+
+          <CardContent className="max-h-[420px] flex-1 overflow-y-auto pr-2">
+            <div className="space-y-1.5">
+              {filteredNetworks.map((net) => {
+                const widthPct = Math.max(8, Math.round((net.count / maxNetworkCount) * 100));
+                return (
                   <div
-                    className="h-full rounded-full bg-indigo-500"
-                    style={{ width: `${Math.min(100, b.count * 1.8)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+                    key={net.asnNumber}
+                    className="group relative flex items-center justify-between overflow-hidden rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-secondary/40"
+                  >
+                    {/* Shaded Horizontal Progress Pill behind Network Row */}
+                    <div
+                      className="pointer-events-none absolute inset-y-0.5 left-0 rounded-lg bg-secondary/65 transition-all group-hover:bg-primary/15"
+                      style={{ width: `${widthPct}%` }}
+                    />
+
+                    <div className="relative z-10 flex min-w-0 items-center gap-2.5 pr-3">
+                      <span
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-extrabold text-white shadow-xs"
+                        style={{ backgroundColor: net.brandColor ?? "#6366f1" }}
+                        title={`AS${net.asnNumber}`}
+                      >
+                        {net.badgeText ?? "AS"}
+                      </span>
+                      <span className="truncate font-medium text-foreground">{net.asnOrg}</span>
+                      <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
+                        AS{net.asnNumber}
+                      </span>
+                      {net.isRisk ? (
+                        <Badge variant="warning" className="px-1.5 py-0 text-[9px]">
+                          VPN/DC
+                        </Badge>
+                      ) : null}
+                    </div>
+
+                    <div className="relative z-10 flex shrink-0 items-center gap-4 font-mono text-xs">
+                      <span className="font-semibold text-foreground">
+                        {formatCompactCount(net.count)}
+                      </span>
+                      <span className="w-9 text-right text-muted-foreground">
+                        {net.share ?? 1}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">{dict.dashboard.osBreakdownTitle}</CardTitle>
+        {/* 3. PLATFORM CARD (TryCap Donut Ring Chart: Phone / Desktop / Tablet) */}
+        <Card className="border-border/90 bg-card/95">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">{dict.dashboard.cardPlatform}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {(metrics?.osDistribution ?? []).map((os) => (
-              <div key={os.name} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium">{os.name}</span>
-                  <span className="font-mono text-muted-foreground">{os.count}</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+          <CardContent className="flex flex-col items-center justify-between gap-6 pt-2 sm:flex-row sm:px-8">
+            <div className="h-52 w-52 shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={platformData}
+                    dataKey="count"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={82}
+                    paddingAngle={4}
+                    cornerRadius={8}
+                    stroke="none"
+                  >
+                    {platformData.map((entry, index) => (
+                      <Cell
+                        key={entry.name}
+                        fill={PLATFORM_COLORS[index % PLATFORM_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="w-full max-w-xs space-y-3">
+              {platformData.map((item, idx) => {
+                const color = PLATFORM_COLORS[idx % PLATFORM_COLORS.length];
+                const label =
+                  item.name === "Phone"
+                    ? dict.dashboard.platformPhone
+                    : item.name === "Desktop"
+                      ? dict.dashboard.platformDesktop
+                      : dict.dashboard.platformTablet;
+                const Icon =
+                  item.name === "Phone"
+                    ? Smartphone
+                    : item.name === "Desktop"
+                      ? Monitor
+                      : Tablet;
+                return (
                   <div
-                    className="h-full rounded-full bg-emerald-500"
-                    style={{ width: `${Math.min(100, os.count * 2)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+                    key={item.name}
+                    className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/20 px-3.5 py-2 text-sm"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: color }}
+                      />
+                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-medium text-foreground">{label}</span>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono text-xs">
+                      <span className="font-bold text-foreground">
+                        {formatCompactCount(item.count)}
+                      </span>
+                      <span className="w-9 text-right text-muted-foreground">{item.share}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 4. OS & BROWSERS CARD (TryCap Horizontal Shaded Bar Rows with Switcher) */}
+        <Card className="border-border/90 bg-card/95">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-base font-semibold">
+              {osTab === "os" ? dict.dashboard.cardOs : dict.dashboard.cardBrowsers}
+            </CardTitle>
+            <div className="inline-flex rounded-lg border border-border bg-secondary/40 p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setOsTab("os")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 font-medium transition-colors",
+                  osTab === "os"
+                    ? "bg-card text-foreground shadow-xs ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {dict.dashboard.cardOs}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOsTab("browsers")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 font-medium transition-colors",
+                  osTab === "browsers"
+                    ? "bg-card text-foreground shadow-xs ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {dict.dashboard.cardBrowsers}
+              </button>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-1.5">
+            {osTab === "os"
+              ? (metrics?.osDistribution ?? []).map((os) => {
+                  const widthPct = Math.max(8, Math.round((os.count / maxOsCount) * 100));
+                  return (
+                    <div
+                      key={os.name}
+                      className="group relative flex items-center justify-between overflow-hidden rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                    >
+                      <div
+                        className="pointer-events-none absolute inset-y-0.5 left-0 rounded-lg bg-secondary/65 transition-all group-hover:bg-primary/15"
+                        style={{ width: `${widthPct}%` }}
+                      />
+                      <div className="relative z-10 flex items-center gap-2.5">
+                        <Laptop className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-foreground">{os.name}</span>
+                      </div>
+                      <div className="relative z-10 flex items-center gap-4 font-mono text-xs">
+                        <span className="font-semibold text-foreground">
+                          {formatCompactCount(os.count)}
+                        </span>
+                        <span className="w-9 text-right text-muted-foreground">
+                          {os.share ?? 1}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              : (metrics?.browserDistribution ?? []).map((b) => {
+                  const widthPct = Math.max(8, Math.round((b.count / maxBrowserCount) * 100));
+                  const share = Math.max(1, Math.round((b.count / totalBrowserCount) * 100));
+                  return (
+                    <div
+                      key={b.name}
+                      className="group relative flex items-center justify-between overflow-hidden rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                    >
+                      <div
+                        className="pointer-events-none absolute inset-y-0.5 left-0 rounded-lg bg-secondary/65 transition-all group-hover:bg-primary/15"
+                        style={{ width: `${widthPct}%` }}
+                      />
+                      <div className="relative z-10 flex items-center gap-2.5">
+                        <Globe className="h-4 w-4 text-sky-400" />
+                        <span className="font-medium text-foreground">{b.name}</span>
+                      </div>
+                      <div className="relative z-10 flex items-center gap-4 font-mono text-xs">
+                        <span className="font-semibold text-foreground">
+                          {formatCompactCount(b.count)}
+                        </span>
+                        <span className="w-9 text-right text-muted-foreground">{share}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
           </CardContent>
         </Card>
       </div>

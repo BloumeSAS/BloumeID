@@ -157,16 +157,29 @@ export interface DashboardMetricsDTO {
   osDistribution: Array<{
     name: string;
     count: number;
+    share?: number;
+  }>;
+  platformDistribution?: Array<{
+    name: string;
+    count: number;
+    share: number;
   }>;
   topCountries: Array<{
     country: string;
+    code?: string;
+    flag?: string;
     asn: string;
     count: number;
+    share?: number;
   }>;
   topAsns: Array<{
     asnNumber: number;
     asnOrg: string;
     count: number;
+    share?: number;
+    brandColor?: string;
+    badgeText?: string;
+    isRisk?: boolean;
   }>;
   recentHighRiskEvents: PublicFingerprintEventDTO[];
 }

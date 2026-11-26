@@ -59,15 +59,30 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       .catch(() => undefined);
   }, []);
 
-  const navItems = [
-    { href: "/", label: dict.nav.home, icon: Home, exact: true },
-    { href: "/dashboard", label: dict.nav.dashboard, icon: Activity, exact: false },
-    { href: "/events", label: dict.nav.events, icon: ListFilter, exact: false },
-    { href: "/rules", label: dict.nav.rules, icon: ShieldCheck, exact: false },
-    { href: "/sites", label: dict.nav.sites, icon: KeyRound, exact: false },
-    { href: "/visitors", label: dict.nav.visitors, icon: Users, exact: false },
-    { href: "/playground", label: dict.nav.playground, icon: Cpu, exact: false },
-    { href: "/settings", label: dict.nav.settings, icon: Settings, exact: false },
+  const navCategories = [
+    {
+      category: dict.nav.catOverview,
+      items: [
+        { href: "/dashboard", label: dict.nav.dashboard, icon: Activity, exact: false },
+        { href: "/events", label: dict.nav.events, icon: ListFilter, exact: false },
+      ],
+    },
+    {
+      category: dict.nav.catSecurity,
+      items: [
+        { href: "/visitors", label: dict.nav.visitors, icon: Users, exact: false },
+        { href: "/rules", label: dict.nav.rules, icon: ShieldCheck, exact: false },
+      ],
+    },
+    {
+      category: dict.nav.catDeveloper,
+      items: [
+        { href: "/sites", label: dict.nav.sites, icon: KeyRound, exact: false },
+        { href: "/playground", label: dict.nav.playground, icon: Cpu, exact: false },
+        { href: "/settings", label: dict.nav.settings, icon: Settings, exact: false },
+        { href: "/", label: dict.nav.home, icon: Home, exact: true },
+      ],
+    },
   ];
 
   const handleLogout = async () => {
@@ -85,31 +100,43 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   const renderNavLinks = (isMobile = false) => (
-    <nav className="flex-1 space-y-1 p-3">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const active = item.exact
-          ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(`${item.href}/`);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => isMobile && setMobileMenuOpen(false)}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-              collapsed && !isMobile ? "justify-center px-2" : ""
-            )}
-            title={collapsed && !isMobile ? item.label : undefined}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {!collapsed || isMobile ? <span className="truncate">{item.label}</span> : null}
-          </Link>
-        );
-      })}
+    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+      {navCategories.map((group, gIdx) => (
+        <div key={group.category} className="space-y-1">
+          {!collapsed || isMobile ? (
+            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/75">
+              {group.category}
+            </p>
+          ) : gIdx > 0 ? (
+            <div className="mx-auto my-2 h-px w-8 bg-border/80" />
+          ) : null}
+
+          {group.items.map((item) => {
+            const Icon = item.icon;
+            const active = item.exact
+              ? pathname === item.href
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => isMobile && setMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
+                  active
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground",
+                  collapsed && !isMobile ? "mx-auto h-10 w-10 justify-center p-0" : ""
+                )}
+                title={collapsed && !isMobile ? item.label : undefined}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed || isMobile ? <span className="truncate">{item.label}</span> : null}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 
@@ -118,20 +145,35 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* Desktop Collapsible Sidebar (lg:) */}
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r border-border bg-card/80 transition-all duration-200 lg:flex",
-          collapsed ? "w-20" : "w-64"
+          "relative hidden shrink-0 flex-col border-r border-border bg-card/90 transition-all duration-200 lg:flex",
+          collapsed ? "w-[72px]" : "w-64"
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
+        {/* Clean Floating Sidebar Toggle on Right Border (Never overlaps Logo) */}
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-label={dict.common.collapseSidebar}
+          className="absolute -right-3 top-5 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary/50 hover:text-foreground"
+        >
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+
+        <div
+          className={cn(
+            "flex h-16 items-center border-b border-border px-4",
+            collapsed ? "justify-center px-0" : "justify-between"
+          )}
+        >
           <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/30">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/30">
               <Fingerprint className="h-5 w-5" />
             </div>
             {!collapsed ? (
               <div className="truncate">
                 <div className="flex items-center gap-1.5">
                   <p className="font-bold tracking-tight text-foreground">{dict.common.brandName}</p>
-                  <Badge variant="outline" className="px-1.5 py-0 font-mono text-[10px]">
+                  <Badge variant="outline" className="px-1.5 py-0 font-mono text-[10px] text-primary">
                     v1.0.0
                   </Badge>
                 </div>
@@ -139,15 +181,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
             ) : null}
           </Link>
-
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={dict.common.collapseSidebar}
-            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </button>
         </div>
 
         {renderNavLinks(false)}
@@ -155,10 +188,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <div className="space-y-2.5 border-t border-border p-3">
           {!collapsed ? (
             <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-500 dark:text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
               <span className="truncate font-medium">{dict.common.engineOnline}</span>
             </div>
-          ) : null}
+          ) : (
+            <div
+              className="mx-auto flex h-7 w-7 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10"
+              title={dict.common.engineOnline}
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            </div>
+          )}
 
           <div className={cn("flex items-center gap-1.5", collapsed ? "flex-col" : "justify-between")}>
             <Button
@@ -167,7 +207,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="locale-switcher"
               onClick={() => setLocale(locale === "fr" ? "en" : "fr")}
-              className={cn(collapsed ? "w-full px-0" : "flex-1")}
+              className={cn(collapsed ? "h-8 w-10 px-0" : "flex-1")}
             >
               <Globe className="h-3.5 w-3.5" />
               {!collapsed ? <span>{locale.toUpperCase()}</span> : null}
@@ -179,6 +219,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="theme-switcher"
               onClick={toggleTheme}
+              className={cn(collapsed ? "h-8 w-10 px-0" : "")}
               title={theme === "dark" ? dict.common.themeLight : dict.common.themeDark}
             >
               {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
@@ -190,6 +231,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               size="sm"
               data-testid="logout-button"
               onClick={handleLogout}
+              className={cn(collapsed ? "h-8 w-10 px-0" : "")}
               title={dict.common.logout}
             >
               <LogOut className="h-4 w-4" />
