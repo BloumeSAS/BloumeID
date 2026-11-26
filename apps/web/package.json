@@ -16,7 +16,7 @@
     "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
-    "@bloume/id": "workspace:*",
+    "@bloume/id": "^1.0.0",
     "@prisma/client": "^6.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
