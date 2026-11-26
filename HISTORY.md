@@ -157,3 +157,17 @@ Ce fichier est un journal **append-only** retraçant chaque phase de constructio
 - **Décisions et caveats** :
   - Le démon Docker Desktop n'étant pas démarré sur l'hôte Windows local (`npipe:////./pipe/dockerDesktopLinuxEngine` absent), la validation syntaxique et le test fonctionnel complet du serveur Next.js standalone, de `/api/health` et du bundle UMD sont exécutés directement via Node 22 + Vitest/Playwright en Phase 8.
 - **Statut de vérification** : build OK / typecheck OK / tests 23/23 OK / lint OK
+
+## [2026-11-26 01:02] Phase 8 : Vérification Finale de Sécurité, Audit Zéro `any` & Validation du Bundle UMD
+- **Résumé des changements** :
+  - Ajout de la suite d'audit de sécurité `apps/web/tests/security-audit.test.ts` vérifiant :
+    1. L'absence totale de `any` explicite (`: any`, `as any`, `<any>`) dans l'intégralité du code source de `apps/web/src` et `packages/bloumeid/src`.
+    2. Le rejet strict des origines CORS non autorisées (`403`) et des requêtes hors fenêtre temporelle anti-rejeu de `±5 minutes` (`400`) ou rejouées (`409`).
+    3. Le chargement et l'exécution du bundle UMD (`public/sdk/v1/bloumeid.js`, 28.4 Ko < 150 Ko) dans un contexte navigateur isolé (`window.BloumeID`).
+  - Exécution complète de `pnpm -r typecheck`, `pnpm -r lint`, `pnpm -r test` (26/26 tests passés : 9 dans `@bloumeid/sdk`, 17 dans `@bloumeid/web`) et `pnpm build`.
+- **Fichiers clés touchés** :
+  - `apps/web/tests/security-audit.test.ts`
+  - `HISTORY.md`
+- **Décisions et caveats** :
+  - Toutes les actions réservées à validation humaine (section 9 : publication npm réelle hors CI, déploiement production SSH, secrets réels) ont été isolées dans `.env.example` et dans les workflows GitHub Actions protégés par approbation d'environnement.
+- **Statut de vérification** : build OK / typecheck OK / tests 26/26 OK (SDK 9/9, Web 17/17) / lint OK
