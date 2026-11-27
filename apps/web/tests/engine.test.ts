@@ -31,13 +31,18 @@ import {
 } from "../src/lib/engine/redis";
 import { computeDangerScore } from "../src/lib/engine/scoring";
 import { evaluateSecurityRules } from "../src/lib/engine/rules";
-import { extractMmdbFromTarGzBuffer } from "../src/lib/engine/geoip";
+import {
+  downloadAndUpdateGeoLite2,
+  extractMmdbFromTarGzBuffer,
+  isValidMmdbBuffer,
+} from "../src/lib/engine/geoip";
 import { dispatchSignedWebhook, shouldTriggerWebhook } from "../src/lib/engine/webhooks";
 import { reconcileVisitorIdentity } from "../src/lib/engine/reconcile";
 import {
-  DEMO_PUBLIC_KEY,
-  DEMO_SECRET_KEY,
+  createSiteRecord,
+  getDashboardMetrics,
   getReconciliationStore,
+  listSites,
 } from "../src/lib/engine/repository";
 import { POST as fingerprintPOST } from "../src/app/api/v1/fingerprint/route";
 import { POST as eventsPOST } from "../src/app/api/v1/events/route";
@@ -307,6 +312,19 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(sdkRes.status).toBe(200);
     expect(sdkRes.headers.get("etag")).toBeTruthy();
 
+    // 0. Fresh repository starts with zero pre-seeded demo sites or events
+    const initialSites = await listSites();
+    const initialMetrics = await getDashboardMetrics("24h");
+    expect(initialSites.length).toBe(0);
+    expect(initialMetrics.totalEvents).toBe(0);
+
+    const testSite = await createSiteRecord({
+      name: "Engine Test Site",
+      domains: ["localhost", "app.bloume.io"],
+    });
+    const testPublicKey = testSite.publicKey;
+    const testSecretKey = testSite.secretKeyPlain!;
+
     const timestamp = Date.now();
     const fullHashChrome = "f1".repeat(32);
     const fullHashFirefox = "f2".repeat(32);
@@ -314,7 +332,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
 
     const makeRequest = (nonce: string, fullHash: string, url = "http://localhost:3000/api/v1/fingerprint") => {
       const signature = computeAntiReplaySignature(
-        DEMO_PUBLIC_KEY,
+        testPublicKey,
         timestamp,
         nonce,
         fullHash,
@@ -325,7 +343,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
         headers: {
           "Content-Type": "application/json",
           Origin: "https://app.bloume.io",
-          "X-BloumeID-Key": DEMO_PUBLIC_KEY,
+          "X-BloumeID-Key": testPublicKey,
           "X-Real-IP": "198.51.100.25",
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/131.0.0.0",
         },
@@ -382,7 +400,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     // 5. Verify request via ThumbmarkJS/BloumeID endpoint (/api/v1/requests/[requestId])
     const verifyRes = await verifyRequestGET(
       new Request(`http://localhost:3000/api/v1/requests/${body3.requestId}`, {
-        headers: { Authorization: `Bearer ${DEMO_SECRET_KEY}` },
+        headers: { Authorization: `Bearer ${testSecretKey}` },
       }),
       { params: Promise.resolve({ requestId: body3.requestId }) }
     );
@@ -391,7 +409,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     // 6. Verify request via Fingerprint.com Server API (/api/v1/events/[requestId])
     const fpEventRes = await verifyEventGET(
       new Request(`http://localhost:3000/api/v1/events/${body3.requestId}`, {
-        headers: { "Auth-API-Key": DEMO_SECRET_KEY },
+        headers: { "Auth-API-Key": testSecretKey },
       }),
       { params: Promise.resolve({ requestId: body3.requestId }) }
     );
@@ -404,7 +422,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     // 7. Get visitor & Fingerprint.com visitor visits history (/api/v1/visitors/[visitorId]/visits)
     const visitorRes = await getVisitorGET(
       new Request(`http://localhost:3000/api/v1/visitors/${body1.visitorId}`, {
-        headers: { Authorization: `Bearer ${DEMO_SECRET_KEY}` },
+        headers: { Authorization: `Bearer ${testSecretKey}` },
       }),
       { params: Promise.resolve({ visitorId: body1.visitorId }) }
     );
@@ -412,7 +430,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
 
     const visitsRes = await getVisitorVisitsGET(
       new Request(`http://localhost:3000/api/v1/visitors/${body1.visitorId}/visits?limit=10`, {
-        headers: { "Auth-API-Key": DEMO_SECRET_KEY },
+        headers: { "Auth-API-Key": testSecretKey },
       }),
       { params: Promise.resolve({ visitorId: body1.visitorId }) }
     );
@@ -432,5 +450,46 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
       isSpoofed: false,
     });
     expect(rec.matchType).toBe("exact_full_hash");
+  });
+
+  it("validates MMDB magic header and falls back across GeoLite2 mirrors", async () => {
+    const invalidBuf = Buffer.from("<html>404 Not Found</html>");
+    expect(isValidMmdbBuffer(invalidBuf, 10)).toBe(false);
+
+    const validMmdbStub = Buffer.concat([
+      Buffer.alloc(1024, 0x01),
+      Buffer.from([0xab, 0xcd, 0xef]),
+      Buffer.from("MaxMind.com"),
+    ]);
+    expect(isValidMmdbBuffer(validMmdbStub, 1024)).toBe(true);
+
+    const fsMod = await import("node:fs");
+    const osMod = await import("node:os");
+    const pathMod = await import("node:path");
+    const tmpGeoDir = fsMod.mkdtempSync(pathMod.join(osMod.tmpdir(), "bloumeid-geoip-"));
+
+    let attempt = 0;
+    const mockFetch: typeof fetch = async (input) => {
+      attempt += 1;
+      const url = String(input);
+      if (url.includes("github.com")) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      return new Response(new Uint8Array(validMmdbStub), { status: 200 });
+    };
+
+    const res = await downloadAndUpdateGeoLite2({
+      customDir: tmpGeoDir,
+      fetchImpl: mockFetch,
+      minBytes: 1024,
+    });
+    expect(attempt).toBeGreaterThanOrEqual(4);
+    expect(res.cityUpdated).toBe(true);
+    expect(res.asnUpdated).toBe(true);
+    expect(res.errors.length).toBeGreaterThanOrEqual(2);
+    expect(fsMod.existsSync(pathMod.join(tmpGeoDir, "GeoLite2-City.mmdb"))).toBe(true);
+    expect(fsMod.existsSync(pathMod.join(tmpGeoDir, "GeoLite2-ASN.mmdb"))).toBe(true);
+
+    fsMod.rmSync(tmpGeoDir, { recursive: true, force: true });
   });
 });

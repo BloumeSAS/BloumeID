@@ -9,6 +9,14 @@ import {
   maskSecretKey,
 } from "./snowflake";
 import { THREAT_FEEDS } from "./feeds";
+import { globalThreatTrie } from "./cidr-trie";
+
+export class DatabaseUnavailableError extends Error {
+  constructor(message = "PostgreSQL database is unavailable in production") {
+    super(message);
+    this.name = "DatabaseUnavailableError";
+  }
+}
 import type { ReconciliationStore } from "./reconcile";
 import type { SecurityRuleCondition } from "./rules";
 import type {
@@ -147,391 +155,15 @@ let nextEventId = 1;
 let nextRuleId = 1;
 let nextWebhookDeliveryId = 1;
 
-export const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
-export const DEMO_SECRET_KEY = "bid_sec_demo_secret_key_for_verification_2026";
-
-function ensureMemorySeeded(): void {
-  if (memSites.length > 0) return;
-
-  const now = new Date();
-  const site: InternalSiteRecord = {
-    id: nextSiteId++,
-    publicId: "site_73000000000000001",
-    name: "Bloume SaaS Core",
-    domains: ["localhost", "127.0.0.1", "*.bloume.io", "app.bloume.io"],
-    publicKey: DEMO_PUBLIC_KEY,
-    secretKeyHash: hashSecretKey(DEMO_SECRET_KEY),
-    secretKeyHint: maskSecretKey(DEMO_SECRET_KEY),
-    webhookUrl: "https://hooks.bloume.io/security/fingerprint",
-    webhookSecret: "whsec_bloumeid_cosmic_secret_2026",
-    riskThreshold: 3,
-    config: { ...DEFAULT_COLLECTORS },
-    isActive: true,
-    createdAt: new Date(now.getTime() - 14 * 86400000),
-    updatedAt: now,
-  };
-  memSites.push(site);
-
-  const sampleVisitor1: InternalVisitorRecord = {
-    id: nextVisitorId++,
-    publicId: "vis_73000000000000101",
-    siteId: site.id,
-    hardwareHash: "8f4e2b1c9a0d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f",
-    firstSeenAt: new Date(now.getTime() - 3 * 86400000),
-    lastSeenAt: new Date(now.getTime() - 120000),
-    visitCount: 7,
-    maxDangerLevel: 4,
-    trustStatus: "neutral",
-    mergedIntoId: null,
-    tags: ["vpn-user", "cross-browser"],
-    notes: "Switched from Chrome to Firefox on same /24 subnet and Apple M3 Max GPU.",
-  };
-
-  const sampleVisitor2: InternalVisitorRecord = {
-    id: nextVisitorId++,
-    publicId: "vis_73000000000000102",
-    siteId: site.id,
-    hardwareHash: "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
-    firstSeenAt: new Date(now.getTime() - 3600000),
-    lastSeenAt: new Date(now.getTime() - 45000),
-    visitCount: 3,
-    maxDangerLevel: 5,
-    trustStatus: "blocked",
-    mergedIntoId: null,
-    tags: ["headless-bot", "tor-exit"],
-    notes: "Playwright CDP signature detected on Tor exit node.",
-  };
-
-  memVisitors.push(sampleVisitor1, sampleVisitor2);
-
-  memRules.push(
-    {
-      id: nextRuleId++,
-      publicId: "rule_73000000000000801",
-      siteId: null,
-      name: "Block Tor Exit Nodes & Headless Automation",
-      description: "Blocks any request originating from Tor exit nodes with dangerLevel >= 4",
-      action: "block",
-      conditions: [
-        { field: "isTor", operator: "eq", value: true },
-        { field: "dangerLevel", operator: "gte", value: 4 },
-      ],
-      priority: 10,
-      isEnabled: true,
-      hitCount: 18,
-      createdAt: new Date(now.getTime() - 7 * 86400000),
-      updatedAt: now,
-    },
-    {
-      id: nextRuleId++,
-      publicId: "rule_73000000000000802",
-      siteId: site.id,
-      name: "Challenge Anti-Detect & Prototype Hooks",
-      description: "Triggers challenge when client prototype hooks or canvas noise are detected",
-      action: "challenge",
-      conditions: [{ field: "isSpoofed", operator: "eq", value: true }],
-      priority: 20,
-      isEnabled: true,
-      hitCount: 34,
-      createdAt: new Date(now.getTime() - 5 * 86400000),
-      updatedAt: now,
-    }
-  );
-
-  const emptyComp = {
-    canvas: {
-      hash: "c1",
-      winding: true,
-      doubleRenderConsistent: true,
-      geometryHash: "g1",
-      textHash: "t1",
-      emojiSubpixelHash: "em1",
-      emojiAscentSum: 74.2,
-      emojiDescentSum: 14.8,
-    },
-    webgl: {
-      webgl1Available: true,
-      webgl2Available: true,
-      vendor: "WebKit",
-      renderer: "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Max)",
-      unmaskedVendor: "Apple Inc.",
-      unmaskedRenderer: "Apple M3 Max",
-      version: "WebGL 2.0",
-      shadingLanguageVersion: "WebGL GLSL ES 3.00",
-      extensionsCount: 28,
-      extensionsHash: "ext_hash_1",
-      maxTextureSize: 16384,
-      maxViewportDims: [16384, 16384] as [number, number],
-      maxAnisotropy: 16,
-      shaderPrecisionHash: "prec_hash_1",
-      maxVertexUniformVectors: 4096,
-      aliasedLineWidthRange: [1, 1] as [number, number],
-      pixelRenderHash: "pix_hash_1",
-    },
-    webgpu: {
-      available: true,
-      vendor: "apple",
-      architecture: "metal-3",
-      device: "m3-max",
-      description: "Apple M3 Max",
-      limitsHash: "lim_1",
-      features: ["shader-f16", "depth-clip-control", "bgra8unorm-storage"],
-      maxTextureDimension2D: 16384,
-      maxBindGroups: 4,
-    },
-    audio: {
-      available: true,
-      sampleHash: "aud_1",
-      sumValue: 124.312841,
-      sampleRate: 44100,
-      maxChannelCount: 2,
-      doubleRenderConsistent: true,
-    },
-    hardware: {
-      hardwareConcurrency: 16,
-      deviceMemory: 8,
-      maxTouchPoints: 0,
-      platform: "MacIntel",
-      vendor: "Google Inc.",
-      oscpu: "unknown",
-      pdfViewerEnabled: true,
-      cookieEnabled: true,
-      doNotTrack: null,
-      architectureHint: "arm64",
-      globalPrivacyControl: false,
-    },
-    screen: {
-      width: 3456,
-      height: 2234,
-      availWidth: 3456,
-      availHeight: 2190,
-      colorDepth: 30,
-      pixelDepth: 30,
-      devicePixelRatio: 2,
-      orientationType: "landscape-primary",
-      hdrSupported: true,
-      colorGamut: "p3" as const,
-      forcedColors: false,
-      prefersDarkScheme: true,
-      prefersReducedMotion: false,
-      touchSupport: false,
-    },
-    fonts: {
-      detected: ["Arial", "Georgia", "Helvetica Neue", "JetBrains Mono", "Menlo", "SF Pro Display"],
-      count: 6,
-      hash: "fnt_1",
-    },
-    timezoneIntl: {
-      timezone: "Europe/Paris",
-      timezoneOffsetMinutes: -60,
-      locale: "fr-FR",
-      calendar: "gregory",
-      numberingSystem: "latn",
-      dateTimeFormatHash: "dtf_1",
-      numberFormatSymbol: "1 234 567,89",
-      pluralCategories: ["many", "one", "other"],
-      dstConsistent: true,
-    },
-    languages: {
-      language: "fr-FR",
-      languages: ["fr-FR", "en-US"],
-      consistentMainLanguage: true,
-    },
-    userAgentData: {
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36",
-      brands: [{ brand: "Chromium", version: "131" }],
-      mobile: false,
-      platform: "macOS",
-      architecture: "arm",
-      bitness: "64",
-      model: "",
-      platformVersion: "15.1.0",
-      fullVersionListHash: "fvl_1",
-    },
-    storage: {
-      localStorage: true,
-      sessionStorage: true,
-      indexedDB: true,
-      cachesApi: true,
-      serviceWorker: true,
-      quotaBytes: 2147483648,
-      usageBytes: 4096,
-    },
-    speech: { available: true, voiceCount: 42, defaultVoice: "Thomas", voicesHash: "sp_1" },
-    math: {
-      engineHint: "V8" as const,
-      constantsHash: "mth_1",
-      acos: 1.447,
-      acosh: 355.3,
-      asinh: 0.881,
-      atanh: 0.549,
-      cbrt: 1.464,
-      cosh: 1.543,
-      expm1: 1.718,
-      log1p: 2.397,
-      sinh: 1.175,
-      tanh: 0.761,
-      powPi: 0,
-    },
-    webrtc: {
-      available: true,
-      candidateTypes: ["host", "srflx"],
-      localIpPresent: false,
-      sdpFeedbackHash: "sdp_1",
-    },
-    connection: { available: true, effectiveType: "4g", rtt: 25, downlink: 10, saveData: false },
-    antiSpoof: {
-      isBot: false,
-      isSpoofed: false,
-      isIncognito: false,
-      isVirtualMachine: false,
-      webdriver: false,
-      automationArtifacts: [],
-      chromeObjectAnomaly: false,
-      permissionsInconsistent: false,
-      workerMismatch: false,
-      canvasNoiseDetected: false,
-      audioNoiseDetected: false,
-      prototypeTampered: false,
-      tamperedFunctions: [],
-      zeroOuterDimensions: false,
-      stackEngineMismatch: false,
-      timezoneDstMismatch: false,
-      reasons: [],
-    },
-  } satisfies FingerprintComponents;
-
-  memEvents.push(
-    {
-      id: nextEventId++,
-      publicId: "req_73000000000000501",
-      siteId: site.id,
-      visitorId: sampleVisitor1.id,
-      fullHash: "9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e",
-      hardwareHash: sampleVisitor1.hardwareHash,
-      ipAddress: "185.159.156.42",
-      ipSubnet: "185.159.156.0/24",
-      ja4Hash: "t13d1516h2_8daaf6152771_b186095e22b6",
-      asnNumber: 212238,
-      asnOrg: "Datacamp Limited / Mullvad VPN",
-      country: "FR",
-      city: "Paris",
-      latitude: 48.8566,
-      longitude: 2.3522,
-      isVpn: true,
-      isProxy: false,
-      isTor: false,
-      isDatacenter: true,
-      isBot: false,
-      isSpoofed: false,
-      isIncognito: true,
-      crossBrowserMatched: true,
-      dangerLevel: 3,
-      confidence: 0.88,
-      ruleAction: "flag",
-      matchedRuleId: null,
-      linkedId: "user_enterprise_42",
-      tag: { environment: "production", flow: "checkout" },
-      browser: "Firefox",
-      os: "macOS",
-      device: "Desktop",
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:132.0) Gecko/20100101 Firefox/132.0",
-      origin: "https://app.bloume.io",
-      components: emptyComp,
-      createdAt: new Date(now.getTime() - 120000),
-    },
-    {
-      id: nextEventId++,
-      publicId: "req_73000000000000502",
-      siteId: site.id,
-      visitorId: sampleVisitor2.id,
-      fullHash: "4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d",
-      hardwareHash: sampleVisitor2.hardwareHash,
-      ipAddress: "185.220.101.19",
-      ipSubnet: "185.220.101.0/24",
-      ja4Hash: "t13d0310_00_be71a12f9c01",
-      asnNumber: 24940,
-      asnOrg: "Hetzner Online GmbH",
-      country: "DE",
-      city: "Falkenstein",
-      latitude: 50.4779,
-      longitude: 12.3713,
-      isVpn: false,
-      isProxy: false,
-      isTor: true,
-      isDatacenter: true,
-      isBot: true,
-      isSpoofed: true,
-      isIncognito: false,
-      crossBrowserMatched: false,
-      dangerLevel: 5,
-      confidence: 0.72,
-      ruleAction: "block",
-      matchedRuleId: "rule_73000000000000801",
-      linkedId: "bot_attempt_99",
-      tag: { flow: "login" },
-      browser: "Chrome",
-      os: "Linux",
-      device: "Desktop",
-      userAgent:
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 HeadlessChrome/131.0.0.0 Safari/537.36",
-      origin: "https://app.bloume.io",
-      components: {
-        ...emptyComp,
-        antiSpoof: {
-          ...emptyComp.antiSpoof,
-          isBot: true,
-          isSpoofed: true,
-          isVirtualMachine: true,
-          webdriver: true,
-          automationArtifacts: ["__playwright"],
-          chromeObjectAnomaly: true,
-          permissionsInconsistent: true,
-          workerMismatch: true,
-          canvasNoiseDetected: true,
-          prototypeTampered: true,
-          tamperedFunctions: ["HTMLCanvasElement.prototype.toDataURL"],
-          reasons: [
-            "navigator.webdriver is true",
-            "automation artifacts: __playwright",
-            "Native prototype hooks detected: HTMLCanvasElement.prototype.toDataURL",
-            "Canvas double-render output differs (anti-detect noise injection)",
-          ],
-        },
-      },
-      createdAt: new Date(now.getTime() - 45000),
-    }
-  );
-
-  memWebhookDeliveries.push({
-    id: nextWebhookDeliveryId++,
-    publicId: "whd_73000000000000901",
-    siteId: site.id,
-    eventType: "threat.detected",
-    requestId: "req_73000000000000502",
-    targetUrl: "https://hooks.bloume.io/security/fingerprint",
-    statusCode: 200,
-    durationMs: 84,
-    delivered: true,
-    attempts: 1,
-    payload: {
-      event: "threat.detected",
-      requestId: "req_73000000000000502",
-      visitorId: "vis_73000000000000102",
-      dangerLevel: 5,
-    },
-    responseExcerpt: '{"received":true}',
-    createdAt: new Date(now.getTime() - 44000),
-  });
+function ensureFeedsInitialized(): void {
+  if (memFeeds.size > 0) return;
 
   for (const feed of THREAT_FEEDS) {
     memFeeds.set(feed.feedName, {
       publicId: generateSnowflakeId("feed"),
       feedName: feed.feedName,
-      recordCount: feed.fallbackCidrs.length,
-      lastSyncedAt: now.toISOString(),
+      recordCount: 0,
+      lastSyncedAt: null,
       status: "ok",
       errorMessage: null,
     });
@@ -539,17 +171,36 @@ function ensureMemorySeeded(): void {
 }
 
 async function isDatabaseConnected(): Promise<boolean> {
-  if (!process.env.DATABASE_URL) return false;
+  const isProdRuntime =
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PHASE !== "phase-production-build";
+
+  if (!process.env.DATABASE_URL) {
+    if (isProdRuntime) {
+      console.error("[BloumeID] DATABASE_URL is missing in production.");
+      throw new DatabaseUnavailableError("DATABASE_URL is missing in production");
+    }
+    return false;
+  }
   try {
     await prisma.$queryRaw`SELECT 1`;
     return true;
-  } catch {
+  } catch (err) {
+    if (isProdRuntime) {
+      console.error("[BloumeID] PostgreSQL connection failed in production:", err);
+      throw new DatabaseUnavailableError(
+        err instanceof Error ? err.message : "PostgreSQL connection failed in production"
+      );
+    }
     return false;
   }
 }
 
 function toPublicSiteDTO(site: InternalSiteRecord, plainSecret?: string): PublicSiteDTO {
+  const nowMs = Date.now();
   const siteEvents = memEvents.filter((e) => e.siteId === site.id);
+  const requests24h = siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 86400000).length;
+  const requests30d = siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 30 * 86400000).length;
   return {
     publicId: site.publicId,
     name: site.name,
@@ -562,8 +213,8 @@ function toPublicSiteDTO(site: InternalSiteRecord, plainSecret?: string): Public
     riskThreshold: site.riskThreshold,
     config: site.config,
     isActive: site.isActive,
-    requests24h: siteEvents.length + 142,
-    requests30d: siteEvents.length + 3890,
+    requests24h,
+    requests30d,
     createdAt: site.createdAt.toISOString(),
     updatedAt: site.updatedAt.toISOString(),
   };
@@ -598,7 +249,7 @@ async function ensureMemSiteInDatabase(memSite: InternalSiteRecord): Promise<Int
 }
 
 export async function findSiteByPublicKey(publicKey: string): Promise<InternalSiteRecord | null> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const dbConnected = await isDatabaseConnected();
   if (dbConnected) {
     const dbSite = await prisma.site.findUnique({ where: { publicKey } });
@@ -617,7 +268,7 @@ export async function findSiteByPublicKey(publicKey: string): Promise<InternalSi
 }
 
 export async function verifySiteSecretKey(secretKey: string): Promise<InternalSiteRecord | null> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const targetHash = hashSecretKey(secretKey);
   const dbConnected = await isDatabaseConnected();
 
@@ -642,7 +293,7 @@ export async function verifySiteSecretKey(secretKey: string): Promise<InternalSi
 }
 
 export function getReconciliationStore(): ReconciliationStore {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   return {
     async findVisitorByExactFullHash({ siteInternalId, fullHash }) {
       if (await isDatabaseConnected()) {
@@ -791,7 +442,7 @@ export async function recordFingerprintEvent(params: {
   origin: string | null;
   components: FingerprintComponents;
 }): Promise<void> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const latitude = params.latitude ?? null;
   const longitude = params.longitude ?? null;
   const ruleAction = params.ruleAction ?? "allow";
@@ -905,7 +556,7 @@ function mapInternalEventToDTO(
 export async function getEventByPublicId(
   requestId: string
 ): Promise<PublicFingerprintEventDTO | null> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   if (await isDatabaseConnected()) {
     try {
       const evt = await prisma.fingerprintEvent.findUnique({
@@ -976,7 +627,7 @@ export async function listFingerprintEvents(filters?: {
   linkedId?: string;
   limit?: number;
 }): Promise<PublicFingerprintEventDTO[]> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const limit = filters?.limit ?? 100;
   const q = filters?.query?.trim().toLowerCase() ?? "";
   const minDanger = filters?.minDanger ?? 0;
@@ -1092,7 +743,7 @@ export async function listFingerprintEventsPaginated(filters?: {
   page?: number;
   pageSize?: number;
 }): Promise<PaginatedResponse<PublicFingerprintEventDTO>> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const page = Math.max(1, filters?.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, filters?.pageSize ?? 25));
   const q = filters?.query?.trim() ?? "";
@@ -1205,7 +856,7 @@ export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
   visitor: PublicVisitorDTO;
   events: PublicFingerprintEventDTO[];
 } | null> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   if (await isDatabaseConnected()) {
     try {
       const vis = await prisma.visitor.findUnique({
@@ -1302,7 +953,7 @@ export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
 }
 
 export async function listSites(): Promise<PublicSiteDTO[]> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   if (await isDatabaseConnected()) {
     const sites = await prisma.site.findMany({ orderBy: { createdAt: "desc" } });
     if (sites.length > 0) {
@@ -1324,7 +975,7 @@ export async function createSiteRecord(input: {
   riskThreshold?: number;
   config?: Partial<SiteCollectorsConfig>;
 }): Promise<PublicSiteDTO> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const publicId = generateSnowflakeId("site");
   const publicKey = generateApiKey("bid_pub");
   const secretKeyPlain = generateApiKey("bid_sec");
@@ -1394,7 +1045,7 @@ export async function updateSiteRecord(
     rotateKeys?: boolean;
   }
 ): Promise<PublicSiteDTO | null> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   let rotatedSecretPlain: string | undefined;
   let newPublicKey: string | undefined;
   let newSecretHash: string | undefined;
@@ -1457,7 +1108,7 @@ export async function updateSiteRecord(
 }
 
 export async function deleteSiteRecord(sitePublicId: string): Promise<boolean> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   if (await isDatabaseConnected()) {
     try {
       await prisma.site.delete({ where: { publicId: sitePublicId } });
@@ -1476,7 +1127,7 @@ export async function listVisitors(filters?: {
   query?: string;
   onlyHighRisk?: boolean;
 }): Promise<PublicVisitorDTO[]> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const q = filters?.query?.trim().toLowerCase() ?? "";
   const highRisk = Boolean(filters?.onlyHighRisk);
 
@@ -1553,7 +1204,7 @@ export async function listVisitorsPaginated(filters?: {
   page?: number;
   pageSize?: number;
 }): Promise<PaginatedResponse<PublicVisitorDTO>> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const page = Math.max(1, filters?.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, filters?.pageSize ?? 25));
   const q = filters?.query?.trim() ?? "";
@@ -1630,7 +1281,7 @@ export async function updateVisitorAnnotations(
     mergeSourceVisitorId?: string;
   }
 ): Promise<PublicVisitorDTO | null> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
 
   if (input.mergeSourceVisitorId && input.mergeSourceVisitorId !== visitorPublicId) {
     const target = memVisitors.find((v) => v.publicId === visitorPublicId);
@@ -1705,7 +1356,7 @@ export async function updateVisitorAnnotations(
 // Security Rules CRUD
 // ==============================================================================
 export async function listSecurityRules(sitePublicId?: string): Promise<PublicSecurityRuleDTO[]> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   return memRules
     .filter((r) => {
       if (!sitePublicId || sitePublicId === "all") return true;
@@ -1739,7 +1390,7 @@ export async function createSecurityRule(input: {
   conditions: SecurityRuleCondition[];
   priority?: number;
 }): Promise<PublicSecurityRuleDTO> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const site = input.sitePublicId
     ? memSites.find((s) => s.publicId === input.sitePublicId)
     : null;
@@ -1783,7 +1434,7 @@ export async function updateSecurityRule(
     incrementHit?: boolean;
   }
 ): Promise<PublicSecurityRuleDTO | null> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const rule = memRules.find((r) => r.publicId === rulePublicId);
   if (!rule) return null;
   if (input.isEnabled !== undefined) rule.isEnabled = input.isEnabled;
@@ -1808,7 +1459,7 @@ export async function updateSecurityRule(
 }
 
 export async function deleteSecurityRule(rulePublicId: string): Promise<boolean> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const idx = memRules.findIndex((r) => r.publicId === rulePublicId);
   if (idx === -1) return false;
   memRules.splice(idx, 1);
@@ -1830,7 +1481,7 @@ export async function recordWebhookDelivery(input: {
   payload: Record<string, unknown>;
   responseExcerpt?: string | null;
 }): Promise<PublicWebhookDeliveryDTO> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const site = memSites.find((s) => s.publicId === input.sitePublicId) ?? memSites[0]!;
   const item: InternalWebhookDeliveryRecord = {
     id: nextWebhookDeliveryId++,
@@ -1867,7 +1518,7 @@ export async function recordWebhookDelivery(input: {
 export async function listWebhookDeliveries(
   sitePublicId?: string
 ): Promise<PublicWebhookDeliveryDTO[]> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   return memWebhookDeliveries
     .filter((d) => {
       if (!sitePublicId) return true;
@@ -1898,7 +1549,7 @@ export async function getDashboardMetrics(
   period: "1h" | "24h" | "7d" | "30d" | "90d" = "24h",
   sitePublicId?: string
 ): Promise<DashboardMetricsDTO> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const eventsList = await listFingerprintEvents({
     sitePublicId,
     limit: 50,
@@ -1911,294 +1562,156 @@ export async function getDashboardMetrics(
   const botSpoofRate = totalEvents > 0 ? Math.round((botOrSpoofCount / totalEvents) * 100) : 0;
   const crossBrowserMatches = eventsList.filter((e) => e.crossBrowserMatched).length;
   const vpnTorCount = eventsList.filter((e) => e.isVpn || e.isTor || e.isProxy).length;
-  const vpnSharePercent = totalEvents > 0 ? Math.round((vpnTorCount / totalEvents) * 100) : 28;
+  const vpnSharePercent = totalEvents > 0 ? Math.round((vpnTorCount / totalEvents) * 100) : 0;
   const returnRatePercent =
     totalEvents > uniqueVisitors && totalEvents > 0
       ? Math.round(((totalEvents - uniqueVisitors) / totalEvents) * 100)
-      : 42;
+      : 0;
 
-  const trendSeries = [
-    { bucket: "00:00", total: 18, clean: 14, suspicious: 2, highRisk: 2, bots: 1 },
-    { bucket: "04:00", total: 27, clean: 20, suspicious: 3, highRisk: 4, bots: 3 },
-    { bucket: "08:00", total: 52, clean: 39, suspicious: 6, highRisk: 7, bots: 4 },
-    { bucket: "12:00", total: 74, clean: 55, suspicious: 8, highRisk: 11, bots: 6 },
-    { bucket: "16:00", total: 61, clean: 46, suspicious: 6, highRisk: 9, bots: 5 },
-    {
-      bucket: "20:00",
-      total: 42 + totalEvents,
-      clean: 31 + Math.max(0, totalEvents - highRiskDetections),
-      suspicious: 6 + crossBrowserMatches,
-      highRisk: 5 + highRiskDetections,
-      bots: 3 + botOrSpoofCount,
-    },
-  ];
+  const bucketLabels = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"];
+  const trendSeries = bucketLabels.map((bucket) => ({
+    bucket,
+    total: 0,
+    clean: 0,
+    suspicious: 0,
+    highRisk: 0,
+    bots: 0,
+  }));
+  for (const evt of eventsList) {
+    const hour = new Date(evt.createdAt).getUTCHours();
+    const bucketIdx = Math.min(5, Math.floor(hour / 4));
+    const slot = trendSeries[bucketIdx];
+    if (slot) {
+      slot.total += 1;
+      if (evt.isBot || evt.isSpoofed) slot.bots += 1;
+      if (evt.dangerLevel >= 3) slot.highRisk += 1;
+      else if (evt.crossBrowserMatched || evt.dangerLevel >= 2) slot.suspicious += 1;
+      else slot.clean += 1;
+    }
+  }
 
   const vectorDistribution = [
-    { vector: "Bot / CDP", count: eventsList.filter((e) => e.isBot).length || 4 },
-    { vector: "Anti-Spoof", count: eventsList.filter((e) => e.isSpoofed).length || 5 },
-    { vector: "VPN / Proxy", count: eventsList.filter((e) => e.isVpn || e.isProxy).length || 9 },
-    { vector: "Tor Exit", count: eventsList.filter((e) => e.isTor).length || 2 },
-    { vector: "Datacenter ASN", count: eventsList.filter((e) => e.isDatacenter).length || 11 },
-    { vector: "Incognito", count: eventsList.filter((e) => e.isIncognito).length || 6 },
+    { vector: "Bot / CDP", count: eventsList.filter((e) => e.isBot).length },
+    { vector: "Anti-Spoof", count: eventsList.filter((e) => e.isSpoofed).length },
+    { vector: "VPN / Proxy", count: eventsList.filter((e) => e.isVpn || e.isProxy).length },
+    { vector: "Tor Exit", count: eventsList.filter((e) => e.isTor).length },
+    { vector: "Datacenter ASN", count: eventsList.filter((e) => e.isDatacenter).length },
+    { vector: "Incognito", count: eventsList.filter((e) => e.isIncognito).length },
   ];
 
-  const browserDistribution = [
-    {
-      name: "Chrome / V8",
-      count: eventsList.filter((e) => /Chrome/i.test(e.browser ?? "")).length + 42,
-    },
-    {
-      name: "Firefox / Gecko",
-      count: eventsList.filter((e) => /Firefox/i.test(e.browser ?? "")).length + 18,
-    },
-    {
-      name: "Safari / WebKit",
-      count: eventsList.filter((e) => /Safari/i.test(e.browser ?? "")).length + 15,
-    },
-    {
-      name: "Edge / Chromium",
-      count: eventsList.filter((e) => /Edge/i.test(e.browser ?? "")).length + 9,
-    },
-  ];
+  const browserCounts = new Map<string, number>();
+  const osCounts = new Map<string, number>();
+  const platformCounts = new Map<string, number>();
+  const countryMap = new Map<string, { code: string; asn: string; count: number }>();
+  const asnMap = new Map<number, { asnNumber: number; asnOrg: string; count: number; isRisk: boolean }>();
 
-  const osRaw = [
-    { name: "iOS", count: eventsList.filter((e) => /iOS/i.test(e.os ?? "")).length + 776 },
-    { name: "Windows", count: eventsList.filter((e) => /Windows/i.test(e.os ?? "")).length + 558 },
-    { name: "Android", count: eventsList.filter((e) => /Android/i.test(e.os ?? "")).length + 385 },
-    { name: "macOS", count: eventsList.filter((e) => /macOS/i.test(e.os ?? "")).length + 148 },
-    { name: "Linux", count: eventsList.filter((e) => /Linux/i.test(e.os ?? "")).length + 89 },
-    { name: "iPadOS", count: 34 },
-  ];
-  const osTotal = osRaw.reduce((acc, item) => acc + item.count, 0) || 1;
-  const osDistribution = osRaw.map((item) => ({
-    ...item,
-    share: Math.max(1, Math.round((item.count / osTotal) * 100)),
-  }));
+  for (const evt of eventsList) {
+    const browserName = evt.browser?.trim() || "Unknown";
+    browserCounts.set(browserName, (browserCounts.get(browserName) ?? 0) + 1);
 
-  const platformRaw = [
-    { name: "Phone", count: 1161 },
-    { name: "Desktop", count: 655 + eventsList.length },
-    { name: "Tablet", count: 68 },
-  ];
-  const platformTotal = platformRaw.reduce((acc, item) => acc + item.count, 0) || 1;
-  const platformDistribution = platformRaw.map((item) => ({
-    ...item,
-    share: Math.max(1, Math.round((item.count / platformTotal) * 100)),
-  }));
+    const osName = evt.os?.trim() || "Unknown";
+    osCounts.set(osName, (osCounts.get(osName) ?? 0) + 1);
 
-  const countriesRaw = [
-    {
-      country: "France",
-      code: "FR",
-      flag: "🇫🇷",
-      asn: "AS3215 Orange S.A.",
-      count: 1480 + eventsList.filter((e) => e.country === "FR").length,
-    },
-    {
-      country: "Switzerland",
-      code: "CH",
-      flag: "🇨🇭",
-      asn: "AS6730 Sunrise GmbH",
-      count: 142,
-    },
-    {
-      country: "United States",
-      code: "US",
-      flag: "🇺🇸",
-      asn: "AS14061 DigitalOcean LLC",
-      count: 118 + eventsList.filter((e) => e.country === "US").length,
-    },
-    {
-      country: "Germany",
-      code: "DE",
-      flag: "🇩🇪",
-      asn: "AS24940 Hetzner Online GmbH",
-      count: 96 + eventsList.filter((e) => e.country === "DE").length,
-    },
-    {
-      country: "Netherlands",
-      code: "NL",
-      flag: "🇳🇱",
-      asn: "AS60781 LeaseWeb Netherlands",
-      count: 74,
-    },
-    {
-      country: "United Kingdom",
-      code: "GB",
-      flag: "🇬🇧",
-      asn: "AS9009 M247 Europe SRL",
-      count: 61,
-    },
-    {
-      country: "Canada",
-      code: "CA",
-      flag: "🇨🇦",
-      asn: "AS16276 OVH SAS",
-      count: 52,
-    },
-    {
-      country: "Italy",
-      code: "IT",
-      flag: "🇮🇹",
-      asn: "AS3269 Telecom Italia",
-      count: 44,
-    },
-    {
-      country: "Morocco",
-      code: "MA",
-      flag: "🇲🇦",
-      asn: "AS36925 Medi Telecom",
-      count: 38,
-    },
-    {
-      country: "Portugal",
-      code: "PT",
-      flag: "🇵🇹",
-      asn: "AS12353 Vodafone Portugal",
-      count: 33,
-    },
-    {
-      country: "India",
-      code: "IN",
-      flag: "🇮🇳",
-      asn: "AS55836 Reliance Jio",
-      count: 29,
-    },
-    {
-      country: "Belgium",
-      code: "BE",
-      flag: "🇧🇪",
-      asn: "AS5432 Proximus NV",
-      count: 25,
-    },
-  ];
-  const countriesTotal = countriesRaw.reduce((acc, c) => acc + c.count, 0) || 1;
-  const topCountries = countriesRaw.map((c) => ({
-    ...c,
-    share: Math.max(1, Math.round((c.count / countriesTotal) * 100)),
-  }));
+    const deviceName = evt.device?.trim() || "Desktop";
+    platformCounts.set(deviceName, (platformCounts.get(deviceName) ?? 0) + 1);
 
-  const asnsRaw = [
-    {
-      asnNumber: 3215,
-      asnOrg: "Orange S.A.",
-      count: 577 + eventsList.filter((e) => e.asnNumber === 3215).length,
-      brandColor: "#f97316",
-      badgeText: "OR",
-      isRisk: false,
-    },
-    {
-      asnNumber: 12322,
-      asnOrg: "Free SAS",
-      count: 345,
-      brandColor: "#ef4444",
-      badgeText: "f",
-      isRisk: false,
-    },
-    {
-      asnNumber: 5410,
-      asnOrg: "Bouygues Telecom SA",
-      count: 343,
-      brandColor: "#0ea5e9",
-      badgeText: "BT",
-      isRisk: false,
-    },
-    {
-      asnNumber: 15557,
-      asnOrg: "Societe Francaise Du Radiotelephone (SFR)",
-      count: 198,
-      brandColor: "#dc2626",
-      badgeText: "SFR",
-      isRisk: false,
-    },
-    {
-      asnNumber: 212238,
-      asnOrg: "Datacamp Limited / Mullvad VPN",
-      count: 92 + eventsList.filter((e) => e.asnNumber === 212238).length,
-      brandColor: "#eab308",
-      badgeText: "MV",
-      isRisk: true,
-    },
-    {
-      asnNumber: 6730,
-      asnOrg: "Sunrise GmbH",
-      count: 67,
-      brandColor: "#e11d48",
-      badgeText: "SR",
-      isRisk: false,
-    },
-    {
-      asnNumber: 24940,
-      asnOrg: "Hetzner Online GmbH",
-      count: 61 + eventsList.filter((e) => e.asnNumber === 24940).length,
-      brandColor: "#f43f5e",
-      badgeText: "HZ",
-      isRisk: true,
-    },
-    {
-      asnNumber: 9009,
-      asnOrg: "M247 Europe SRL",
-      count: 49,
-      brandColor: "#facc15",
-      badgeText: "M",
-      isRisk: true,
-    },
-    {
-      asnNumber: 51207,
-      asnOrg: "Free Mobile SAS",
-      count: 48,
-      brandColor: "#6366f1",
-      badgeText: "FM",
-      isRisk: false,
-    },
-    {
-      asnNumber: 147049,
-      asnOrg: "PacketHub S.A. (NordVPN)",
-      count: 48,
-      brandColor: "#3b82f6",
-      badgeText: "PH",
-      isRisk: true,
-    },
-    {
-      asnNumber: 16276,
-      asnOrg: "OVH SAS",
-      count: 42,
-      brandColor: "#2563eb",
-      badgeText: "OVH",
-      isRisk: true,
-    },
-    {
-      asnNumber: 12353,
-      asnOrg: "Vodafone Portugal - Comunicacoes Pessoais",
-      count: 32,
-      brandColor: "#ef4444",
-      badgeText: "VF",
-      isRisk: false,
-    },
-  ];
-  const asnsTotal = asnsRaw.reduce((acc, a) => acc + a.count, 0) || 1;
-  const topAsns = asnsRaw.map((a) => ({
-    ...a,
-    share: Math.max(1, Math.round((a.count / asnsTotal) * 100)),
-  }));
+    if (evt.country) {
+      const code = evt.country.toUpperCase();
+      const existing = countryMap.get(code);
+      const asnLabel = evt.asnNumber
+        ? `AS${evt.asnNumber}${evt.asnOrg ? ` ${evt.asnOrg}` : ""}`
+        : "Unknown";
+      if (existing) {
+        existing.count += 1;
+      } else {
+        countryMap.set(code, { code, asn: asnLabel, count: 1 });
+      }
+    }
+
+    if (evt.asnNumber !== null) {
+      const existingAsn = asnMap.get(evt.asnNumber);
+      const isRisk = evt.isVpn || evt.isTor || evt.isProxy || evt.isDatacenter;
+      if (existingAsn) {
+        existingAsn.count += 1;
+        existingAsn.isRisk = existingAsn.isRisk || isRisk;
+      } else {
+        asnMap.set(evt.asnNumber, {
+          asnNumber: evt.asnNumber,
+          asnOrg: evt.asnOrg ?? `AS${evt.asnNumber}`,
+          count: 1,
+          isRisk,
+        });
+      }
+    }
+  }
+
+  const browserDistribution = Array.from(browserCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+
+  const osTotal = totalEvents || 1;
+  const osDistribution = Array.from(osCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({
+      name,
+      count,
+      share: totalEvents > 0 ? Math.max(1, Math.round((count / osTotal) * 100)) : 0,
+    }));
+
+  const platformTotal = totalEvents || 1;
+  const platformDistribution = Array.from(platformCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({
+      name,
+      count,
+      share: totalEvents > 0 ? Math.max(1, Math.round((count / platformTotal) * 100)) : 0,
+    }));
+
+  const countryTotal = Array.from(countryMap.values()).reduce((acc, c) => acc + c.count, 0) || 1;
+  const topCountries = Array.from(countryMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12)
+    .map((c) => ({
+      country: c.code,
+      code: c.code,
+      flag: c.code,
+      asn: c.asn,
+      count: c.count,
+      share: Math.max(1, Math.round((c.count / countryTotal) * 100)),
+    }));
+
+  const asnTotal = Array.from(asnMap.values()).reduce((acc, a) => acc + a.count, 0) || 1;
+  const asnPalette = ["#f97316", "#ef4444", "#0ea5e9", "#eab308", "#6366f1", "#3b82f6"];
+  const topAsns = Array.from(asnMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12)
+    .map((a, idx) => ({
+      asnNumber: a.asnNumber,
+      asnOrg: a.asnOrg,
+      count: a.count,
+      share: Math.max(1, Math.round((a.count / asnTotal) * 100)),
+      brandColor: asnPalette[idx % asnPalette.length] ?? "#6366f1",
+      badgeText: a.asnOrg.slice(0, 2).toUpperCase(),
+      isRisk: a.isRisk,
+    }));
 
   return {
     period,
     totalEvents,
-    totalEventsDelta: 14.2,
-    throughputPerMin: Number((totalEvents / 10 + 4.8).toFixed(1)),
+    totalEventsDelta: 0,
+    throughputPerMin: totalEvents > 0 ? Number((totalEvents / 10).toFixed(1)) : 0,
     uniqueVisitors,
-    uniqueVisitorsDelta: 8.6,
+    uniqueVisitorsDelta: 0,
     returnRatePercent,
     highRiskDetections,
-    highRiskDelta: -3.4,
+    highRiskDelta: 0,
     botSpoofRate,
-    botSpoofDelta: 2.1,
+    botSpoofDelta: 0,
     crossBrowserMatches,
     vpnTorCount,
     vpnSharePercent,
-    avgCollectionMs: 11,
-    activeTrieCidrs: 54133,
+    avgCollectionMs: 0,
+    activeTrieCidrs: globalThreatTrie.size(),
     trendSeries,
     vectorDistribution,
     browserDistribution,
@@ -2211,7 +1724,7 @@ export async function getDashboardMetrics(
 }
 
 export async function listThreatFeedStatuses(): Promise<PublicThreatFeedDTO[]> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   if (await isDatabaseConnected()) {
     const rows = await prisma.threatFeedStatus.findMany({ orderBy: { feedName: "asc" } });
     if (rows.length > 0) {
@@ -2229,7 +1742,7 @@ export async function listThreatFeedStatuses(): Promise<PublicThreatFeedDTO[]> {
 }
 
 export async function purgeOldFingerprintEvents(retentionDays: number): Promise<number> {
-  ensureMemorySeeded();
+  ensureFeedsInitialized();
   const cutoff = new Date(Date.now() - retentionDays * 86400000);
   if (await isDatabaseConnected()) {
     try {

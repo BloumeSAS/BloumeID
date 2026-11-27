@@ -3,7 +3,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { POST as fingerprintPOST } from "../src/app/api/v1/fingerprint/route";
-import { DEMO_PUBLIC_KEY } from "../src/lib/engine/repository";
+import { createSiteRecord } from "../src/lib/engine/repository";
 
 describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execution", () => {
   it("verifies zero explicit 'any' across all TypeScript source files in apps/web and packages/bloumeid", () => {
@@ -38,13 +38,17 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
   });
 
   it("blocks disallowed CORS origins and expired anti-replay timestamps on POST /api/v1/fingerprint", async () => {
+    const testSite = await createSiteRecord({
+      name: "Security Audit Site",
+      domains: ["localhost", "app.bloume.io"],
+    });
     const disallowedCorsRes = await fingerprintPOST(
       new Request("http://localhost:3000/api/v1/fingerprint", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Origin: "https://untrusted-phishing-domain.org",
-          "X-BloumeID-Key": DEMO_PUBLIC_KEY,
+          "X-BloumeID-Key": testSite.publicKey,
         },
         body: JSON.stringify({}),
       })
@@ -57,7 +61,7 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
         headers: {
           "Content-Type": "application/json",
           Origin: "https://app.bloume.io",
-          "X-BloumeID-Key": DEMO_PUBLIC_KEY,
+          "X-BloumeID-Key": testSite.publicKey,
         },
         body: JSON.stringify({
           timestamp: Date.now() - 10 * 60 * 1000, // 10 minutes old (> 5 min window)
@@ -145,7 +149,10 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
 
   it("rejects oversized (> 64 KB) JSON payloads on POST /api/v1/fingerprint with 413", async () => {
     const { POST } = await import("../src/app/api/v1/fingerprint/route");
-    const { DEMO_PUBLIC_KEY } = await import("../src/lib/engine/repository");
+    const testSite = await createSiteRecord({
+      name: "Oversize Test Site",
+      domains: ["localhost"],
+    });
     const bigString = "x".repeat(70 * 1024);
 
     const req = new Request("http://localhost:3000/api/v1/fingerprint", {
@@ -153,7 +160,7 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
       headers: {
         "Content-Type": "application/json",
         Origin: "http://localhost:3000",
-        "X-BloumeID-Key": DEMO_PUBLIC_KEY,
+        "X-BloumeID-Key": testSite.publicKey,
       },
       body: JSON.stringify({ bigString }),
     });

@@ -16,6 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.BLOUMEID_PUBLIC_URL || "http://localhost:3000"),
   title: "BloumeID — Self-Hosted Fingerprinting & Threat Intelligence",
   description:
     "Deterministic visitor fingerprinting, bot & anti-spoof detection, and network threat intelligence by Bloume SAS.",
