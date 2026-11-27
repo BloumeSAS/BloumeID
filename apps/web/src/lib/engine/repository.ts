@@ -619,12 +619,63 @@ export async function getEventByPublicId(
   );
 }
 
+export type TimePeriod = "1h" | "24h" | "7d" | "30d" | "90d";
+
+export function resolvePeriodRange(period?: string | null): {
+  period: TimePeriod;
+  since: Date;
+  prevSince: Date;
+  bucketUnit: "minute" | "hour" | "day";
+} {
+  const now = Date.now();
+  switch (period) {
+    case "1h":
+      return {
+        period: "1h",
+        since: new Date(now - 60 * 60 * 1000),
+        prevSince: new Date(now - 2 * 60 * 60 * 1000),
+        bucketUnit: "minute",
+      };
+    case "7d":
+      return {
+        period: "7d",
+        since: new Date(now - 7 * 86400000),
+        prevSince: new Date(now - 14 * 86400000),
+        bucketUnit: "day",
+      };
+    case "30d":
+      return {
+        period: "30d",
+        since: new Date(now - 30 * 86400000),
+        prevSince: new Date(now - 60 * 86400000),
+        bucketUnit: "day",
+      };
+    case "90d":
+      return {
+        period: "90d",
+        since: new Date(now - 90 * 86400000),
+        prevSince: new Date(now - 180 * 86400000),
+        bucketUnit: "day",
+      };
+    case "24h":
+    default:
+      return {
+        period: "24h",
+        since: new Date(now - 24 * 60 * 60 * 1000),
+        prevSince: new Date(now - 48 * 60 * 60 * 1000),
+        bucketUnit: "hour",
+      };
+  }
+}
+
 export async function listFingerprintEvents(filters?: {
   sitePublicId?: string;
   query?: string;
   minDanger?: number;
   vector?: "all" | "bot" | "vpntor" | "spoofed" | "crossbrowser";
   linkedId?: string;
+  since?: Date;
+  until?: Date;
   limit?: number;
 }): Promise<PublicFingerprintEventDTO[]> {
   ensureFeedsInitialized();
@@ -636,7 +687,18 @@ export async function listFingerprintEvents(filters?: {
 
   if (await isDatabaseConnected()) {
     try {
+      const dbWhere: Record<string, unknown> = {};
+      if (filters?.since || filters?.until) {
+        const createdAtFilter: Record<string, Date> = {};
+        if (filters.since) createdAtFilter.gte = filters.since;
+        if (filters.until) createdAtFilter.lt = filters.until;
+        dbWhere.createdAt = createdAtFilter;
+      }
+      if (filters?.sitePublicId && filters.sitePublicId !== "all") {
+        dbWhere.site = { publicId: filters.sitePublicId };
+      }
       const dbEvents = await prisma.fingerprintEvent.findMany({
+        where: dbWhere,
         orderBy: { createdAt: "desc" },
         take: limit,
         include: { site: true, visitor: true },
@@ -704,6 +766,8 @@ export async function listFingerprintEvents(filters?: {
       ) {
         return false;
       }
+      if (filters?.since && new Date(e.createdAt) < filters.since) return false;
+      if (filters?.until && new Date(e.createdAt) >= filters.until) return false;
       if (e.dangerLevel < minDanger) return false;
       if (filters?.linkedId && e.linkedId !== filters.linkedId) return false;
       if (vector === "bot" && !e.isBot) return false;
@@ -740,6 +804,7 @@ export async function listFingerprintEventsPaginated(filters?: {
   vector?: "all" | "bot" | "vpntor" | "spoofed" | "crossbrowser";
   linkedId?: string;
   action?: string;
+  since?: Date;
   page?: number;
   pageSize?: number;
 }): Promise<PaginatedResponse<PublicFingerprintEventDTO>> {
@@ -753,6 +818,9 @@ export async function listFingerprintEventsPaginated(filters?: {
   if (await isDatabaseConnected()) {
     try {
       const where: Record<string, unknown> = {};
+      if (filters?.since) {
+        where.createdAt = { gte: filters.since };
+      }
       if (filters?.sitePublicId && filters.sitePublicId !== "all") {
         where.site = { publicId: filters.sitePublicId };
       }
@@ -1126,6 +1194,7 @@ export async function deleteSiteRecord(sitePublicId: string): Promise<boolean> {
 export async function listVisitors(filters?: {
   query?: string;
   onlyHighRisk?: boolean;
+  since?: Date;
 }): Promise<PublicVisitorDTO[]> {
   ensureFeedsInitialized();
   const q = filters?.query?.trim().toLowerCase() ?? "";
@@ -1133,8 +1202,12 @@ export async function listVisitors(filters?: {
 
   if (await isDatabaseConnected()) {
     try {
+      const where: Record<string, unknown> = { mergedIntoId: null };
+      if (filters?.since) {
+        where.lastSeenAt = { gte: filters.since };
+      }
       const visitors = await prisma.visitor.findMany({
-        where: { mergedIntoId: null },
+        where,
         include: { site: true },
         orderBy: { lastSeenAt: "desc" },
         take: 100,
@@ -1169,7 +1242,7 @@ export async function listVisitors(filters?: {
   }
 
   return memVisitors
-    .filter((v) => !v.mergedIntoId)
+    .filter((v) => !v.mergedIntoId && (!filters?.since || v.lastSeenAt >= filters.since))
     .map((v) => {
       const site = memSites.find((s) => s.id === v.siteId);
       return {
@@ -1201,6 +1274,7 @@ export async function listVisitorsPaginated(filters?: {
   query?: string;
   onlyHighRisk?: boolean;
   trustStatus?: string;
+  since?: Date;
   page?: number;
   pageSize?: number;
 }): Promise<PaginatedResponse<PublicVisitorDTO>> {
@@ -1212,6 +1286,9 @@ export async function listVisitorsPaginated(filters?: {
   if (await isDatabaseConnected()) {
     try {
       const where: Record<string, unknown> = { mergedIntoId: null };
+      if (filters?.since) {
+        where.lastSeenAt = { gte: filters.since };
+      }
       if (filters?.sitePublicId && filters.sitePublicId !== "all") {
         where.site = { publicId: filters.sitePublicId };
       }
@@ -1545,15 +1622,30 @@ export async function listWebhookDeliveries(
     });
 }
 
+function computePercentDelta(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Number((((current - previous) / previous) * 100).toFixed(1));
+}
+
 export async function getDashboardMetrics(
   period: "1h" | "24h" | "7d" | "30d" | "90d" = "24h",
   sitePublicId?: string
 ): Promise<DashboardMetricsDTO> {
   ensureFeedsInitialized();
-  const eventsList = await listFingerprintEvents({
-    sitePublicId,
-    limit: 50,
-  });
+  const { period: normalizedPeriod, since, prevSince, bucketUnit } = resolvePeriodRange(period);
+  const [eventsList, prevEventsList] = await Promise.all([
+    listFingerprintEvents({
+      sitePublicId,
+      since,
+      limit: 500,
+    }),
+    listFingerprintEvents({
+      sitePublicId,
+      since: prevSince,
+      until: since,
+      limit: 500,
+    }),
+  ]);
 
   const totalEvents = eventsList.length;
   const uniqueVisitors = new Set(eventsList.map((e) => e.visitorPublicId)).size;
@@ -1568,18 +1660,46 @@ export async function getDashboardMetrics(
       ? Math.round(((totalEvents - uniqueVisitors) / totalEvents) * 100)
       : 0;
 
-  const bucketLabels = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"];
-  const trendSeries = bucketLabels.map((bucket) => ({
-    bucket,
-    total: 0,
-    clean: 0,
-    suspicious: 0,
-    highRisk: 0,
-    bots: 0,
-  }));
+  const prevTotalEvents = prevEventsList.length;
+  const prevUniqueVisitors = new Set(prevEventsList.map((e) => e.visitorPublicId)).size;
+  const prevHighRisk = prevEventsList.filter((e) => e.dangerLevel >= 3).length;
+  const prevBotRate =
+    prevTotalEvents > 0
+      ? Math.round((prevEventsList.filter((e) => e.isBot || e.isSpoofed).length / prevTotalEvents) * 100)
+      : 0;
+
+  const totalEventsDelta = computePercentDelta(totalEvents, prevTotalEvents);
+  const uniqueVisitorsDelta = computePercentDelta(uniqueVisitors, prevUniqueVisitors);
+  const highRiskDelta = computePercentDelta(highRiskDetections, prevHighRisk);
+  const botSpoofDelta = computePercentDelta(botSpoofRate, prevBotRate);
+
+  const nowMs = Date.now();
+  const bucketCount = bucketUnit === "minute" ? 12 : bucketUnit === "hour" ? 6 : normalizedPeriod === "7d" ? 7 : 10;
+  const spanMs = Math.max(60000, nowMs - since.getTime());
+  const bucketMs = spanMs / bucketCount;
+
+  const trendSeries = Array.from({ length: bucketCount }, (_, i) => {
+    const t = new Date(since.getTime() + i * bucketMs);
+    const label =
+      bucketUnit === "minute"
+        ? `${String(t.getUTCHours()).padStart(2, "0")}:${String(t.getUTCMinutes()).padStart(2, "0")}`
+        : bucketUnit === "hour"
+          ? `${String(t.getUTCHours()).padStart(2, "0")}:00`
+          : `${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+    return {
+      bucket: label,
+      total: 0,
+      clean: 0,
+      suspicious: 0,
+      highRisk: 0,
+      bots: 0,
+    };
+  });
+
   for (const evt of eventsList) {
-    const hour = new Date(evt.createdAt).getUTCHours();
-    const bucketIdx = Math.min(5, Math.floor(hour / 4));
+    const evtMs = new Date(evt.createdAt).getTime();
+    const rawIdx = Math.floor((evtMs - since.getTime()) / bucketMs);
+    const bucketIdx = Math.max(0, Math.min(bucketCount - 1, rawIdx));
     const slot = trendSeries[bucketIdx];
     if (slot) {
       slot.total += 1;
@@ -1696,17 +1816,17 @@ export async function getDashboardMetrics(
     }));
 
   return {
-    period,
+    period: normalizedPeriod,
     totalEvents,
-    totalEventsDelta: 0,
-    throughputPerMin: totalEvents > 0 ? Number((totalEvents / 10).toFixed(1)) : 0,
+    totalEventsDelta,
+    throughputPerMin: totalEvents > 0 ? Number((totalEvents / Math.max(1, spanMs / 60000)).toFixed(2)) : 0,
     uniqueVisitors,
-    uniqueVisitorsDelta: 0,
+    uniqueVisitorsDelta,
     returnRatePercent,
     highRiskDetections,
-    highRiskDelta: 0,
+    highRiskDelta,
     botSpoofRate,
-    botSpoofDelta: 0,
+    botSpoofDelta,
     crossBrowserMatches,
     vpnTorCount,
     vpnSharePercent,
@@ -1719,7 +1839,7 @@ export async function getDashboardMetrics(
     platformDistribution,
     topCountries,
     topAsns,
-    recentHighRiskEvents: eventsList,
+    recentHighRiskEvents: eventsList.slice(0, 50),
   };
 }
 

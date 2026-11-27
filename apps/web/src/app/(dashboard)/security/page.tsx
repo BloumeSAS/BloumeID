@@ -12,19 +12,20 @@ import { paginateArray } from "@/lib/pagination";
 import type { PublicVisitorDTO } from "@/types";
 
 export default function SecurityCenterPage() {
-  const { dict } = useI18n();
+  const { dict, timeRange, selectedSiteId, refreshTick } = useI18n();
   const [visitors, setVisitors] = React.useState<PublicVisitorDTO[]>([]);
   const [blockedPage, setBlockedPage] = React.useState(1);
   const [trustedPage, setTrustedPage] = React.useState(1);
 
   React.useEffect(() => {
-    fetch("/api/admin/visitors")
+    const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
+    fetch(`/api/admin/visitors?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { visitors?: PublicVisitorDTO[] } | null) => {
         if (data?.visitors) setVisitors(data.visitors);
       })
       .catch(() => undefined);
-  }, []);
+  }, [timeRange, selectedSiteId, refreshTick]);
 
   const blocked = visitors.filter((v) => v.trustStatus === "blocked");
   const trusted = visitors.filter((v) => v.trustStatus === "trusted");

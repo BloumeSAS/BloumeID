@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
 import { parsePaginationParams } from "@/lib/pagination";
-import { listFingerprintEventsPaginated } from "@/lib/engine/repository";
+import { listFingerprintEventsPaginated, resolvePeriodRange } from "@/lib/engine/repository";
 
 const VectorSchema = z
   .enum(["all", "bot", "vpntor", "spoofed", "crossbrowser"])
@@ -21,6 +21,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   const vector = parsedVector.success ? parsedVector.data : "all";
   const linkedId = url.searchParams.get("linkedId") ?? undefined;
   const action = url.searchParams.get("action") ?? "all";
+  const periodParam = url.searchParams.get("period");
+  const since = periodParam ? resolvePeriodRange(periodParam).since : undefined;
   const { page, pageSize } = parsePaginationParams(url.searchParams, 25);
 
   const result = await listFingerprintEventsPaginated({
@@ -30,6 +32,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     vector,
     linkedId,
     action,
+    since,
     page,
     pageSize,
   });

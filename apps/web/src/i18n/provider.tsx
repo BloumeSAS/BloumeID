@@ -62,7 +62,7 @@ export function I18nProvider({
   const [locale, setLocaleState] = React.useState<Locale>(initialLocale);
   const [theme, setThemeState] = React.useState<ThemeMode>("dark");
   const [selectedSiteId, setSelectedSiteId] = React.useState<string>("all");
-  const [timeRange, setTimeRange] = React.useState<GlobalTimeRange>("24h");
+  const [timeRange, setTimeRangeState] = React.useState<GlobalTimeRange>("24h");
   const [viewDensity, setViewDensityState] = React.useState<ViewDensityMode>("comfort");
   const [autoRefreshSec, setAutoRefreshSec] = React.useState<AutoRefreshInterval>(0);
   const [refreshTick, setRefreshTick] = React.useState<number>(0);
@@ -85,6 +85,16 @@ export function I18nProvider({
       const savedDensity = window.localStorage.getItem("bloumeid_density") as ViewDensityMode | null;
       if (savedDensity === "comfort" || savedDensity === "compact") {
         setViewDensityState(savedDensity);
+      }
+      const savedRange = window.localStorage.getItem("bloumeid_time_range") as GlobalTimeRange | null;
+      if (
+        savedRange === "1h" ||
+        savedRange === "24h" ||
+        savedRange === "7d" ||
+        savedRange === "30d" ||
+        savedRange === "90d"
+      ) {
+        setTimeRangeState(savedRange);
       }
     } catch {
       // Ignore storage error
@@ -126,6 +136,15 @@ export function I18nProvider({
     setViewDensityState(next);
     try {
       window.localStorage.setItem("bloumeid_density", next);
+    } catch {
+      // Ignore storage error
+    }
+  }, []);
+
+  const setTimeRange = React.useCallback((next: GlobalTimeRange) => {
+    setTimeRangeState(next);
+    try {
+      window.localStorage.setItem("bloumeid_time_range", next);
     } catch {
       // Ignore storage error
     }

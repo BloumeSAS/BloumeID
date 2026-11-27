@@ -94,6 +94,22 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     expect(dashData.topCountries).toEqual([]);
     expect(dashData.topAsns).toEqual([]);
 
+    // Verify all period filters (1h, 24h, 7d, 30d, 90d) are accepted and propagated
+    for (const p of ["1h", "24h", "7d", "30d", "90d"] as const) {
+      const pRes = await dashboardGET(
+        new Request(`http://localhost:3000/api/admin/dashboard?period=${p}`, { headers: authHeaders })
+      );
+      expect(pRes.status).toBe(200);
+      const pBody = (await pRes.json()) as { period: string; trendSeries: unknown[] };
+      expect(pBody.period).toBe(p);
+      expect(pBody.trendSeries.length).toBeGreaterThan(0);
+
+      const evRes = await eventsGET(
+        new Request(`http://localhost:3000/api/admin/events?period=${p}`, { headers: authHeaders })
+      );
+      expect(evRes.status).toBe(200);
+    }
+
     // Events Audit Log API
     const eventsRes = await eventsGET(
       new Request("http://localhost:3000/api/admin/events?minDanger=0", { headers: authHeaders })

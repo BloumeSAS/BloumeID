@@ -12,8 +12,9 @@ import { paginateArray } from "@/lib/pagination";
 import type { PublicSiteDTO } from "@/types";
 
 export default function UsagePage() {
-  const { dict } = useI18n();
+  const { dict, timeRange, selectedSiteId, refreshTick } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
+  const [periodEvents, setPeriodEvents] = React.useState<number | null>(null);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(10);
 
@@ -24,9 +25,17 @@ export default function UsagePage() {
         if (data?.sites) setSites(data.sites);
       })
       .catch(() => undefined);
-  }, []);
 
-  const total30d = sites.reduce((acc, s) => acc + (s.requests30d ?? 0), 0);
+    const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
+    fetch(`/api/admin/dashboard?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { totalEvents?: number } | null) => {
+        if (typeof data?.totalEvents === "number") setPeriodEvents(data.totalEvents);
+      })
+      .catch(() => undefined);
+  }, [timeRange, selectedSiteId, refreshTick]);
+
+  const total30d = periodEvents ?? sites.reduce((acc, s) => acc + (s.requests30d ?? 0), 0);
   const paginatedSites = React.useMemo(
     () => paginateArray(sites, page, pageSize),
     [sites, page, pageSize]

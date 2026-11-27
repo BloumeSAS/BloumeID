@@ -5,6 +5,7 @@ import { parsePaginationParams } from "@/lib/pagination";
 import {
   getVisitorByPublicId,
   listVisitorsPaginated,
+  resolvePeriodRange,
   updateVisitorAnnotations,
 } from "@/lib/engine/repository";
 
@@ -35,12 +36,15 @@ export async function GET(request: Request): Promise<NextResponse> {
   const onlyHighRisk = url.searchParams.get("highRisk") === "true";
   const sitePublicId = url.searchParams.get("siteId") ?? "all";
   const trustStatus = url.searchParams.get("trustStatus") ?? "all";
+  const periodParam = url.searchParams.get("period");
+  const since = periodParam ? resolvePeriodRange(periodParam).since : undefined;
   const { page, pageSize } = parsePaginationParams(url.searchParams, 25);
   const result = await listVisitorsPaginated({
     sitePublicId,
     query,
     onlyHighRisk,
     trustStatus,
+    since,
     page,
     pageSize,
   });

@@ -1,14 +1,30 @@
 # ==============================================================================
-# BloumeID v1.0.0 — External DB & Redis / Valkey Stack (docker-compose.external-db.yml)
-# Use this file in Coolify or Kubernetes/Docker environments when you already
-# manage your own PostgreSQL and Redis/Valkey services externally.
+# BloumeID — External PostgreSQL + Bundled Valkey/Redis Stack (docker-compose.external-db.yml)
+# Use this file in Coolify or Docker environments when you manage your own
+# external PostgreSQL database. Valkey 8 (Redis) is included & managed locally.
 # ==============================================================================
 services:
+  bloumeid-redis:
+    image: valkey/valkey:8-alpine
+    container_name: bloumeid-redis
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes:
+      - bloumeid_redis_data:/data
+    networks:
+      - bloumeid_backend
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   bloumeid-web:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/bloume-sas/bloumeid:1.0.0
+    image: ghcr.io/bloume-sas/bloumeid:1.4.3
     container_name: bloumeid-web
     restart: unless-stopped
     ports:
@@ -19,7 +35,7 @@ services:
     environment:
       ADMIN_MASTER_KEY: ${ADMIN_MASTER_KEY:?ADMIN_MASTER_KEY is required}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required (external PostgreSQL)}
-      REDIS_URL: ${REDIS_URL:?REDIS_URL is required (external Redis or Valkey)}
+      REDIS_URL: ${REDIS_URL:-redis://bloumeid-redis:6379}
       WORKER_ID: ${WORKER_ID:-1}
       BLOUMEID_PUBLIC_URL: ${BLOUMEID_PUBLIC_URL:-http://localhost:3000}
       NEXT_PUBLIC_BLOUMEID_PUBLIC_URL: ${NEXT_PUBLIC_BLOUMEID_PUBLIC_URL:-http://localhost:3000}
@@ -32,6 +48,11 @@ services:
       MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:-}
     volumes:
       - bloumeid_geoip_data:/app/data
+    networks:
+      - bloumeid_backend
+    depends_on:
+      bloumeid-redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/health || exit 1"]
       interval: 15s
@@ -41,4 +62,9 @@ services:
 
 volumes:
   bloumeid_geoip_data:
+  bloumeid_redis_data:
+
+networks:
+  bloumeid_backend:
+    driver: bridge
 

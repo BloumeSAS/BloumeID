@@ -2,11 +2,11 @@
 
 <img src="apps/web/public/brand/logo.png" alt="BloumeID Logo" width="104" />
 
-# BloumeID v1.4.3
+# BloumeID v1.4.4
 
 **Plateforme Open-Source Self-Hosted de Fingerprinting (104 Signaux), Anti-Spoofing & Threat Intelligence**
 
-[![Version](https://img.shields.io/badge/version-v1.4.3-635bff?style=for-the-badge)](https://github.com/BloumeSAS/BloumeID/releases)
+[![Version](https://img.shields.io/badge/version-v1.4.4-635bff?style=for-the-badge)](https://github.com/BloumeSAS/BloumeID/releases)
 [![SDK @bloume/id](https://img.shields.io/badge/SDK_%40bloume%2Fid-v1.1.0-cb3837?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/@bloume/id)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=for-the-badge)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org)
@@ -34,7 +34,7 @@
 
 ## Tableau Comparatif Technique
 
-| Capacité / Architecture | **BloumeID v1.4.3** | Fingerprint.com Pro | ThumbmarkJS Pro |
+| Capacité / Architecture | **BloumeID v1.4.4** | Fingerprint.com Pro | ThumbmarkJS Pro |
 | :--- | :---: | :---: | :---: |
 | **Licence & Hébergement** | ✅ **MIT / 100 % Self-Hosted** | ❌ SaaS Propriétaire | ⚠️ SaaS Payant |
 | **Coût par requête** | ✅ **0 € (Illimité)** | ❌ $99 – $2 000+ / mois | ❌ Payant au volume |
@@ -77,8 +77,8 @@
 
 ### Option 1 — Déploiement 1-Clic sur Coolify
 1. Créez une ressource **Docker Compose** dans Coolify pointant vers `https://github.com/BloumeSAS/BloumeID`.
-2. Sélectionnez `docker-compose.yml` (stack complète `bloumeid-web` + `PostgreSQL 17` + `Valkey 8`) ou `docker-compose.external-db.yml`.
-3. Renseignez `ADMIN_MASTER_KEY`, `ADMIN_USERNAME` et `BLOUMEID_PUBLIC_URL`, puis cliquez sur **Deploy**.
+2. Sélectionnez `docker-compose.yml` (stack complète `bloumeid-web` + `PostgreSQL 17` + `Valkey 8`) ou `docker-compose.external-db.yml` (PostgreSQL externe uniquement, `Valkey 8` inclus et géré localement).
+3. Renseignez `ADMIN_MASTER_KEY`, `ADMIN_USERNAME`, `BLOUMEID_PUBLIC_URL` (et `DATABASE_URL` si vous utilisez `docker-compose.external-db.yml`), puis cliquez sur **Deploy**.
 
 ### Option 2 — Docker Compose Local
 ```bash
@@ -93,7 +93,7 @@ docker compose up -d --build
 | Variable | Description | Défaut / Exemple |
 | :--- | :--- | :--- |
 | `ADMIN_MASTER_KEY` | Clé secrète d'accès à la console `/login` (comparée en temps constant) | `bloumeid_dev_master_key_2026` |
-| `ADMIN_USERNAME` | Nom affiché dans l'en-tête d'administration | `Jules` |
+| `ADMIN_USERNAME` | Nom affiché dans l'en-tête d'administration | `admin` |
 | `DATABASE_URL` | Chaîne de connexion PostgreSQL 17 | `postgresql://bloumeid:...@bloumeid-db:5432/bloumeid` |
 | `REDIS_URL` | URL Valkey / Redis 8 | `redis://bloumeid-redis:6379` |
 | `BLOUMEID_PUBLIC_URL` | URL publique de votre instance BloumeID | `https://id.votre-domaine.fr` |
