@@ -30,10 +30,20 @@ export interface GeoIpStatusInfo {
   lastSyncStatus?: string;
 }
 
-const MIRROR_CITY_URL =
-  "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb";
-const MIRROR_ASN_URL =
-  "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb";
+const MIRROR_CITY_URLS = [
+  "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb",
+  "https://cdn.jsdelivr.net/gh/P3TERX/GeoLite.mmdb@download/GeoLite2-City.mmdb",
+  "https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-City.mmdb",
+];
+const MIRROR_ASN_URLS = [
+  "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb",
+  "https://cdn.jsdelivr.net/gh/P3TERX/GeoLite.mmdb@download/GeoLite2-ASN.mmdb",
+  "https://raw.githubusercontent.com/P3TERX/GeoLite.mmdb/download/GeoLite2-ASN.mmdb",
+];
+const MAXMIND_METADATA_MARKER = Buffer.from([
+  0xab, 0xcd, 0xef, 0x4d, 0x61, 0x78, 0x4d, 0x69, 0x6e, 0x64, 0x2e, 0x63, 0x6f, 0x6d,
+]);
+const DEFAULT_MIN_MMDB_BYTES = 1_000_000;
 
 let cityReader: Reader<CityResponse> | null = null;
 let asnReader: Reader<AsnResponse> | null = null;
@@ -41,8 +51,15 @@ let loadedFiles: string[] = [];
 let initialized = false;
 let lastSyncStatus = "ready";
 
+export function isValidMmdbBuffer(buf: Buffer, minBytes = DEFAULT_MIN_MMDB_BYTES): boolean {
+  if (buf.length < minBytes) return false;
+  const tailStart = Math.max(0, buf.length - 128 * 1024);
+  return buf.subarray(tailStart).includes(MAXMIND_METADATA_MARKER);
+}
+
 export function getGeoIpDirectory(): string {
   return (
+    process.env.GEOIP_DATA_DIR ??
     process.env.GEOIP_DIR ??
     (fs.existsSync("/app/data/geoip")
       ? "/app/data/geoip"
@@ -92,72 +109,121 @@ export async function downloadAndUpdateGeoLite2(options?: {
   customDir?: string;
   licenseKey?: string;
   fetchImpl?: typeof fetch;
+  minBytes?: number;
 }): Promise<{
   updated: boolean;
   mode: "official_maxmind" | "open_mirror";
   cityUpdated: boolean;
   asnUpdated: boolean;
+  errors: string[];
   status: GeoIpStatusInfo;
 }> {
   const dir = options?.customDir ?? getGeoIpDirectory();
   const licenseKey = (options?.licenseKey ?? process.env.MAXMIND_LICENSE_KEY ?? "").trim();
   const fetchFn = options?.fetchImpl ?? fetch;
+  const minBytes = options?.minBytes ?? DEFAULT_MIN_MMDB_BYTES;
   const mode: "official_maxmind" | "open_mirror" =
     licenseKey.length > 4 ? "official_maxmind" : "open_mirror";
+  const errors: string[] = [];
 
   try {
     fs.mkdirSync(dir, { recursive: true });
-  } catch {
-    // Ignore mkdir error
+    fs.accessSync(dir, fs.constants.W_OK);
+  } catch (err) {
+    const msg = `Directory not writable (${dir}): ${err instanceof Error ? err.message : String(err)}`;
+    console.error(`[BloumeID GeoIP] ${msg}`);
+    errors.push(msg);
+    lastSyncStatus = `error: ${msg}`;
+    const status = await initGeoIpReaders(dir);
+    return { updated: false, mode, cityUpdated: false, asnUpdated: false, errors, status };
   }
 
-  let cityUpdated = false;
-  let asnUpdated = false;
-
-  const downloadEdition = async (edition: "GeoLite2-City" | "GeoLite2-ASN", mirrorUrl: string) => {
+  const downloadEdition = async (
+    edition: "GeoLite2-City" | "GeoLite2-ASN",
+    mirrorUrls: string[]
+  ): Promise<boolean> => {
     const targetPath = path.join(dir, `${edition}.mmdb`);
     const tempPath = path.join(dir, `${edition}.mmdb.tmp`);
 
-    try {
+    if (mode === "official_maxmind") {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 25000);
-
-      if (mode === "official_maxmind") {
+      const timer = setTimeout(() => controller.abort(), 60000);
+      try {
         const officialUrl = `https://download.maxmind.com/app/geoip_download?edition_id=${edition}&license_key=${encodeURIComponent(licenseKey)}&suffix=tar.gz`;
-        const res = await fetchFn(officialUrl, { signal: controller.signal });
-        clearTimeout(timer);
-        if (res.ok) {
+        const res = await fetchFn(officialUrl, {
+          signal: controller.signal,
+          redirect: "follow",
+          headers: { "User-Agent": "BloumeID/1.0" },
+        });
+        if (!res.ok) {
+          errors.push(`${edition} (MaxMind): HTTP ${res.status}`);
+        } else {
           const arrBuf = await res.arrayBuffer();
           const mmdbBuf = extractMmdbFromTarGzBuffer(Buffer.from(arrBuf));
-          if (mmdbBuf && mmdbBuf.length > 1024) {
+          if (mmdbBuf && isValidMmdbBuffer(mmdbBuf, minBytes)) {
             fs.writeFileSync(tempPath, mmdbBuf);
             fs.renameSync(tempPath, targetPath);
             return true;
           }
+          errors.push(`${edition} (MaxMind): invalid or truncated .mmdb archive`);
         }
+      } catch (err) {
+        errors.push(
+          `${edition} (MaxMind): ${err instanceof Error ? err.message : String(err)}`
+        );
+      } finally {
+        clearTimeout(timer);
       }
+    }
 
-      // Fallback or Mode B: Zero-Config Open-Source Mirror (.mmdb direct)
-      const resMirror = await fetchFn(mirrorUrl, { signal: controller.signal });
-      clearTimeout(timer);
-      if (resMirror.ok) {
+    for (const mirrorUrl of mirrorUrls) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 60000);
+      try {
+        const resMirror = await fetchFn(mirrorUrl, {
+          signal: controller.signal,
+          redirect: "follow",
+          headers: { "User-Agent": "BloumeID/1.0" },
+        });
+        if (!resMirror.ok) {
+          errors.push(`${edition} (${new URL(mirrorUrl).hostname}): HTTP ${resMirror.status}`);
+          continue;
+        }
         const arrBuf = await resMirror.arrayBuffer();
         const buf = Buffer.from(arrBuf);
-        if (buf.length > 1024) {
-          fs.writeFileSync(tempPath, buf);
-          fs.renameSync(tempPath, targetPath);
-          return true;
+        if (!isValidMmdbBuffer(buf, minBytes)) {
+          errors.push(
+            `${edition} (${new URL(mirrorUrl).hostname}): invalid MMDB payload (${buf.length} bytes)`
+          );
+          continue;
         }
+        fs.writeFileSync(tempPath, buf);
+        fs.renameSync(tempPath, targetPath);
+        return true;
+      } catch (err) {
+        errors.push(
+          `${edition} (${new URL(mirrorUrl).hostname}): ${err instanceof Error ? err.message : String(err)}`
+        );
+      } finally {
+        clearTimeout(timer);
       }
-    } catch {
-      // Ignore network/download error in restricted environments
     }
+
     return false;
   };
 
-  cityUpdated = await downloadEdition("GeoLite2-City", MIRROR_CITY_URL);
-  asnUpdated = await downloadEdition("GeoLite2-ASN", MIRROR_ASN_URL);
-  lastSyncStatus = cityUpdated || asnUpdated ? "updated" : "cached_or_fallback";
+  const cityUpdated = await downloadEdition("GeoLite2-City", MIRROR_CITY_URLS);
+  const asnUpdated = await downloadEdition("GeoLite2-ASN", MIRROR_ASN_URLS);
+  lastSyncStatus =
+    cityUpdated || asnUpdated
+      ? errors.length > 0
+        ? `partial: ${errors.join("; ")}`
+        : "updated"
+      : `failed: ${errors.join("; ") || "unknown error"}`;
+
+  if (errors.length > 0) {
+    console.warn(`[BloumeID GeoIP] Download issues: ${errors.join(" | ")}`);
+  }
 
   const status = await initGeoIpReaders(dir);
   return {
@@ -165,6 +231,7 @@ export async function downloadAndUpdateGeoLite2(options?: {
     mode,
     cityUpdated,
     asnUpdated,
+    errors,
     status,
   };
 }

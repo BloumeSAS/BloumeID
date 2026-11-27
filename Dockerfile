@@ -46,12 +46,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-RUN apk add --no-cache libc6-compat openssl curl postgresql-client \
+RUN apk add --no-cache libc6-compat openssl curl postgresql-client su-exec \
   && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
-# Create persistent data directory for MaxMind GeoLite2 .mmdb files
-RUN mkdir -p /app/data/geoip && chown -R nextjs:nodejs /app/data
+# Create persistent data directories for MaxMind GeoLite2 .mmdb files
+RUN mkdir -p /app/data/geoip /app/apps/web/data/geoip && chown -R nextjs:nodejs /app/data /app/apps/web/data
 
 # Copy Next.js standalone build, static assets, public folder (including /sdk/v1/bloumeid.js) and Prisma migrations
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
@@ -62,7 +62,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/docker/docker-entrypoint.sh /usr/
 
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER nextjs
+# Privilege drop to nextjs is performed inside docker-entrypoint.sh via su-exec
+# after ensuring /app/data/geoip permissions on mounted volumes.
 
 EXPOSE 3000
 

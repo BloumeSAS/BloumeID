@@ -30,6 +30,7 @@ interface SettingsApiResponse {
     asnDbLoaded: boolean;
     filesFound: string[];
     fileDetails: Array<{ filename: string; sizeBytes: number; updatedAt: string }>;
+    lastSyncStatus?: string;
   };
   retentionDaysDefault: number;
 }
@@ -54,6 +55,7 @@ export default function SettingsPage() {
   const [state, setState] = React.useState<SettingsApiResponse | null>(null);
   const [syncing, setSyncing] = React.useState(false);
   const [downloadingGeo, setDownloadingGeo] = React.useState(false);
+  const [geoDiagnostic, setGeoDiagnostic] = React.useState<string | null>(null);
   const [retentionDays, setRetentionDays] = React.useState(90);
   const [testIp, setTestIp] = React.useState("185.220.101.33");
   const [ipResult, setIpResult] = React.useState<IpLookupPreviewResult | null>(null);
@@ -87,13 +89,22 @@ export default function SettingsPage() {
 
   const handleDownloadGeoLite2 = async () => {
     setDownloadingGeo(true);
+    setGeoDiagnostic(null);
     try {
-      await fetch("/api/admin/settings", {
+      const res = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update_geolite2" }),
       });
+      const data = (await res.json()) as { updated?: boolean; errors?: string[] };
+      if (!res.ok || (data.errors && data.errors.length > 0 && !data.updated)) {
+        setGeoDiagnostic(data.errors?.join(" | ") ?? `HTTP ${res.status}`);
+      } else if (data.errors && data.errors.length > 0) {
+        setGeoDiagnostic(data.errors.join(" | "));
+      }
       await loadSettings();
+    } catch (err) {
+      setGeoDiagnostic(err instanceof Error ? err.message : String(err));
     } finally {
       setDownloadingGeo(false);
     }
@@ -193,6 +204,13 @@ export default function SettingsPage() {
                 GeoLite2-ASN: {state?.geoip.asnDbLoaded ? dict.common.active : dict.common.none}
               </Badge>
             </div>
+            {(geoDiagnostic ?? state?.geoip.lastSyncStatus)?.startsWith("failed:") ||
+            (geoDiagnostic ?? state?.geoip.lastSyncStatus)?.startsWith("error:") ||
+            geoDiagnostic ? (
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 font-mono text-xs text-destructive">
+                {geoDiagnostic ?? state?.geoip.lastSyncStatus}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>

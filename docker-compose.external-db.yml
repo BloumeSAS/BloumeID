@@ -24,9 +24,11 @@ services:
       BLOUMEID_PUBLIC_URL: ${BLOUMEID_PUBLIC_URL:-http://localhost:3000}
       NEXT_PUBLIC_BLOUMEID_PUBLIC_URL: ${NEXT_PUBLIC_BLOUMEID_PUBLIC_URL:-http://localhost:3000}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-true}
+      TRUSTED_PROXY_HEADERS: ${TRUSTED_PROXY_HEADERS:-true}
       FEED_SYNC_INTERVAL: ${FEED_SYNC_INTERVAL:-3600}
       RETENTION_DAYS: ${RETENTION_DAYS:-90}
-      GEOIP_DIR: /app/data/geoip
+      GEOIP_DIR: ${GEOIP_DIR:-/app/data/geoip}
+      GEOIP_DATA_DIR: ${GEOIP_DATA_DIR:-/app/data/geoip}
       MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:-}
     volumes:
       - bloumeid_geoip_data:/app/data

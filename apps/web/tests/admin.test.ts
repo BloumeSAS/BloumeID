@@ -90,9 +90,9 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
       topAsns: Array<{ asnNumber: number }>;
     };
     expect(dashData.period).toBe("7d");
-    expect(dashData.totalEvents).toBeGreaterThanOrEqual(2);
-    expect(Array.isArray(dashData.topCountries)).toBe(true);
-    expect(Array.isArray(dashData.topAsns)).toBe(true);
+    expect(dashData.totalEvents).toBe(0);
+    expect(dashData.topCountries).toEqual([]);
+    expect(dashData.topAsns).toEqual([]);
 
     // Events Audit Log API
     const eventsRes = await eventsGET(
@@ -100,7 +100,7 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     );
     expect(eventsRes.status).toBe(200);
     const eventsBody = (await eventsRes.json()) as { events: Array<{ requestId: string }> };
-    expect(eventsBody.events.length).toBeGreaterThan(0);
+    expect(eventsBody.events.length).toBe(0);
 
     // Security Rules CRUD API
     const createRuleRes = await rulesPOST(
@@ -182,7 +182,45 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     );
     expect(delRes.status).toBe(200);
 
-    // Visitors list & trustStatus update
+    // Visitors list & trustStatus update (create a real event via fingerprint API first)
+    const { POST: fingerprintPOST } = await import("../src/app/api/v1/fingerprint/route");
+    const { computeAntiReplaySignature } = await import("@bloume/id");
+    const visSiteRes = await sitesPOST(
+      new Request("http://localhost:3000/api/admin/sites", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          name: "Visitor Test Site",
+          domains: ["localhost"],
+        }),
+      })
+    );
+    const visSite = ((await visSiteRes.json()) as { site: { publicId: string; publicKey: string } }).site;
+    const ts = Date.now();
+    const nonce = `nonce_admin_vis_${ts}`;
+    const fullHash = "d1".repeat(32);
+    const hwHash = "e2".repeat(32);
+    const sig = computeAntiReplaySignature(visSite.publicKey, ts, nonce, fullHash, hwHash);
+    await fingerprintPOST(
+      new Request("http://localhost:3000/api/v1/fingerprint", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost:3000",
+          "X-BloumeID-Key": visSite.publicKey,
+          "X-Real-IP": "198.51.100.77",
+        },
+        body: JSON.stringify({
+          timestamp: ts,
+          nonce,
+          signature: sig,
+          fullHash,
+          hardwareHash: hwHash,
+          components: { antiSpoof: { isBot: false, isSpoofed: false, isIncognito: false } },
+        }),
+      })
+    );
+
     const visListRes = await visitorsGET(
       new Request("http://localhost:3000/api/admin/visitors", { headers: authHeaders })
     );
@@ -192,6 +230,13 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     };
     expect(visListBody.visitors.length).toBeGreaterThan(0);
     const targetVisitorId = visListBody.visitors[0]!.publicId;
+
+    await sitesDELETE(
+      new Request(`http://localhost:3000/api/admin/sites?publicId=${visSite.publicId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      })
+    );
 
     const patchVisRes = await visitorsPATCH(
       new Request("http://localhost:3000/api/admin/visitors", {

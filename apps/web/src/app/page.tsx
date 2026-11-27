@@ -33,7 +33,7 @@ import { CopyableMono } from "@/components/ui/copyable-mono";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const DEMO_PUBLIC_KEY = "bid_pub_demo_cosmic_night_2026";
+const PREVIEW_PUBLIC_KEY = "bid_pub_preview_local";
 const GITHUB_REPO_URL = "https://github.com/BloumeSAS/BloumeID";
 const NPM_URL = "https://www.npmjs.com/package/@bloume/id";
 const BLOUME_URL = "https://bloume.fr";
@@ -56,7 +56,7 @@ export default function LandingPage() {
     const t0 = performance.now();
     try {
       const client = new BloumeID({
-        apiKey: DEMO_PUBLIC_KEY,
+        apiKey: PREVIEW_PUBLIC_KEY,
         endpoint: "/api/v1/fingerprint",
         options: { timeout: 4000 },
       });
