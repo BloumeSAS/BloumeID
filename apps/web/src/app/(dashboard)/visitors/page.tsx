@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import type { PaginationMeta, PublicVisitorDTO, VisitorTrustStatus } from "@/types";
 
 export default function VisitorsPage() {
-  const { dict, refreshTick, selectedSiteId } = useI18n();
+  const { dict, refreshTick, selectedSiteId, timeRange } = useI18n();
   const [visitors, setVisitors] = React.useState<PublicVisitorDTO[]>([]);
   const [query, setQuery] = React.useState("");
   const [onlyHighRisk, setOnlyHighRisk] = React.useState(false);
@@ -46,6 +46,7 @@ export default function VisitorsPage() {
     try {
       const params = new URLSearchParams({
         siteId: selectedSiteId,
+        period: timeRange,
         trustStatus: policyFilter,
         page: String(page),
         pageSize: String(pageSize),
@@ -64,11 +65,11 @@ export default function VisitorsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSiteId, policyFilter, query, onlyHighRisk, page, pageSize]);
+  }, [selectedSiteId, timeRange, policyFilter, query, onlyHighRisk, page, pageSize]);
 
   React.useEffect(() => {
     setPage(1);
-  }, [selectedSiteId, policyFilter, query, onlyHighRisk]);
+  }, [selectedSiteId, timeRange, policyFilter, query, onlyHighRisk]);
 
   React.useEffect(() => {
     void loadVisitors();

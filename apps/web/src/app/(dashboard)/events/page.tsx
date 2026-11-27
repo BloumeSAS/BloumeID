@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import type { PaginationMeta, PublicFingerprintEventDTO } from "@/types";
 
 export default function EventsAuditPage() {
-  const { dict, selectedSiteId, refreshTick } = useI18n();
+  const { dict, selectedSiteId, timeRange, refreshTick } = useI18n();
   const [events, setEvents] = React.useState<PublicFingerprintEventDTO[]>([]);
   const [query, setQuery] = React.useState("");
   const [minDanger, setMinDanger] = React.useState(0);
@@ -72,6 +72,7 @@ export default function EventsAuditPage() {
     try {
       const params = new URLSearchParams({
         siteId: selectedSiteId,
+        period: timeRange,
         q: query,
         minDanger: String(minDanger),
         vector,
@@ -91,11 +92,11 @@ export default function EventsAuditPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedSiteId, query, minDanger, vector, actionFilter, page, pageSize]);
+  }, [selectedSiteId, timeRange, query, minDanger, vector, actionFilter, page, pageSize]);
 
   React.useEffect(() => {
     setPage(1);
-  }, [selectedSiteId, query, minDanger, vector, actionFilter]);
+  }, [selectedSiteId, timeRange, query, minDanger, vector, actionFilter]);
 
   React.useEffect(() => {
     void loadEvents();

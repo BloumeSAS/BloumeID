@@ -133,7 +133,7 @@ export default function SecurityRulesPage() {
   // Real-time evaluation of the sandbox parameters against active rules
   const simulatedOutcome = React.useMemo(() => {
     return evaluateSecurityRules(rules, {
-      sitePublicId: selectedSiteId === "all" ? "site_73000000000000001" : selectedSiteId,
+      sitePublicId: selectedSiteId === "all" ? "site_sandbox_preview" : selectedSiteId,
       visitorPublicId: "vis_sandbox_test",
       dangerLevel: simDanger,
       country: simCountry,
