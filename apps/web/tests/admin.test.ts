@@ -231,13 +231,6 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     expect(visListBody.visitors.length).toBeGreaterThan(0);
     const targetVisitorId = visListBody.visitors[0]!.publicId;
 
-    await sitesDELETE(
-      new Request(`http://localhost:3000/api/admin/sites?publicId=${visSite.publicId}`, {
-        method: "DELETE",
-        headers: authHeaders,
-      })
-    );
-
     const patchVisRes = await visitorsPATCH(
       new Request("http://localhost:3000/api/admin/visitors", {
         method: "PATCH",
@@ -251,6 +244,13 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
       })
     );
     expect(patchVisRes.status).toBe(200);
+
+    await sitesDELETE(
+      new Request(`http://localhost:3000/api/admin/sites?publicId=${visSite.publicId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      })
+    );
 
     // Settings status, Live IP Lookup Tester & CSV/JSON export
     const settingsRes = await settingsGET(

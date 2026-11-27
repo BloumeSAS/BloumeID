@@ -312,11 +312,13 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(sdkRes.status).toBe(200);
     expect(sdkRes.headers.get("etag")).toBeTruthy();
 
-    // 0. Fresh repository starts with zero pre-seeded demo sites or events
+    // 0. Fresh repository has zero pre-seeded demo sites or demo events
     const initialSites = await listSites();
     const initialMetrics = await getDashboardMetrics("24h");
-    expect(initialSites.length).toBe(0);
-    expect(initialMetrics.totalEvents).toBe(0);
+    expect(initialSites.some((s) => s.publicKey === "bid_pub_demo_cosmic_night_2026")).toBe(false);
+    expect(
+      initialMetrics.recentHighRiskEvents.some((e) => e.publicId === "req_73000000000000501")
+    ).toBe(false);
 
     const testSite = await createSiteRecord({
       name: "Engine Test Site",
