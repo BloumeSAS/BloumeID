@@ -789,4 +789,20 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(emptyVisitors.items).toEqual([]);
     expect(emptyVisitors.pagination.totalItems).toBe(0);
   });
+
+  it("matches hex IPv4-mapped IPv6 addresses against IPv4 CIDR rules and swaps threat feeds atomically", async () => {
+    const trie = new CidrRadixTrie();
+    trie.insert("185.220.101.0/24", "tor");
+    expect(trie.lookup("::ffff:b9dc:6521").has("tor")).toBe(true);
+
+    // Trigger syncAllThreatFeeds and verify staging swap leaves globalThreatTrie populated mid-flight
+    const { globalThreatTrie } = await import("../src/lib/engine/cidr-trie");
+    globalThreatTrie.insert("198.51.100.0/24", "proxy");
+    let sizeDuringFetch = 0;
+    await syncAllThreatFeeds(async () => {
+      sizeDuringFetch = Math.max(sizeDuringFetch, globalThreatTrie.size());
+      return new Response("192.0.2.0/24\n", { status: 200 });
+    });
+    expect(sizeDuringFetch).toBeGreaterThan(0);
+  });
 });

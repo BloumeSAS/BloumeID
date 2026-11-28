@@ -1,9 +1,10 @@
 import {
+  CidrRadixTrie,
   classifyAsnOrganization,
-  clearBadAsns,
   globalThreatTrie,
   lookupBadAsn,
   registerBadAsn,
+  replaceBadAsns,
   type ThreatCategory,
 } from "./cidr-trie";
 import { lookupGeoIp } from "./geoip";
@@ -172,141 +173,151 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
   totalCidrs: number;
   feeds: Array<{ feedName: string; recordCount: number; status: string }>;
 }> {
-  globalThreatTrie.clear();
-  clearBadAsns();
-  const results: Array<{ feedName: string; recordCount: number; status: string }> = [];
+  const stagingTrie = new CidrRadixTrie();
+  const stagingAsns = new Map<number, string>();
+  const registerStagingAsn = (asnNumber: number, entityName: string): boolean => {
+    if (!Number.isInteger(asnNumber) || asnNumber <= 0) return false;
+    stagingAsns.set(asnNumber, entityName.trim() || `AS${asnNumber}`);
+    return true;
+  };
 
-  for (const feed of THREAT_FEEDS) {
-    let count = 0;
-    let status = "ok";
-    let errorMessage: string | null = null;
-
-    try {
+  const results = await Promise.all(
+    THREAT_FEEDS.map(async (feed) => {
+      let count = 0;
+      let status = "ok";
+      let errorMessage: string | null = null;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 12000);
-      const res = await fetchImpl(feed.url, {
-        signal: controller.signal,
-        headers: { "User-Agent": "BloumeID-ThreatIntel/1.0" },
-      });
-      clearTimeout(timer);
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      try {
+        const res = await fetchImpl(feed.url, {
+          signal: controller.signal,
+          headers: { "User-Agent": "BloumeID-ThreatIntel/1.0" },
+        });
 
-      if (feed.format === "onionoo_ipv6_json") {
-        const json = (await res.json()) as {
-          relays?: Array<{ a?: string[]; r?: boolean }>;
-        };
-        const relays = Array.isArray(json.relays) ? json.relays : [];
-        for (const relay of relays) {
-          if (relay.r === false || !Array.isArray(relay.a)) continue;
-          for (const rawAddr of relay.a) {
-            if (!rawAddr.includes(":")) continue;
-            const normalized = rawAddr.startsWith("[")
-              ? rawAddr.slice(1, rawAddr.indexOf("]") !== -1 ? rawAddr.indexOf("]") : undefined)
-              : rawAddr;
-            if (globalThreatTrie.insert(normalized, feed.category)) {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        if (feed.format === "onionoo_ipv6_json") {
+          const json = (await res.json()) as {
+            relays?: Array<{ a?: string[]; r?: boolean }>;
+          };
+          const relays = Array.isArray(json.relays) ? json.relays : [];
+          for (const relay of relays) {
+            if (relay.r === false || !Array.isArray(relay.a)) continue;
+            for (const rawAddr of relay.a) {
+              if (!rawAddr.includes(":")) continue;
+              const normalized = rawAddr.startsWith("[")
+                ? rawAddr.slice(1, rawAddr.indexOf("]") !== -1 ? rawAddr.indexOf("]") : undefined)
+                : rawAddr;
+              if (stagingTrie.insert(normalized, feed.category)) {
+                count += 1;
+              }
+            }
+          }
+          for (const cidr of feed.fallbackCidrs) {
+            if (stagingTrie.insert(cidr, feed.category)) {
+              count += 1;
+            }
+          }
+        } else if (feed.format === "aws_ip_json") {
+          const json = (await res.json()) as {
+            prefixes?: Array<{ ip_prefix?: string }>;
+            ipv6_prefixes?: Array<{ ipv6_prefix?: string }>;
+          };
+          for (const item of json.prefixes ?? []) {
+            if (item.ip_prefix && stagingTrie.insert(item.ip_prefix, feed.category)) {
+              count += 1;
+            }
+          }
+          for (const item of json.ipv6_prefixes ?? []) {
+            if (item.ipv6_prefix && stagingTrie.insert(item.ipv6_prefix, feed.category)) {
+              count += 1;
+            }
+          }
+        } else if (feed.format === "gcp_ip_json") {
+          const json = (await res.json()) as {
+            prefixes?: Array<{ ipv4Prefix?: string; ipv6Prefix?: string }>;
+          };
+          for (const item of json.prefixes ?? []) {
+            const cidr = item.ipv4Prefix ?? item.ipv6Prefix;
+            if (cidr && stagingTrie.insert(cidr, feed.category)) {
+              count += 1;
+            }
+          }
+        } else if (feed.format === "bad_asn_csv") {
+          const text = await res.text();
+          const lines = text.split(/\r?\n/);
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith("ASN")) continue;
+            const commaIdx = trimmed.indexOf(",");
+            if (commaIdx === -1) continue;
+            const asnNum = Number(trimmed.slice(0, commaIdx).replace(/"/g, "").trim());
+            const entity = trimmed.slice(commaIdx + 1).replace(/^"|"$/g, "").trim();
+            if (registerStagingAsn(asnNum, entity)) {
+              count += 1;
+            }
+          }
+        } else {
+          const text = await res.text();
+          const lines = text.split(/\r?\n/);
+          for (const line of lines) {
+            const token = extractCidrToken(line);
+            if (token && stagingTrie.insert(token, feed.category)) {
               count += 1;
             }
           }
         }
+      } catch (err) {
+        status = "fallback";
+        errorMessage = err instanceof Error ? err.message : "Network error";
         for (const cidr of feed.fallbackCidrs) {
-          if (globalThreatTrie.insert(cidr, feed.category)) {
+          if (stagingTrie.insert(cidr, feed.category)) {
             count += 1;
           }
         }
-      } else if (feed.format === "aws_ip_json") {
-        const json = (await res.json()) as {
-          prefixes?: Array<{ ip_prefix?: string }>;
-          ipv6_prefixes?: Array<{ ipv6_prefix?: string }>;
-        };
-        for (const item of json.prefixes ?? []) {
-          if (item.ip_prefix && globalThreatTrie.insert(item.ip_prefix, feed.category)) {
-            count += 1;
+        if (feed.fallbackAsns) {
+          for (const item of feed.fallbackAsns) {
+            if (registerStagingAsn(item.asn, item.entity)) {
+              count += 1;
+            }
           }
         }
-        for (const item of json.ipv6_prefixes ?? []) {
-          if (item.ipv6_prefix && globalThreatTrie.insert(item.ipv6_prefix, feed.category)) {
-            count += 1;
-          }
-        }
-      } else if (feed.format === "gcp_ip_json") {
-        const json = (await res.json()) as {
-          prefixes?: Array<{ ipv4Prefix?: string; ipv6Prefix?: string }>;
-        };
-        for (const item of json.prefixes ?? []) {
-          const cidr = item.ipv4Prefix ?? item.ipv6Prefix;
-          if (cidr && globalThreatTrie.insert(cidr, feed.category)) {
-            count += 1;
-          }
-        }
-      } else if (feed.format === "bad_asn_csv") {
-        const text = await res.text();
-        const lines = text.split(/\r?\n/);
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith("ASN")) continue;
-          const commaIdx = trimmed.indexOf(",");
-          if (commaIdx === -1) continue;
-          const asnNum = Number(trimmed.slice(0, commaIdx).replace(/"/g, "").trim());
-          const entity = trimmed.slice(commaIdx + 1).replace(/^"|"$/g, "").trim();
-          if (registerBadAsn(asnNum, entity)) {
-            count += 1;
-          }
-        }
-      } else {
-        const text = await res.text();
-        const lines = text.split(/\r?\n/);
-        for (const line of lines) {
-          const token = extractCidrToken(line);
-          if (token && globalThreatTrie.insert(token, feed.category)) {
-            count += 1;
-          }
-        }
+      } finally {
+        clearTimeout(timer);
       }
-    } catch (err) {
-      status = "fallback";
-      errorMessage = err instanceof Error ? err.message : "Network error";
-      for (const cidr of feed.fallbackCidrs) {
-        if (globalThreatTrie.insert(cidr, feed.category)) {
-          count += 1;
-        }
+
+      try {
+        await prisma.threatFeedStatus.upsert({
+          where: { feedName: feed.feedName },
+          update: {
+            recordCount: count,
+            lastSyncedAt: new Date(),
+            status,
+            errorMessage,
+          },
+          create: {
+            publicId: generateSnowflakeId("feed"),
+            feedName: feed.feedName,
+            recordCount: count,
+            lastSyncedAt: new Date(),
+            status,
+            errorMessage,
+          },
+        });
+      } catch {
+        // Allow sync to succeed in memory even if database is unreachable during unit tests
       }
-      if (feed.fallbackAsns) {
-        for (const item of feed.fallbackAsns) {
-          if (registerBadAsn(item.asn, item.entity)) {
-            count += 1;
-          }
-        }
-      }
-    }
 
-    results.push({ feedName: feed.feedName, recordCount: count, status });
+      return { feedName: feed.feedName, recordCount: count, status };
+    })
+  );
 
-    try {
-      await prisma.threatFeedStatus.upsert({
-        where: { feedName: feed.feedName },
-        update: {
-          recordCount: count,
-          lastSyncedAt: new Date(),
-          status,
-          errorMessage,
-        },
-        create: {
-          publicId: generateSnowflakeId("feed"),
-          feedName: feed.feedName,
-          recordCount: count,
-          lastSyncedAt: new Date(),
-          status,
-          errorMessage,
-        },
-      });
-    } catch {
-      // Allow sync to succeed in memory even if database is unreachable during unit tests
-    }
-  }
-
+  // Swap atomically after all feeds are parsed so live requests never hit an empty trie
+  globalThreatTrie.swapFrom(stagingTrie);
+  replaceBadAsns(stagingAsns);
   seededDefaults = true;
   return {
     totalCidrs: globalThreatTrie.size(),
