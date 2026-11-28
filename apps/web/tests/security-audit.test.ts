@@ -394,5 +394,23 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(weakConditional.status).toBe(304);
     expect(weakConditional.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
+
+  it("enforces Cache-Control: no-store across /api/admin/* proxy responses", async () => {
+    const { proxy } = await import("../src/proxy");
+    const { getConfiguredMasterKey } = await import("../src/lib/auth");
+    const { NextRequest } = await import("next/server");
+
+    const unauthReq = new NextRequest("http://localhost:3000/api/admin/sites");
+    const unauthRes = await proxy(unauthReq);
+    expect(unauthRes.status).toBe(401);
+    expect(unauthRes.headers.get("Cache-Control")).toBe("no-store");
+
+    const authReq = new NextRequest("http://localhost:3000/api/admin/sites", {
+      headers: { "X-Admin-Master-Key": getConfiguredMasterKey() },
+    });
+    const authRes = await proxy(authReq);
+    expect(authRes.status).toBe(200);
+    expect(authRes.headers.get("Cache-Control")).toBe("no-store");
+  });
 });
 

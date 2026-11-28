@@ -29,24 +29,42 @@ export default function VisitorDetailPage() {
   const [notesInput, setNotesInput] = React.useState("");
   const [mergeSourceId, setMergeSourceId] = React.useState("");
   const [mergeStatus, setMergeStatus] = React.useState<string | null>(null);
+  const [mergeError, setMergeError] = React.useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
 
-  const loadProfile = React.useCallback(async () => {
+  const loadProfile = React.useCallback(async (signal?: AbortSignal) => {
     if (!visitorId) return;
-    const res = await fetch(`/api/admin/visitors?visitorId=${encodeURIComponent(visitorId)}`);
-    if (res.ok) {
-      const data = (await res.json()) as {
-        visitor: PublicVisitorDTO;
-        events: PublicFingerprintEventDTO[];
-      };
-      setVisitor(data.visitor);
-      setEvents(data.events);
-      setTagsInput(data.visitor.tags.join(", "));
-      setNotesInput(data.visitor.notes ?? "");
+    setLoadFailed(false);
+    try {
+      const res = await fetch(
+        `/api/admin/visitors?visitorId=${encodeURIComponent(visitorId)}`,
+        { signal }
+      );
+      if (signal?.aborted) return;
+      if (res.ok) {
+        const data = (await res.json()) as {
+          visitor: PublicVisitorDTO;
+          events: PublicFingerprintEventDTO[];
+        };
+        setVisitor(data.visitor);
+        setEvents(data.events);
+        setTagsInput(data.visitor.tags.join(", "));
+        setNotesInput(data.visitor.notes ?? "");
+      } else {
+        setVisitor(null);
+        setLoadFailed(true);
+      }
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setLoadFailed(true);
+      }
     }
   }, [visitorId]);
 
   React.useEffect(() => {
-    void loadProfile();
+    const controller = new AbortController();
+    void loadProfile(controller.signal);
+    return () => controller.abort();
   }, [loadProfile]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -90,6 +108,8 @@ export default function VisitorDetailPage() {
   const handleMerge = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!visitor || !mergeSourceId.trim()) return;
+    setMergeError(null);
+    setMergeStatus(null);
     const res = await fetch("/api/admin/visitors", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -102,8 +122,22 @@ export default function VisitorDetailPage() {
       setMergeSourceId("");
       setMergeStatus(dict.visitors.mergedSuccess);
       await loadProfile();
+    } else {
+      const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
+        error?: string;
+      };
+      setMergeError(err.error ?? `HTTP ${res.status}`);
     }
   };
+
+  if (loadFailed) {
+    return (
+      <div className="space-y-2 rounded-xl border border-destructive/40 bg-destructive/10 p-5 text-sm text-destructive">
+        <p className="font-medium">{dict.common.none}</p>
+        <p className="font-mono text-xs">{visitorId}</p>
+      </div>
+    );
+  }
 
   if (!visitor) {
     return <p className="text-sm text-muted-foreground">{dict.common.loading}</p>;
@@ -249,6 +283,12 @@ export default function VisitorDetailPage() {
                 <span>{dict.visitors.mergeButton}</span>
               </Button>
             </form>
+            {mergeStatus ? (
+              <p className="text-xs text-emerald-500">{mergeStatus}</p>
+            ) : null}
+            {mergeError ? (
+              <p className="text-xs text-destructive">{mergeError}</p>
+            ) : null}
           </CardContent>
         </Card>
 
