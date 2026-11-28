@@ -21,8 +21,8 @@ importers:
   apps/web:
     dependencies:
       '@bloume/id':
-        specifier: ^1.3.0
-        version: 1.3.0
+        specifier: ^1.3.1
+        version: 1.3.1
       '@prisma/client':
         specifier: ^6.1.0
         version: 6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3)
@@ -199,8 +199,8 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@bloume/id@1.3.0':
-    resolution: {integrity: sha512-7hAW8wi53CZppFLizr0yNeKr5/XExkq2rqqHZiNn4oUCkUepnCoJ/dpcMbu9uBESxRhC+qRYdDiF/EMdWeHwfg==}
+  '@bloume/id@1.3.1':
+    resolution: {integrity: sha512-adaWezNBv1LShw+S623AZt0scsD+RTJJ3wmmxgTY8HkAgP4i8dI6y4JY9kquNoySYiRaFlldZuIXHno2JJFB5Q==}
 
   '@changesets/apply-release-plan@7.1.1':
     resolution: {integrity: sha512-9qPCm/rLx/xoOFXIHGB229+4GOL76S4MC+7tyOuTsR6+1jYlfFDQORdvwR5hDA6y4FL2BPt3qpbcQIS+dW85LA==}
@@ -3951,7 +3951,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@bloume/id@1.3.0': {}
+  '@bloume/id@1.3.1': {}
 
   '@changesets/apply-release-plan@7.1.1':
     dependencies:

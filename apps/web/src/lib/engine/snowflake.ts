@@ -153,13 +153,15 @@ export function decryptTransportEnvelopeV2(params: {
 
     const authTag = combined.subarray(combined.length - 16);
     const ciphertext = combined.subarray(0, combined.length - 16);
-    const key = crypto
-      .createHash("sha256")
-      .update(
-        `bloumeid-transport-v2:${params.publicKey}:${params.ts}:${params.nonce}:${params.origin}`,
-        "utf8"
+    const key = Buffer.from(
+      crypto.hkdfSync(
+        "sha256",
+        Buffer.from(params.publicKey, "utf8"),
+        Buffer.from(`${params.ts}:${params.nonce}`, "utf8"),
+        Buffer.from(`bloumeid-transport-v2:${params.origin}`, "utf8"),
+        32
       )
-      .digest();
+    );
 
     const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAAD(
