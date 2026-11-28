@@ -1051,5 +1051,13 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(ipToUint32("::FFFF:198.51.100.4")).toBe(ipToUint32("198.51.100.4"));
     expect(parseUserAgentSummary("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/131.0 Mobile/15E148 Safari/604.1").browser).toBe("Chrome");
     expect(parseUserAgentSummary("Mozilla/5.0 (Linux; Android 14) Chrome/131.0 Mobile Safari/537.36 EdgA/131.0").browser).toBe("Edge");
+
+    // MemoryFallbackCache preserves newest nonces during capacity eviction instead of wiping all keys
+    memoryCache.clear();
+    for (let i = 0; i < 10_005; i++) {
+      memoryCache.setNxEx(`nonce_evict_${i}`, "1", 60);
+    }
+    expect(memoryCache.setNxEx("nonce_evict_10004", "1", 60)).toBe(false);
+    memoryCache.clear();
   });
 });
