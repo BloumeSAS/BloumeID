@@ -30,6 +30,7 @@ import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
+import { LandingPanelPreview } from "@/components/landing-panel-preview";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -704,7 +705,10 @@ const res = await client.get({ tag: "checkout" });`;
           </div>
         </section>
 
-        {/* 5. Technical Comparison Table */}
+        {/* 5. Interactive Admin Panel Preview */}
+        <LandingPanelPreview />
+
+        {/* 6. Technical Comparison Table */}
         <section id="compare" className="scroll-mt-20 space-y-6">
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
@@ -809,8 +813,42 @@ const res = await client.get({ tag: "checkout" });`;
           </Card>
         </section>
 
-        {/* 6. 1-Click Deployment Terminal */}
-        <section id="deploy" className="scroll-mt-20">
+        {/* 7. Coolify & VPS Installation Guide + 1-Click Deployment */}
+        <section id="deploy" className="scroll-mt-20 space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {dict.landing.guideTitle}
+            </h2>
+            <p className="mx-auto mt-1 max-w-2xl text-sm text-muted-foreground">
+              {dict.landing.guideSubtitle}
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="border-border/80 bg-card/90">
+              <CardHeader className="space-y-2">
+                <Badge variant="outline" className="w-fit font-mono text-[11px]">
+                  {dict.landing.guideOpt1Badge}
+                </Badge>
+                <CardTitle className="text-base">{dict.landing.guideOpt1Title}</CardTitle>
+                <CardDescription className="text-xs leading-relaxed">
+                  {dict.landing.guideOpt1Desc}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            <Card className="border-primary/30 bg-card/90">
+              <CardHeader className="space-y-2">
+                <Badge variant="secondary" className="w-fit font-mono text-[11px]">
+                  {dict.landing.guideOpt2Badge}
+                </Badge>
+                <CardTitle className="text-base">{dict.landing.guideOpt2Title}</CardTitle>
+                <CardDescription className="text-xs leading-relaxed">
+                  {dict.landing.guideOpt2Desc}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+
           <Card className="border-primary/25 bg-card/90">
             <CardHeader className="flex flex-col gap-3 border-b border-border/60 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -866,10 +904,13 @@ const res = await client.get({ tag: "checkout" });`;
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-4">
+            <CardContent className="space-y-3 p-4">
               <pre className="overflow-x-auto rounded-xl border border-border bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
                 {deploySnippet}
               </pre>
+              <p className="font-mono text-xs text-muted-foreground">
+                {dict.landing.guideEnvHint}
+              </p>
             </CardContent>
           </Card>
         </section>

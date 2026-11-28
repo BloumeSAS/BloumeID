@@ -198,6 +198,13 @@ export default function VisitorsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {filteredVisitors.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-10 text-center text-xs text-muted-foreground">
+                      {dict.common.noDataPeriod}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
                 {filteredVisitors.map((v) => (
                   <TableRow key={v.publicId}>
                     <TableCell>

@@ -86,6 +86,13 @@ export default function UsagePage() {
       </div>
 
       <div className="grid gap-4">
+        {paginatedSites.items.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-xs text-muted-foreground">
+              {dict.common.noSitesYet}
+            </CardContent>
+          </Card>
+        ) : null}
         {paginatedSites.items.map((s) => (
           <Card key={s.publicId}>
             <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">

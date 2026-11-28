@@ -50,7 +50,9 @@
     "splitView": "分割表示",
     "drawerView": "ドロワー表示",
     "tableView": "テーブル表示",
-    "gridView": "カードグリッド"
+    "gridView": "カードグリッド",
+    "noDataPeriod": "この期間のデータはまだありません。",
+    "noSitesYet": "サイトがまだ設定されていません。最初のサイトを作成してください。"
   },
   "nav": {
     "home": "オープンソースホーム",
@@ -542,6 +544,22 @@
     "footerCompare": "比較",
     "worldMapAriaLabel": "世界トラフィック コロプレス地図",
     "autoDetectRepo": "リポジトリから自動検出",
-    "geoliteLocation": "GeoLite2 ロケーション"
+    "geoliteLocation": "GeoLite2 ロケーション",
+    "previewSectionBadge": "インタラクティブ・プレビュー",
+    "previewSectionTitle": "管理コンソールを体験",
+    "previewSectionSubtitle": "概要・イベント・訪問者・セキュリティルールの各画面を下のプレビューから直接操作できます。",
+    "previewNavOverview": "概要",
+    "previewNavEvents": "イベント",
+    "previewNavVisitors": "訪問者",
+    "previewNavRules": "ルール",
+    "guideTitle": "Coolify & VPS 導入ガイド — どちらを選ぶべきか？",
+    "guideSubtitle": "どちらの Compose も Docker Hub のビルド済みイメージ bloumesas/bloumeid:latest を使用し、サーバーでの再ビルドは不要です。",
+    "guideOpt1Badge": "オプション 1 · オールインワン",
+    "guideOpt1Title": "PostgreSQL + Valkey 同梱 (docker-compose.yml)",
+    "guideOpt1Desc": "新規 VPS や既存の PostgreSQL がない Coolify 環境に最適です。",
+    "guideOpt2Badge": "オプション 2 · 外部 DB",
+    "guideOpt2Title": "外部 PostgreSQL + Valkey 同梱 (docker-compose.external-db.yml)",
+    "guideOpt2Desc": "Coolify 上に既存の PostgreSQL (DATABASE_URL) がある場合に最適です。Valkey 8 はローカル同梱のままです。",
+    "guideEnvHint": "必須変数: ADMIN_MASTER_KEY, ADMIN_USERNAME, BLOUMEID_PUBLIC_URL（オプション 2 では + DATABASE_URL）。"
   }
 }

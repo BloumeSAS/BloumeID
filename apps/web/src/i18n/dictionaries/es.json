@@ -50,7 +50,9 @@
     "splitView": "Vista Dividida",
     "drawerView": "Vista Panel Lateral",
     "tableView": "Vista Tabla",
-    "gridView": "Cuadrícula de Tarjetas"
+    "gridView": "Cuadrícula de Tarjetas",
+    "noDataPeriod": "Aún no hay datos registrados para este período.",
+    "noSitesYet": "Aún no hay sitios configurados. Cree su primer sitio para comenzar."
   },
   "nav": {
     "home": "Inicio Open-Source",
@@ -542,6 +544,22 @@
     "footerCompare": "Comparativa",
     "worldMapAriaLabel": "Mapa Coroplético Mundial de Tráfico",
     "autoDetectRepo": "Autodetección en el repositorio",
-    "geoliteLocation": "Ubicación GeoLite2"
+    "geoliteLocation": "Ubicación GeoLite2",
+    "previewSectionBadge": "Vista Previa Interactiva",
+    "previewSectionTitle": "Explore el Panel de Administración",
+    "previewSectionSubtitle": "Navegue entre Resumen, Eventos, Visitantes y Reglas de seguridad directamente en la vista previa.",
+    "previewNavOverview": "Resumen",
+    "previewNavEvents": "Eventos",
+    "previewNavVisitors": "Visitantes",
+    "previewNavRules": "Reglas",
+    "guideTitle": "Guía de Instalación Coolify & VPS — ¿Qué Opción Elegir?",
+    "guideSubtitle": "Ambos Compose descargan la imagen precompilada bloumesas/bloumeid:latest desde Docker Hub sin compilar en el servidor.",
+    "guideOpt1Badge": "Opción 1 · Todo en uno",
+    "guideOpt1Title": "Con PostgreSQL + Valkey incluidos (docker-compose.yml)",
+    "guideOpt1Desc": "Ideal para un VPS nuevo o despliegue independiente en Coolify sin base de datos previa.",
+    "guideOpt2Badge": "Opción 2 · BD Externa",
+    "guideOpt2Title": "PostgreSQL externo + Valkey incluido (docker-compose.external-db.yml)",
+    "guideOpt2Desc": "Ideal si ya gestiona un servidor PostgreSQL en Coolify (DATABASE_URL). Valkey 8 sigue incluido localmente.",
+    "guideEnvHint": "Variables requeridas: ADMIN_MASTER_KEY, ADMIN_USERNAME, BLOUMEID_PUBLIC_URL (+ DATABASE_URL para Opción 2)."
   }
 }

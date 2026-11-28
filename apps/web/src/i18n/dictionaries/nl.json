@@ -50,7 +50,9 @@
     "splitView": "Gesplitste Weergave",
     "drawerView": "Zijpaneelweergave",
     "tableView": "Tabelweergave",
-    "gridView": "Kaartenraster"
+    "gridView": "Kaartenraster",
+    "noDataPeriod": "Nog geen gegevens voor deze periode.",
+    "noSitesYet": "Nog geen sites geconfigureerd. Maak uw eerste site aan om te starten."
   },
   "nav": {
     "home": "Open-Source Home",
@@ -542,6 +544,22 @@
     "footerCompare": "Vergelijking",
     "worldMapAriaLabel": "Wereldwijde Choropleet Verkeerskaart",
     "autoDetectRepo": "Automatische detectie in repository",
-    "geoliteLocation": "GeoLite2 Locatie"
+    "geoliteLocation": "GeoLite2 Locatie",
+    "previewSectionBadge": "Interactieve Console Preview",
+    "previewSectionTitle": "Verken het Beheerpaneel",
+    "previewSectionSubtitle": "Navigeer direct in de preview tussen Overzicht, Gebeurtenissen, Bezoekers en Beveiligingsregels.",
+    "previewNavOverview": "Overzicht",
+    "previewNavEvents": "Gebeurtenissen",
+    "previewNavVisitors": "Bezoekers",
+    "previewNavRules": "Regels",
+    "guideTitle": "Coolify & VPS Installatiegids — Welke Optie Kiezen?",
+    "guideSubtitle": "Beide Compose-bestanden gebruiken de kant-en-klare bloumesas/bloumeid:latest image van Docker Hub zonder rebuild.",
+    "guideOpt1Badge": "Optie 1 · Alles-in-één",
+    "guideOpt1Title": "Met ingebouwde PostgreSQL + Valkey (docker-compose.yml)",
+    "guideOpt1Desc": "Ideaal voor een nieuwe VPS of zelfstandige Coolify-omgeving zonder bestaande database.",
+    "guideOpt2Badge": "Optie 2 · Externe DB",
+    "guideOpt2Title": "Externe PostgreSQL + ingebouwde Valkey (docker-compose.external-db.yml)",
+    "guideOpt2Desc": "Ideaal als u al een PostgreSQL-server op Coolify heeft (DATABASE_URL). Valkey 8 blijft lokaal inbegrepen.",
+    "guideEnvHint": "Vereiste variabelen: ADMIN_MASTER_KEY, ADMIN_USERNAME, BLOUMEID_PUBLIC_URL (+ DATABASE_URL voor Optie 2)."
   }
 }
