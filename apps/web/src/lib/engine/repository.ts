@@ -1363,7 +1363,7 @@ export async function updateVisitorAnnotations(
   if (input.mergeSourceVisitorId && input.mergeSourceVisitorId !== visitorPublicId) {
     const target = memVisitors.find((v) => v.publicId === visitorPublicId);
     const source = memVisitors.find((v) => v.publicId === input.mergeSourceVisitorId);
-    if (target && source) {
+    if (target && source && target.siteId === source.siteId) {
       target.visitCount += source.visitCount;
       target.maxDangerLevel = Math.max(target.maxDangerLevel, source.maxDangerLevel);
       target.tags = Array.from(new Set([...target.tags, ...source.tags, "merged"]));

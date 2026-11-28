@@ -76,7 +76,8 @@
     "catOverview": "制御とテレメトリ",
     "catSecurity": "インテリジェンスと防御",
     "catDeveloper": "統合と開発者",
-    "catInfra": "インフラと管理"
+    "catInfra": "インフラと管理",
+    "guides": "A〜Z ガイド"
   },
   "auth": {
     "title": "BloumeID 管理コンソール",
@@ -222,7 +223,10 @@
     "tabFpPro": "Fingerprint.com モード",
     "tabReact": "React / Next.js",
     "tabScript": "HTML <script>",
-    "tabNode": "Node.js サーバー API"
+    "tabNode": "Node.js サーバー API",
+    "siteCreatedTitle": "サイト作成・APIキー発行完了",
+    "siteCreatedNotice": "シークレットキーは SHA-256 でハッシュ保存されるため、今すぐ安全に保管してください。",
+    "statusLabel": "サイト状態"
   },
   "visitors": {
     "title": "ビジターエクスプローラー & アイデンティティグラフ",
@@ -561,5 +565,35 @@
     "guideOpt2Title": "外部 PostgreSQL + Valkey 同梱 (docker-compose.external-db.yml)",
     "guideOpt2Desc": "Coolify 上に既存の PostgreSQL (DATABASE_URL) がある場合に最適です。Valkey 8 はローカル同梱のままです。",
     "guideEnvHint": "必須変数: ADMIN_MASTER_KEY, ADMIN_USERNAME, BLOUMEID_PUBLIC_URL（オプション 2 では + DATABASE_URL）。"
+  },
+  "guides": {
+    "title": "BloumeID A〜Z 完全ガイド",
+    "subtitle": "各機能の概要・導入理由・管理パネルおよび @bloume/id SDK の手順をわかりやすく解説します。",
+    "searchPlaceholder": "ガイドを検索 (Snowflake, CORS, webhooks, GeoLite2...)",
+    "tabArchitecture": "仕組み A〜Z",
+    "tabPanel": "管理画面ガイド",
+    "tabSdk": "@bloume/id SDK",
+    "whatLabel": "概要",
+    "whyLabel": "利用目的",
+    "howLabel": "設定手順",
+    "noResults": "該当するガイドが見つかりませんでした。",
+    "archSignalTitle": "104シグナル決定的フィンガープリント",
+    "archSignalWhat": "Canvas 2D二重描画、WebGL/WebGPU、AudioContext、CSSマトリクス、フォント、偽装検知を収集します。",
+    "archSignalWhy": "Cookieに依存せず安定した fullHash と hardwareHash を生成します。",
+    "archSignalHow": "/sites -> アクション または options.exclude で個別設定します。",
+    "archReconcileTitle": "Snowflake ID & 3段階アイデンティティ照合",
+    "archReconcileWhat": "プレフィックス付きID (site_, vis_, req_) を発行し、fullHash や hardwareHash + /24 で照合します。",
+    "archReconcileWhy": "ID推測を防ぎつつ、別ブラウザ間の同一ユーザーも高精度に特定します。",
+    "archReconcileHow": "/visitors と /visitors/[visitorId] で確認できます。",
+    "archNetworkTitle": "Valkey CIDR Trie & GeoLite2 連携",
+    "archNetworkWhat": "54,000以上の Tor・VPN・データセンター範囲とローカル GeoLite2 DB を参照します。",
+    "archNetworkWhy": "外部API課金なしで 1ms 未満の脅威判定を実現します。",
+    "archNetworkHow": "/settings から同期・更新します。",
+    "panelListTitle": "管理パネル各画面の解説",
+    "sdkInstallTitle": "1. インストール & UMD スクリプト",
+    "sdkThumbmarkTitle": "2. ThumbmarkJS 互換モード",
+    "sdkFpTitle": "3. Fingerprint.com 互換モード",
+    "sdkServerTitle": "4. サーバー側検証 (@bloume/id/server)",
+    "sdkOptionsTitle": "5. オプション・除外設定 (exclude, timeout, debug)"
   }
 }

@@ -76,7 +76,8 @@
     "catOverview": "Pilotage & Télémétrie",
     "catSecurity": "Intelligence & Protection",
     "catDeveloper": "Intégration & Développeurs",
-    "catInfra": "Infrastructure & Admin"
+    "catInfra": "Infrastructure & Admin",
+    "guides": "Guides A→Z"
   },
   "landing": {
     "openSourceBadge": "Open Source",
@@ -342,7 +343,10 @@
     "tabFpPro": "Mode Fingerprint.com",
     "tabReact": "React / Next.js",
     "tabScript": "HTML <script>",
-    "tabNode": "API Serveur Node.js"
+    "tabNode": "API Serveur Node.js",
+    "siteCreatedTitle": "Site créé et clés générées",
+    "siteCreatedNotice": "Sauvegardez votre clé secrète maintenant — elle est hashée en SHA-256 et masquée ensuite.",
+    "statusLabel": "Statut du site"
   },
   "visitors": {
     "title": "Explorateur de Visiteurs & Graphe d'Identité",
@@ -561,5 +565,35 @@
     "lastPage": "Dernière page",
     "pageOf": "Page {page} sur {totalPages}",
     "noResults": "0 résultat"
+  },
+  "guides": {
+    "title": "Guides & Documentation BloumeID de A à Z",
+    "subtitle": "Comprenez à quoi sert chaque module, pourquoi l'utiliser et comment le configurer étape par étape (Panel Admin & SDK @bloume/id).",
+    "searchPlaceholder": "Rechercher dans les guides (Snowflake, CORS, webhooks, ThumbmarkJS, GeoLite2...)",
+    "tabArchitecture": "Architecture A→Z",
+    "tabPanel": "Pages du Panel",
+    "tabSdk": "SDK @bloume/id",
+    "whatLabel": "Qu'est-ce que c'est",
+    "whyLabel": "Pourquoi l'utiliser",
+    "howLabel": "Comment configurer",
+    "noResults": "Aucune section ne correspond à votre recherche.",
+    "archSignalTitle": "Empreinte Déterministe à 104 Signaux",
+    "archSignalWhat": "Collecte Canvas 2D double rendu, limites WebGL/WebGPU, AudioContext, matrice CSS, codecs média, polices et sondes anti-spoof.",
+    "archSignalWhy": "Génère un fullHash navigateur et un hardwareHash cross-browser stables sans cookies tiers intrusifs.",
+    "archSignalHow": "Activez/désactivez chaque collecteur par site dans /sites -> Actions, ou filtrez via options.exclude.",
+    "archReconcileTitle": "Identifiants Snowflake & Réconciliation à 3 Niveaux",
+    "archReconcileWhat": "Génère des IDs préfixés (site_, vis_, req_, rule_) et relie les visites via fullHash, hardwareHash + sous-réseau /24, ou nouveau visiteur.",
+    "archReconcileWhy": "Empêche l'énumération d'IDs tout en reconnaissant un utilisateur même s'il change de navigateur (Chrome ↔ Firefox).",
+    "archReconcileHow": "Consultez les corrélations et profils fusionnés sur /visitors et /visitors/[visitorId].",
+    "archNetworkTitle": "Trie CIDR Valkey & Enrichissement GeoLite2",
+    "archNetworkWhat": "Indexe 54 000+ plages Tor, VPN, Proxy et Datacenter en mémoire avec les bases locales GeoLite2 City & ASN (.mmdb).",
+    "archNetworkWhy": "Fournit un scoring réseau < 1 ms et la géolocalisation souveraine sans API tierce ni coût par requête.",
+    "archNetworkHow": "Cliquez sur Mettre à jour GeoLite2 et Synchroniser les flux sur /settings (ou définissez MAXMIND_LICENSE_KEY).",
+    "panelListTitle": "Guide Détaillé de Chaque Page du Panel Admin",
+    "sdkInstallTitle": "1. Installation & Bundle UMD",
+    "sdkThumbmarkTitle": "2. Mode Natif / ThumbmarkJS Drop-In",
+    "sdkFpTitle": "3. Mode Fingerprint.com Drop-In",
+    "sdkServerTitle": "4. Vérification Serveur Sécurisée (@bloume/id/server)",
+    "sdkOptionsTitle": "5. Options & Filtrage des 104 Signaux (exclude, timeout, debug)"
   }
 }

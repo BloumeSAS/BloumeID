@@ -76,7 +76,8 @@
     "catOverview": "Controle & Telemetrie",
     "catSecurity": "Intelligentie & Bescherming",
     "catDeveloper": "Integratie & Ontwikkelaars",
-    "catInfra": "Infrastructuur & Beheer"
+    "catInfra": "Infrastructuur & Beheer",
+    "guides": "Gidsen A–Z"
   },
   "auth": {
     "title": "BloumeID Beheerconsole",
@@ -222,7 +223,10 @@
     "tabFpPro": "Fingerprint.com Modus",
     "tabReact": "React / Next.js",
     "tabScript": "HTML <script>",
-    "tabNode": "Node.js Server API"
+    "tabNode": "Node.js Server API",
+    "siteCreatedTitle": "Site aangemaakt & sleutels gegenereerd",
+    "siteCreatedNotice": "Bewaar uw geheime sleutel nu — deze wordt gehasht met SHA-256.",
+    "statusLabel": "Sitestatus"
   },
   "visitors": {
     "title": "Bezoekersverkenner & Identiteitsgraaf",
@@ -561,5 +565,35 @@
     "guideOpt2Title": "Externe PostgreSQL + ingebouwde Valkey (docker-compose.external-db.yml)",
     "guideOpt2Desc": "Ideaal als u al een PostgreSQL-server op Coolify heeft (DATABASE_URL). Valkey 8 blijft lokaal inbegrepen.",
     "guideEnvHint": "Vereiste variabelen: ADMIN_MASTER_KEY, ADMIN_USERNAME, BLOUMEID_PUBLIC_URL (+ DATABASE_URL voor Optie 2)."
+  },
+  "guides": {
+    "title": "BloumeID A–Z Gidsen & Documentatie",
+    "subtitle": "Begrijp wat elke functie doet, waarom u deze gebruikt en hoe u het paneel en de @bloume/id SDK stap voor stap instelt.",
+    "searchPlaceholder": "Zoek in gidsen (Snowflake, CORS, webhooks, GeoLite2...)",
+    "tabArchitecture": "Architectuur A–Z",
+    "tabPanel": "Paneelpagina's",
+    "tabSdk": "@bloume/id SDK",
+    "whatLabel": "Wat het is",
+    "whyLabel": "Waarom gebruiken",
+    "howLabel": "Hoe configureren",
+    "noResults": "Geen resultaten gevonden.",
+    "archSignalTitle": "Deterministische 104-Signalen Vingerafdruk",
+    "archSignalWhat": "Verzamelt Canvas 2D, WebGL/WebGPU, AudioContext, CSS-matrix, codecs, lettertypen en anti-spoof checks.",
+    "archSignalWhy": "Levert stabiele fullHash en hardwareHash zonder cookies van derden.",
+    "archSignalHow": "Schakel collectors in/uit via /sites -> Acties of options.exclude.",
+    "archReconcileTitle": "Snowflake ID's & 3-Niveau Reconciliatie",
+    "archReconcileWhat": "Gebruikt ID's met voorvoegsel (site_, vis_, req_) en koppelt bezoeken via fullHash en hardwareHash + /24.",
+    "archReconcileWhy": "Voorkomt ID-enumeratie en herkent bezoekers over verschillende browsers.",
+    "archReconcileHow": "Bekijk profielen op /visitors en /visitors/[visitorId].",
+    "archNetworkTitle": "Valkey CIDR-Trie & GeoLite2",
+    "archNetworkWhat": "Laadt 54.000+ Tor-, VPN- en Datacenter-bereiken naast lokale GeoLite2-databases.",
+    "archNetworkWhy": "Sub-milliseconde risicoscore zonder externe API-kosten.",
+    "archNetworkHow": "Bijwerken via /settings.",
+    "panelListTitle": "Elke Beheerpagina Uitgelegd",
+    "sdkInstallTitle": "1. Installatie & UMD-script",
+    "sdkThumbmarkTitle": "2. ThumbmarkJS Drop-In Modus",
+    "sdkFpTitle": "3. Fingerprint.com Drop-In Modus",
+    "sdkServerTitle": "4. Veilige Serververificatie (@bloume/id/server)",
+    "sdkOptionsTitle": "5. Opties & Signalen (exclude, timeout, debug)"
   }
 }

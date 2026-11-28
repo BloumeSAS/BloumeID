@@ -7,6 +7,7 @@ import {
   Activity,
   ArrowLeft,
   BarChart3,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Command,
@@ -31,10 +32,10 @@ import { useI18n, type GlobalTimeRange } from "@/i18n/provider";
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { SiteFormModal } from "@/components/sites/site-form-modal";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { PublicSiteDTO } from "@/types";
@@ -51,6 +52,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     timeRange,
     setTimeRange,
     viewDensity,
+    refreshTick,
   } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
@@ -60,10 +62,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [commandOpen, setCommandOpen] = React.useState(false);
   const [commandQuery, setCommandQuery] = React.useState("");
   const [createSiteOpen, setCreateSiteOpen] = React.useState(false);
-  const [newSiteName, setNewSiteName] = React.useState("");
-  const [newSiteDomains, setNewSiteDomains] = React.useState("localhost, *.example.com");
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
-  const [adminUsername, setAdminUsername] = React.useState("Jules");
+  const [adminUsername, setAdminUsername] = React.useState("admin");
 
   const loadSites = React.useCallback(() => {
     fetch("/api/admin/sites?all=true")
@@ -82,7 +82,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         if (data?.username) setAdminUsername(data.username);
       })
       .catch(() => undefined);
-  }, [loadSites]);
+  }, [loadSites, refreshTick]);
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -116,6 +116,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         { href: "/sites", label: dict.nav.sites, icon: KeyRound, badge: null },
         { href: "/webhooks", label: dict.nav.webhooks, icon: Webhook, badge: dict.webhooksPage.optionalBadge },
         { href: "/migrate", label: dict.nav.migrate, icon: Wand2, badge: null },
+        { href: "/guides", label: dict.nav.guides, icon: BookOpen, badge: null },
       ],
     },
     {
@@ -172,26 +173,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     await fetch("/api/admin/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
-  };
-
-  const handleCreateSiteModal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const domains = newSiteDomains
-      .split(",")
-      .map((d) => d.trim())
-      .filter(Boolean);
-    const res = await fetch("/api/admin/sites", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newSiteName, domains, riskThreshold: 3 }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { site: PublicSiteDTO };
-      setSites((prev) => [data.site, ...prev]);
-      setSelectedSiteId(data.site.publicId);
-      setNewSiteName("");
-      setCreateSiteOpen(false);
-    }
   };
 
   const getTimeLabel = (r: GlobalTimeRange): string => {
@@ -473,43 +454,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Quick Create Site Modal */}
-      <Dialog
+      {/* Unified Create Site Modal */}
+      <SiteFormModal
         open={createSiteOpen}
         onOpenChange={setCreateSiteOpen}
-        title={dict.sites.createSite}
-        description={dict.sites.subtitle}
-        closeLabel={dict.common.close}
-      >
-        <form onSubmit={handleCreateSiteModal} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="modal-site-name">{dict.sites.siteName}</Label>
-            <Input
-              id="modal-site-name"
-              value={newSiteName}
-              onChange={(e) => setNewSiteName(e.target.value)}
-              placeholder={dict.sites.siteNamePlaceholder}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="modal-site-domains">{dict.sites.allowedDomains}</Label>
-            <Input
-              id="modal-site-domains"
-              value={newSiteDomains}
-              onChange={(e) => setNewSiteDomains(e.target.value)}
-              placeholder={dict.sites.allowedDomainsPlaceholder}
-              required
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setCreateSiteOpen(false)}>
-              {dict.common.cancel}
-            </Button>
-            <Button type="submit">{dict.common.create}</Button>
-          </div>
-        </form>
-      </Dialog>
+        onCreated={(site) =>
+          setSites((prev) => [site, ...prev.filter((s) => s.publicId !== site.publicId)])
+        }
+      />
 
       {/* PRO Command Palette Dialog (Ctrl+K) */}
       <Dialog

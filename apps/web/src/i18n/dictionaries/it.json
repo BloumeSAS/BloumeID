@@ -76,7 +76,8 @@
     "catOverview": "Controllo e Telemetria",
     "catSecurity": "Intelligenza e Protezione",
     "catDeveloper": "Integrazione e Sviluppatori",
-    "catInfra": "Infrastruttura e Admin"
+    "catInfra": "Infrastruttura e Admin",
+    "guides": "Guide A→Z"
   },
   "auth": {
     "title": "Console Admin BloumeID",
@@ -222,7 +223,10 @@
     "tabFpPro": "Modalità Fingerprint.com",
     "tabReact": "React / Next.js",
     "tabScript": "HTML <script>",
-    "tabNode": "API Server Node.js"
+    "tabNode": "API Server Node.js",
+    "siteCreatedTitle": "Sito creato e chiavi generate",
+    "siteCreatedNotice": "Salva ora la tua Secret Key — viene salvata con hash SHA-256.",
+    "statusLabel": "Stato sito"
   },
   "visitors": {
     "title": "Esploratore Visitatori e Grafo Identità",
@@ -561,5 +565,35 @@
     "guideOpt2Title": "PostgreSQL esterno + Valkey incluso (docker-compose.external-db.yml)",
     "guideOpt2Desc": "Ideale se gestisci già un server PostgreSQL su Coolify (DATABASE_URL). Valkey 8 resta locale.",
     "guideEnvHint": "Variabili richieste: ADMIN_MASTER_KEY, ADMIN_USERNAME, BLOUMEID_PUBLIC_URL (+ DATABASE_URL per Opzione 2)."
+  },
+  "guides": {
+    "title": "Guide e Documentazione BloumeID A–Z",
+    "subtitle": "Cos'è ogni funzione, perché usarla e come configurare il Pannello Admin e l'SDK @bloume/id passo dopo passo.",
+    "searchPlaceholder": "Cerca nelle guide (Snowflake, CORS, webhook, GeoLite2...)",
+    "tabArchitecture": "Architettura A–Z",
+    "tabPanel": "Pagine del Pannello",
+    "tabSdk": "SDK @bloume/id",
+    "whatLabel": "Cos'è",
+    "whyLabel": "Perché usarlo",
+    "howLabel": "Come configurare",
+    "noResults": "Nessuna sezione trovata.",
+    "archSignalTitle": "Fingerprinting Deterministico a 104 Segnali",
+    "archSignalWhat": "Raccoglie Canvas 2D, WebGL/WebGPU, AudioContext, matrice CSS, codec, font e sonde anti-spoof.",
+    "archSignalWhy": "Genera fullHash e hardwareHash stabili senza cookie di terze parti.",
+    "archSignalHow": "Configura i collettori in /sites -> Azioni o con options.exclude.",
+    "archReconcileTitle": "ID Snowflake e Riconciliazione a 3 Livelli",
+    "archReconcileWhat": "Genera ID con prefisso (site_, vis_, req_) e collega visite su fullHash e hardwareHash + /24.",
+    "archReconcileWhy": "Previene l'enumerazione e riconosce utenti tra browser diversi.",
+    "archReconcileHow": "Esplora i profili su /visitors e /visitors/[visitorId].",
+    "archNetworkTitle": "Trie CIDR Valkey e GeoLite2",
+    "archNetworkWhat": "Indicizza oltre 54.000 reti Tor, VPN e Datacenter con GeoLite2 locale.",
+    "archNetworkWhy": "Analisi in meno di 1 ms senza costi per richiesta.",
+    "archNetworkHow": "Aggiorna in /settings.",
+    "panelListTitle": "Ogni Pagina del Pannello Spiegata",
+    "sdkInstallTitle": "1. Installazione e Script UMD",
+    "sdkThumbmarkTitle": "2. Modalità ThumbmarkJS Drop-In",
+    "sdkFpTitle": "3. Modalità Fingerprint.com Drop-In",
+    "sdkServerTitle": "4. Verifica Lato Server (@bloume/id/server)",
+    "sdkOptionsTitle": "5. Opzioni e Segnali (exclude, timeout, debug)"
   }
 }

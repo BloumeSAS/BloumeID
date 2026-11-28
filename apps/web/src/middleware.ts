@@ -68,6 +68,7 @@ const PROTECTED_PATHS = [
   "/security",
   "/usage",
   "/migrate",
+  "/guides",
 ];
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {

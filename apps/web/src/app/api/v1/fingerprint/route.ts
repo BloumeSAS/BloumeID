@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { APP_VERSION, APP_VERSION_TAG } from "@/lib/version";
+import { parseSafeJsonBody, isJsonPayloadSafe } from "@/lib/security";
 import { computeAntiReplaySignature, type FingerprintComponents } from "@bloume/id";
 import { constantTimeEqual, generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
@@ -30,20 +31,6 @@ import {
   updateSecurityRule,
 } from "@/lib/engine/repository";
 import { dispatchSignedWebhook, shouldTriggerWebhook } from "@/lib/engine/webhooks";
-
-const MAX_COMPONENTS_DEPTH = 6;
-const MAX_COMPONENTS_KEYS = 64;
-
-function isJsonDepthSafe(value: unknown, depth = 0): boolean {
-  if (depth > MAX_COMPONENTS_DEPTH) return false;
-  if (value === null || typeof value !== "object") return true;
-  if (Array.isArray(value)) {
-    return value.every((item) => isJsonDepthSafe(item, depth + 1));
-  }
-  const keys = Object.keys(value as Record<string, unknown>);
-  if (depth === 0 && keys.length > MAX_COMPONENTS_KEYS) return false;
-  return keys.every((k) => isJsonDepthSafe((value as Record<string, unknown>)[k], depth + 1));
-}
 
 const FingerprintPayloadSchema = z.object({
   timestamp: z.number().int(),
@@ -121,34 +108,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const MAX_BODY_BYTES = 64 * 1024;
-  const contentLen = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLen) && contentLen > MAX_BODY_BYTES) {
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
     return NextResponse.json(
-      { error: "Payload exceeds 64 KB limit" },
-      { status: 413, headers: corsHeaders }
+      { error: bodyResult.error },
+      { status: bodyResult.status, headers: corsHeaders }
     );
   }
 
-  let rawJson: unknown;
-  try {
-    const rawText = await request.text();
-    if (Buffer.byteLength(rawText, "utf8") > MAX_BODY_BYTES) {
-      return NextResponse.json(
-        { error: "Payload exceeds 64 KB limit" },
-        { status: 413, headers: corsHeaders }
-      );
-    }
-    rawJson = JSON.parse(rawText);
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON payload" },
-      { status: 400, headers: corsHeaders }
-    );
-  }
-
-  const parsed = FingerprintPayloadSchema.safeParse(rawJson);
-  if (!parsed.success || !isJsonDepthSafe(parsed.data.components)) {
+  const parsed = FingerprintPayloadSchema.safeParse(bodyResult.data);
+  if (!parsed.success || !isJsonPayloadSafe(parsed.data.components)) {
     return NextResponse.json(
       { error: "Payload validation failed" },
       { status: 400, headers: corsHeaders }
