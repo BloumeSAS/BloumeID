@@ -32,7 +32,13 @@ test.describe("BloumeID Admin Panel & Live SDK Playground E2E", () => {
     await page.getByTestId("new-site-name").fill("Playwright E2E Site");
     await page.getByTestId("new-site-domains").fill("localhost, *.playwright.dev");
     await page.getByTestId("create-site-btn").click();
-    await expect(page.getByText("Playwright E2E Site")).toBeVisible();
+    await expect(
+      page
+        .getByRole("main")
+        .getByText("Playwright E2E Site")
+        .or(page.getByRole("dialog").getByRole("heading", { name: "Playwright E2E Site" }))
+        .first()
+    ).toBeVisible();
 
     // Navigate to Landing Live Sandbox and verify @bloume/id probe
     await page.goto("/");
