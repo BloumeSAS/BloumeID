@@ -10,10 +10,11 @@ import {
 } from "@/lib/engine/feeds";
 import { downloadAndUpdateGeoLite2, getGeoIpStatus } from "@/lib/engine/geoip";
 import {
-  getDashboardMetrics,
+  listFingerprintEvents,
   listThreatFeedStatuses,
   listVisitors,
   purgeOldFingerprintEvents,
+  resolvePeriodRange,
 } from "@/lib/engine/repository";
 
 const ActionSchema = z.discriminatedUnion("action", [
@@ -35,35 +36,44 @@ export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const exportFormat = url.searchParams.get("export");
 
-  if (exportFormat === "json" || exportFormat === "csv") {
-    const metrics = await getDashboardMetrics("30d");
-    const visitors = await listVisitors();
-
-    if (exportFormat === "json") {
-      return new NextResponse(
-        JSON.stringify(
-          {
-            exportedAt: new Date().toISOString(),
-            visitors,
-            recentEvents: metrics.recentHighRiskEvents,
-          },
-          null,
-          2
-        ),
+  if (exportFormat === "json") {
+    const { since } = resolvePeriodRange("30d");
+    const [recentEvents, visitors] = await Promise.all([
+      listFingerprintEvents({ since, limit: 50, includeComponents: true }),
+      listVisitors(),
+    ]);
+    return new NextResponse(
+      JSON.stringify(
         {
-          status: 200,
-          headers: {
-            ...NO_STORE_HEADERS,
-            "Content-Type": "application/json",
-            "Content-Disposition": 'attachment; filename="bloumeid-export.json"',
-          },
-        }
-      );
-    }
+          exportedAt: new Date().toISOString(),
+          visitors,
+          recentEvents,
+        },
+        null,
+        2
+      ),
+      {
+        status: 200,
+        headers: {
+          ...NO_STORE_HEADERS,
+          "Content-Type": "application/json",
+          "Content-Disposition": 'attachment; filename="bloumeid-export.json"',
+        },
+      }
+    );
+  }
+
+  if (exportFormat === "csv") {
+    const { since } = resolvePeriodRange("30d");
+    const recentEvents = await listFingerprintEvents({
+      since,
+      limit: 100,
+      includeComponents: false,
+    });
 
     const csvHeader =
       "requestId,visitorId,siteId,fullHash,hardwareHash,ipAddress,country,asnNumber,dangerLevel,ruleAction,isBot,isSpoofed,isVpn,isTor,createdAt";
-    const csvRows = metrics.recentHighRiskEvents.map((e) =>
+    const csvRows = recentEvents.map((e) =>
       [
         e.publicId,
         e.visitorPublicId,
@@ -97,13 +107,18 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const feeds = await listThreatFeedStatuses();
   const geoip = getGeoIpStatus();
+  const rawRetention = Number(process.env.RETENTION_DAYS ?? 90);
+  const retentionDaysDefault =
+    Number.isFinite(rawRetention) && rawRetention >= 1
+      ? Math.min(3650, Math.round(rawRetention))
+      : 90;
 
   return NextResponse.json(
     {
       trieTotalCidrs: globalThreatTrie.size(),
       feeds,
       geoip,
-      retentionDaysDefault: Number(process.env.RETENTION_DAYS ?? 90),
+      retentionDaysDefault,
     },
     { status: 200, headers: NO_STORE_HEADERS }
   );
