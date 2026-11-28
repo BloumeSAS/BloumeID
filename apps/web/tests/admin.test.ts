@@ -326,6 +326,7 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
       path.resolve(__dirname, "../src/app/(dashboard)/visitors/[visitorId]/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/settings/page.tsx"),
       path.resolve(__dirname, "../src/app/(dashboard)/releases/page.tsx"),
+      path.resolve(__dirname, "../src/app/(dashboard)/guides/page.tsx"),
     ];
 
     for (const file of pages) {
@@ -384,5 +385,42 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     };
     expect(visBody.items.length).toBeLessThanOrEqual(1);
     expect(visBody.pagination.page).toBe(1);
+  });
+
+  it("exports lightweight CSV and JSON telemetry snapshots and normalizes invalid RETENTION_DAYS", async () => {
+    const token = createSignedAdminSessionToken();
+    const headers = { cookie: `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(token)}` };
+
+    const prevRetention = process.env.RETENTION_DAYS;
+    process.env.RETENTION_DAYS = "not_a_number";
+    try {
+      const settingsRes = await settingsGET(
+        new Request("http://localhost:3000/api/admin/settings", { headers })
+      );
+      expect(settingsRes.status).toBe(200);
+      const body = (await settingsRes.json()) as { retentionDaysDefault: number };
+      expect(body.retentionDaysDefault).toBe(90);
+    } finally {
+      if (prevRetention === undefined) delete process.env.RETENTION_DAYS;
+      else process.env.RETENTION_DAYS = prevRetention;
+    }
+
+    const csvRes = await settingsGET(
+      new Request("http://localhost:3000/api/admin/settings?export=csv", { headers })
+    );
+    expect(csvRes.status).toBe(200);
+    expect(csvRes.headers.get("content-type")).toContain("text/csv");
+    expect(csvRes.headers.get("cache-control")).toContain("no-store");
+    expect(await csvRes.text()).toContain("requestId,visitorId,siteId,");
+
+    const jsonRes = await settingsGET(
+      new Request("http://localhost:3000/api/admin/settings?export=json", { headers })
+    );
+    expect(jsonRes.status).toBe(200);
+    expect(jsonRes.headers.get("content-type")).toContain("application/json");
+    const jsonData = (await jsonRes.json()) as { exportedAt: string; recentEvents: unknown[]; visitors: unknown[] };
+    expect(jsonData.exportedAt).toBeTruthy();
+    expect(Array.isArray(jsonData.recentEvents)).toBe(true);
+    expect(Array.isArray(jsonData.visitors)).toBe(true);
   });
 });
