@@ -124,11 +124,17 @@ export default function SettingsPage() {
   };
 
   const handlePurge = async () => {
-    await fetch("/api/admin/settings", {
+    const safeDays = Number.isFinite(retentionDays)
+      ? Math.max(1, Math.min(3650, Math.round(retentionDays)))
+      : 90;
+    const res = await fetch("/api/admin/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "purge_events", retentionDays }),
+      body: JSON.stringify({ action: "purge_events", retentionDays: safeDays }),
     });
+    if (res.ok) {
+      await loadSettings();
+    }
   };
 
   return (

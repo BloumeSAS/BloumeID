@@ -30,6 +30,7 @@ export default function WebhooksPage() {
   const [editingSite, setEditingSite] = React.useState<PublicSiteDTO | null>(null);
   const [deliveriesPage, setDeliveriesPage] = React.useState(1);
   const [toast, setToast] = React.useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const pageSize = 10;
   const displayedSites = React.useMemo(
     () => (selectedSiteId === "all" ? sites : sites.filter((s) => s.publicId === selectedSiteId)),
@@ -49,7 +50,7 @@ export default function WebhooksPage() {
   );
 
   const loadData = React.useCallback(async () => {
-    const res = await fetch("/api/admin/sites");
+    const res = await fetch("/api/admin/sites?all=true");
     if (res.ok) {
       const data = (await res.json()) as {
         sites: PublicSiteDTO[];
@@ -71,12 +72,18 @@ export default function WebhooksPage() {
   }, []);
 
   React.useEffect(() => {
+    setDeliveriesPage(1);
+  }, [selectedSiteId]);
+
+  React.useEffect(() => {
     void loadData();
   }, [loadData, refreshTick]);
 
   const handleSaveWebhook = async (publicId: string, clearUrl = false) => {
+    setErrorMsg(null);
     const nextUrl = clearUrl ? null : (urlDrafts[publicId] ?? "").trim() || null;
-    const nextThreshold = thresholdDrafts[publicId] ?? 3;
+    const rawTh = Number(thresholdDrafts[publicId] ?? 3);
+    const nextThreshold = Number.isFinite(rawTh) ? Math.max(0, Math.min(5, Math.round(rawTh))) : 3;
     const res = await fetch("/api/admin/sites", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -91,10 +98,16 @@ export default function WebhooksPage() {
       setEditingSite(null);
       await loadData();
       setTimeout(() => setToast(null), 3000);
+    } else {
+      const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
+        error?: string;
+      };
+      setErrorMsg(err.error ?? `HTTP ${res.status}`);
     }
   };
 
   const handleTestWebhook = async (publicId: string) => {
+    setErrorMsg(null);
     const res = await fetch("/api/admin/sites", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -104,6 +117,11 @@ export default function WebhooksPage() {
       setToast(dict.sites.webhookSent);
       await loadData();
       setTimeout(() => setToast(null), 3000);
+    } else {
+      const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
+        error?: string;
+      };
+      setErrorMsg(err.error ?? `HTTP ${res.status}`);
     }
   };
 
@@ -126,6 +144,12 @@ export default function WebhooksPage() {
       {toast ? (
         <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-500">
           {toast}
+        </div>
+      ) : null}
+
+      {errorMsg ? (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
+          {errorMsg}
         </div>
       ) : null}
 
@@ -347,7 +371,7 @@ export default function WebhooksPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {deliveries.length === 0 ? (
+              {filteredDeliveries.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
                     {dict.sites.webhookNoLogs}

@@ -376,5 +376,23 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     );
     expect(ruleEval.action).toBe("allow");
   });
+
+  it("handles weak/multi-value ETags and serves nosniff on /sdk/v1/bloumeid.js", async () => {
+    const { GET: sdkGET } = await import("../src/app/sdk/v1/bloumeid.js/route");
+
+    const firstRes = await sdkGET(new Request("http://localhost:3000/sdk/v1/bloumeid.js"));
+    expect(firstRes.status).toBe(200);
+    expect(firstRes.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    const etag = firstRes.headers.get("ETag");
+    expect(etag).toBeTruthy();
+
+    const weakConditional = await sdkGET(
+      new Request("http://localhost:3000/sdk/v1/bloumeid.js", {
+        headers: { "If-None-Match": `"other", W/${etag}` },
+      })
+    );
+    expect(weakConditional.status).toBe(304);
+    expect(weakConditional.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
 });
 

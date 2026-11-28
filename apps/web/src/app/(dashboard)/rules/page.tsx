@@ -53,11 +53,17 @@ export default function SecurityRulesPage() {
   }, [selectedSiteId]);
 
   React.useEffect(() => {
+    setPage(1);
+  }, [selectedSiteId]);
+
+  React.useEffect(() => {
     void loadRules();
   }, [loadRules, refreshTick]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
     const parsedVal: string | number | boolean =
       valueStr === "true"
         ? true
@@ -67,14 +73,15 @@ export default function SecurityRulesPage() {
             ? Number(valueStr)
             : valueStr;
 
+    const safePriority = Number.isFinite(priority) ? Math.max(1, Math.min(1000, Math.round(priority))) : 25;
     const res = await fetch("/api/admin/rules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sitePublicId: selectedSiteId === "all" ? null : selectedSiteId,
-        name,
+        name: trimmedName,
         action,
-        priority,
+        priority: safePriority,
         conditions: [{ field, operator, value: parsedVal }],
       }),
     });
