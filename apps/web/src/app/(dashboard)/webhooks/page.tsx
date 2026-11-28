@@ -31,6 +31,26 @@ export default function WebhooksPage() {
   const [deliveriesPage, setDeliveriesPage] = React.useState(1);
   const [toast, setToast] = React.useState<string | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showToast = React.useCallback((message: string) => {
+    setToast(message);
+    if (toastTimerRef.current !== null) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
+      setToast(null);
+    }, 3000);
+  }, []);
   const pageSize = 10;
   const displayedSites = React.useMemo(
     () => (selectedSiteId === "all" ? sites : sites.filter((s) => s.publicId === selectedSiteId)),
@@ -96,44 +116,50 @@ export default function WebhooksPage() {
     const nextUrl = clearUrl ? null : (urlDrafts[publicId] ?? "").trim() || null;
     const rawTh = Number(thresholdDrafts[publicId] ?? 3);
     const nextThreshold = Number.isFinite(rawTh) ? Math.max(0, Math.min(5, Math.round(rawTh))) : 3;
-    const res = await fetch("/api/admin/sites", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        publicId,
-        webhookUrl: nextUrl,
-        riskThreshold: nextThreshold,
-      }),
-    });
-    if (res.ok) {
-      setToast(dict.webhooksPage.webhookSaved);
-      setEditingSite(null);
-      await loadData();
-      setTimeout(() => setToast(null), 3000);
-    } else {
-      const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
-        error?: string;
-      };
-      setErrorMsg(err.error ?? `HTTP ${res.status}`);
+    try {
+      const res = await fetch("/api/admin/sites", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicId,
+          webhookUrl: nextUrl,
+          riskThreshold: nextThreshold,
+        }),
+      });
+      if (res.ok) {
+        showToast(dict.webhooksPage.webhookSaved);
+        setEditingSite(null);
+        await loadData();
+      } else {
+        const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
+          error?: string;
+        };
+        setErrorMsg(err.error ?? `HTTP ${res.status}`);
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : dict.common.none);
     }
   };
 
   const handleTestWebhook = async (publicId: string) => {
     setErrorMsg(null);
-    const res = await fetch("/api/admin/sites", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publicId, testWebhook: true }),
-    });
-    if (res.ok) {
-      setToast(dict.sites.webhookSent);
-      await loadData();
-      setTimeout(() => setToast(null), 3000);
-    } else {
-      const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
-        error?: string;
-      };
-      setErrorMsg(err.error ?? `HTTP ${res.status}`);
+    try {
+      const res = await fetch("/api/admin/sites", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId, testWebhook: true }),
+      });
+      if (res.ok) {
+        showToast(dict.sites.webhookSent);
+        await loadData();
+      } else {
+        const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
+          error?: string;
+        };
+        setErrorMsg(err.error ?? `HTTP ${res.status}`);
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : dict.common.none);
     }
   };
 

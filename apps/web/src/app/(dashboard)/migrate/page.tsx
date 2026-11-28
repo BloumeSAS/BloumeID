@@ -17,10 +17,19 @@ export default function MigratePage() {
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [selectedSiteId, setSelectedSiteId] = React.useState("");
   const [sourceTool, setSourceTool] = React.useState("ThumbmarkJS (OSS / Pro)");
-  const [targetStack, setTargetStack] = React.useState("Auto-détection dans le repo");
+  const [targetStack, setTargetStack] = React.useState(dict.landing.autoDetectRepo);
   const [includeWebhook, setIncludeWebhook] = React.useState(false);
   const [showSecret, setShowSecret] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
+  const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     const controller = new AbortController();
@@ -114,7 +123,13 @@ ${webhookSection}
     try {
       await navigator.clipboard.writeText(generatedPrompt);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = setTimeout(() => {
+        copyTimerRef.current = null;
+        setCopied(false);
+      }, 2000);
     } catch {
       // Ignore clipboard error
     }

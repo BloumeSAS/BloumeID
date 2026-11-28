@@ -42,6 +42,8 @@ export default function GetStartedPage() {
     sites[0];
   const pubKey = primarySite?.publicKey ?? "bid_pub_demo_cosmic_night_2026";
   const secKey = primarySite?.secretKeyPlain ?? primarySite?.secretKeyHint ?? "bid_sec_...";
+  const originUrl =
+    typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
 
   const handleRunTest = async () => {
     setTesting(true);
@@ -168,11 +170,11 @@ console.log(result.visitorId, result.requestId, result.ipLocation);`}
 
             <TabsContent value="script">
               <pre className="overflow-x-auto rounded-xl border border-border bg-secondary/30 p-4 font-mono text-xs text-foreground">
-{`<script src="http://localhost:3000/sdk/v1/bloumeid.js"></script>
+{`<script src="${originUrl}/sdk/v1/bloumeid.js"></script>
 <script>
   const client = new window.BloumeID({
     apiKey: "${pubKey}",
-    endpoint: "http://localhost:3000"
+    endpoint: "${originUrl}"
   });
   client.get().then((res) => console.log(res.visitorId, res.requestId));
 </script>`}
