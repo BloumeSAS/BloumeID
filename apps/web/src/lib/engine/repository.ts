@@ -755,6 +755,7 @@ export async function listFingerprintEvents(filters?: {
   const minDanger = filters?.minDanger ?? 0;
   const vector = filters?.vector ?? "all";
   const allEvents: PublicFingerprintEventDTO[] = [];
+  const seenPublicIds = new Set<string>();
 
   if (await isDatabaseConnected()) {
     try {
@@ -768,13 +769,32 @@ export async function listFingerprintEvents(filters?: {
       if (filters?.sitePublicId && filters.sitePublicId !== "all") {
         dbWhere.site = { publicId: filters.sitePublicId };
       }
+      if (minDanger > 0) {
+        dbWhere.dangerLevel = { gte: minDanger };
+      }
+      if (filters?.linkedId) {
+        dbWhere.linkedId = filters.linkedId;
+      }
+      if (vector === "bot") {
+        dbWhere.isBot = true;
+      } else if (vector === "vpntor") {
+        dbWhere.OR = [{ isVpn: true }, { isTor: true }, { isProxy: true }];
+      } else if (vector === "spoofed") {
+        dbWhere.isSpoofed = true;
+      } else if (vector === "crossbrowser") {
+        dbWhere.crossBrowserMatched = true;
+      }
       const dbEvents = await prisma.fingerprintEvent.findMany({
         where: dbWhere,
         orderBy: { createdAt: "desc" },
         take: limit,
-        include: { site: true, visitor: true },
+        include: {
+          site: { select: { publicId: true } },
+          visitor: { select: { publicId: true } },
+        },
       });
       for (const evt of dbEvents) {
+        seenPublicIds.add(evt.publicId);
         allEvents.push({
           publicId: evt.publicId,
           sitePublicId: evt.site.publicId,
@@ -819,13 +839,20 @@ export async function listFingerprintEvents(filters?: {
     }
   }
 
-  for (const e of [...memEvents].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())) {
-    if (!allEvents.some((x) => x.publicId === e.publicId)) {
-      const site = memSites.find((s) => s.id === e.siteId);
-      const visitor = memVisitors.find((v) => v.id === e.visitorId);
-      allEvents.push(
-        mapInternalEventToDTO(e, site?.publicId ?? "site_unknown", visitor?.publicId ?? "vis_unknown")
-      );
+  if (memEvents.length > 0) {
+    const memSitePublicIdById = new Map(memSites.map((s) => [s.id, s.publicId]));
+    const memVisitorPublicIdById = new Map(memVisitors.map((v) => [v.id, v.publicId]));
+    for (const e of [...memEvents].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())) {
+      if (!seenPublicIds.has(e.publicId)) {
+        seenPublicIds.add(e.publicId);
+        allEvents.push(
+          mapInternalEventToDTO(
+            e,
+            memSitePublicIdById.get(e.siteId) ?? "site_unknown",
+            memVisitorPublicIdById.get(e.visitorId) ?? "vis_unknown"
+          )
+        );
+      }
     }
   }
 
@@ -930,7 +957,10 @@ export async function listFingerprintEventsPaginated(filters?: {
           orderBy: { createdAt: "desc" },
           skip,
           take: pageSize,
-          include: { site: true, visitor: true },
+          include: {
+            site: { select: { publicId: true } },
+            visitor: { select: { publicId: true } },
+          },
         }),
         prisma.fingerprintEvent.count({ where }),
       ]);
@@ -1001,7 +1031,7 @@ export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
       const vis = await prisma.visitor.findUnique({
         where: { publicId: visitorPublicId },
         include: {
-          site: true,
+          site: { select: { publicId: true } },
           events: { orderBy: { createdAt: "desc" }, take: 50 },
         },
       });
@@ -1304,6 +1334,7 @@ export async function deleteSiteRecord(sitePublicId: string): Promise<boolean> {
 }
 
 export async function listVisitors(filters?: {
+  sitePublicId?: string;
   query?: string;
   onlyHighRisk?: boolean;
   since?: Date;
@@ -1318,9 +1349,15 @@ export async function listVisitors(filters?: {
       if (filters?.since) {
         where.lastSeenAt = { gte: filters.since };
       }
+      if (filters?.sitePublicId && filters.sitePublicId !== "all") {
+        where.site = { publicId: filters.sitePublicId };
+      }
+      if (highRisk) {
+        where.maxDangerLevel = { gte: 3 };
+      }
       const visitors = await prisma.visitor.findMany({
         where,
-        include: { site: true },
+        include: { site: { select: { publicId: true } } },
         orderBy: { lastSeenAt: "desc" },
         take: 100,
       });
@@ -1374,6 +1411,12 @@ export async function listVisitors(filters?: {
     .filter((v) => !highRisk || v.maxDangerLevel >= 3)
     .filter(
       (v) =>
+        !filters?.sitePublicId ||
+        filters.sitePublicId === "all" ||
+        v.sitePublicId === filters.sitePublicId
+    )
+    .filter(
+      (v) =>
         !q ||
         v.publicId.toLowerCase().includes(q) ||
         v.hardwareHash.toLowerCase().includes(q) ||
@@ -1421,7 +1464,7 @@ export async function listVisitorsPaginated(filters?: {
       const [dbVisitors, totalItems] = await Promise.all([
         prisma.visitor.findMany({
           where,
-          include: { site: true },
+          include: { site: { select: { publicId: true } } },
           orderBy: { lastSeenAt: "desc" },
           skip,
           take: pageSize,
@@ -1488,7 +1531,10 @@ export async function updateVisitorAnnotations(
 
   if (await isDatabaseConnected()) {
     try {
-      const existing = await prisma.visitor.findUnique({ where: { publicId: visitorPublicId } });
+      const existing = await prisma.visitor.findUnique({
+        where: { publicId: visitorPublicId },
+        select: { id: true, tags: true, notes: true, trustStatus: true },
+      });
       if (existing) {
         const updated = await prisma.visitor.update({
           where: { publicId: visitorPublicId },
@@ -1497,7 +1543,7 @@ export async function updateVisitorAnnotations(
             notes: input.notes !== undefined ? input.notes : existing.notes,
             trustStatus: input.trustStatus ?? existing.trustStatus,
           },
-          include: { site: true },
+          include: { site: { select: { publicId: true } } },
         });
         return {
           publicId: updated.publicId,
@@ -1547,15 +1593,14 @@ export async function listSecurityRules(sitePublicId?: string): Promise<PublicSe
   if (await isDatabaseConnected()) {
     try {
       const dbRules = await prisma.securityRule.findMany({
+        where:
+          sitePublicId && sitePublicId !== "all"
+            ? { OR: [{ siteId: null }, { site: { publicId: sitePublicId } }] }
+            : undefined,
         orderBy: { priority: "asc" },
-        include: { site: true },
+        include: { site: { select: { publicId: true } } },
       });
-      const dbDtos: PublicSecurityRuleDTO[] = dbRules
-        .filter((r) => {
-          if (!sitePublicId || sitePublicId === "all") return true;
-          return r.siteId === null || r.site?.publicId === sitePublicId;
-        })
-        .map((r) => ({
+      const dbDtos: PublicSecurityRuleDTO[] = dbRules.map((r) => ({
           publicId: r.publicId,
           sitePublicId: r.site?.publicId ?? null,
           name: r.name,
@@ -1616,7 +1661,10 @@ export async function createSecurityRule(input: {
   if (await isDatabaseConnected()) {
     try {
       const dbSite = input.sitePublicId
-        ? await prisma.site.findUnique({ where: { publicId: input.sitePublicId } })
+        ? await prisma.site.findUnique({
+            where: { publicId: input.sitePublicId },
+            select: { id: true },
+          })
         : null;
       const created = await prisma.securityRule.create({
         data: {
@@ -1630,7 +1678,7 @@ export async function createSecurityRule(input: {
           isEnabled: true,
           hitCount: 0,
         },
-        include: { site: true },
+        include: { site: { select: { publicId: true } } },
       });
       return {
         publicId: created.publicId,
@@ -1710,7 +1758,7 @@ export async function updateSecurityRule(
       const updated = await prisma.securityRule.update({
         where: { publicId: rulePublicId },
         data,
-        include: { site: true },
+        include: { site: { select: { publicId: true } } },
       });
       return {
         publicId: updated.publicId,
