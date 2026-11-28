@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
 import { parsePaginationParams } from "@/lib/pagination";
+import { parseSafeJsonBody } from "@/lib/security";
 import {
   getVisitorByPublicId,
   listVisitorsPaginated,
@@ -11,7 +12,7 @@ import {
 
 const UpdateVisitorSchema = z.object({
   publicId: z.string().regex(/^vis_/),
-  tags: z.array(z.string().min(1).max(40)).optional(),
+  tags: z.array(z.string().min(1).max(40)).max(32).optional(),
   notes: z.string().max(4000).nullable().optional(),
   trustStatus: z.enum(["neutral", "trusted", "blocked"]).optional(),
   mergeSourceVisitorId: z.string().regex(/^vis_/).optional(),
@@ -59,16 +60,23 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
 
-  const parsed = UpdateVisitorSchema.safeParse(raw);
+  const parsed = UpdateVisitorSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+  }
+  if (
+    parsed.data.mergeSourceVisitorId &&
+    parsed.data.mergeSourceVisitorId === parsed.data.publicId
+  ) {
+    return NextResponse.json(
+      { error: "Cannot merge a visitor profile into itself" },
+      { status: 400 }
+    );
   }
 
   const updated = await updateVisitorAnnotations(parsed.data.publicId, {
