@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { FingerprintComponents } from "@bloume/id";
 import { APP_VERSION, APP_VERSION_TAG } from "@/lib/version";
-import { NO_STORE_HEADERS, parseSafeJsonBody } from "@/lib/security";
+import { isJsonPayloadSafe, NO_STORE_HEADERS, parseSafeJsonBody } from "@/lib/security";
 import { generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
   detectTorBrowserFromComponents,
@@ -25,7 +25,7 @@ const PreviewPayloadSchema = z.object({
   os: z.string().max(64).optional(),
   osVersion: z.string().max(64).optional(),
   device: z.string().max(64).optional(),
-  tag: z.union([z.record(z.unknown()), z.string()]).optional(),
+  tag: z.union([z.record(z.unknown()), z.string().max(256)]).optional(),
   components: z.record(z.unknown()).optional().default({}),
 });
 
@@ -53,7 +53,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const parsed = PreviewPayloadSchema.safeParse(bodyResult.data);
-  if (!parsed.success) {
+  if (
+    !parsed.success ||
+    !isJsonPayloadSafe(parsed.data.components) ||
+    !isJsonPayloadSafe(parsed.data.tag)
+  ) {
     return NextResponse.json(
       { error: "Validation failed" },
       { status: 400, headers: NO_STORE_HEADERS }
