@@ -20,17 +20,19 @@ interface HealthResponse {
 }
 
 export default function HealthPage() {
-  const { dict } = useI18n();
+  const { dict, refreshTick } = useI18n();
   const [health, setHealth] = React.useState<HealthResponse | null>(null);
 
   React.useEffect(() => {
-    fetch("/api/health")
+    const controller = new AbortController();
+    fetch("/api/health", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: HealthResponse | null) => {
-        if (data) setHealth(data);
+        if (data && !controller.signal.aborted) setHealth(data);
       })
       .catch(() => undefined);
-  }, []);
+    return () => controller.abort();
+  }, [refreshTick]);
 
   const items = [
     {
