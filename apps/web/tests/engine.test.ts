@@ -26,6 +26,7 @@ import {
   extractRealClientIp,
   isOriginAllowedForSite,
   parseUserAgentSummary,
+  resolveOrSynthesizeJa4,
 } from "../src/lib/engine/network";
 import {
   checkSlidingWindowRateLimit,
@@ -729,5 +730,43 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(syncRes.totalCidrs).toBeGreaterThanOrEqual(6);
     expect(badAsnCount()).toBeGreaterThanOrEqual(1);
     expect(lookupBadAsn(199999)).toBe("Bulletproof Host Test");
+  });
+
+  it("canonicalizes compressed IPv6 / IPv4-mapped /24 subnets, catches Linux/Android Client Hints spoofing and stabilizes JA4 synthesis", () => {
+    expect(extractIpSubnet("2001::1")).toBe("2001:0:0::/48");
+    expect(extractIpSubnet("::ffff:7f00:1")).toBe("127.0.0.0/24");
+
+    // Linux platform claimed in Sec-CH-UA vs Windows navigator.platform -> spoof
+    expect(
+      evaluateClientHintsConsistency(
+        new Headers({ "sec-ch-ua-platform": '"Linux"' }),
+        "Win32"
+      ).inconsistent
+    ).toBe(true);
+
+    // Android Chrome legitimately reports Linux armv8l in navigator.platform
+    expect(
+      evaluateClientHintsConsistency(
+        new Headers({ "sec-ch-ua-platform": '"Android"' }),
+        "Linux armv8l"
+      ).inconsistent
+    ).toBe(false);
+
+    // Ephemeral proxy/cookie headers must not alter synthesized JA4 hash
+    const h1 = new Headers({
+      "sec-ch-ua": '"Chromium";v="158"',
+      "sec-ch-ua-platform": '"Windows"',
+      accept: "*/*",
+      "user-agent": "Chrome/158",
+    });
+    const h2 = new Headers({
+      "sec-ch-ua": '"Chromium";v="158"',
+      "sec-ch-ua-platform": '"Windows"',
+      accept: "*/*",
+      "user-agent": "Chrome/158",
+      cookie: "session=secret",
+      "cf-ray": "abc123-CDG",
+    });
+    expect(resolveOrSynthesizeJa4(h1)).toBe(resolveOrSynthesizeJa4(h2));
   });
 });

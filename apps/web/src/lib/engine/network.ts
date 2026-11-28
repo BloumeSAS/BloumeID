@@ -86,11 +86,20 @@ export function extractIpSubnet(ip: string): string {
   if (v4Parts.length === 4 && ipToUint32(ipv4) !== null) {
     return `${v4Parts[0]}.${v4Parts[1]}.${v4Parts[2]}.0/24`;
   }
-  // IPv6 /48 prefix fallback
-  const v6Parts = trimmed.split(":");
-  if (v6Parts.length >= 3) {
-    return `${v6Parts.slice(0, 3).join(":")}::/48`;
+
+  const v6 = ipv6ToBigInt(trimmed);
+  if (v6 !== null) {
+    // Handle hex IPv4-mapped IPv6 (::ffff:0:0/96)
+    if (v6 >> 32n === 0xffffn) {
+      const v4 = Number(v6 & 0xffffffffn);
+      return `${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.0/24`;
+    }
+    const g0 = Number((v6 >> 112n) & 0xffffn).toString(16);
+    const g1 = Number((v6 >> 96n) & 0xffffn).toString(16);
+    const g2 = Number((v6 >> 80n) & 0xffffn).toString(16);
+    return `${g0}:${g1}:${g2}::/48`;
   }
+
   return `${trimmed}/32`;
 }
 
@@ -195,19 +204,43 @@ export function evaluateClientHintsConsistency(
   const chNorm = secChPlatform.toLowerCase();
   const repNorm = reportedPlatform.toLowerCase();
 
-  if (chNorm.includes("windows") && (repNorm.includes("mac") || repNorm.includes("linux"))) {
-    return {
-      inconsistent: true,
-      reason: `Sec-CH-UA-Platform (${secChPlatform}) contradicts client navigator.platform (${reportedPlatform})`,
-    };
+  const chFamily = chNorm.includes("windows")
+    ? "windows"
+    : chNorm.includes("mac")
+      ? "macos"
+      : chNorm.includes("android")
+        ? "android"
+        : chNorm.includes("ios")
+          ? "ios"
+          : chNorm.includes("linux") || chNorm.includes("chrome os")
+            ? "linux"
+            : null;
+
+  const repFamily = repNorm.includes("win")
+    ? "windows"
+    : repNorm.includes("mac")
+      ? "macos"
+      : repNorm.includes("iphone") || repNorm.includes("ipad") || repNorm.includes("ios")
+        ? "ios"
+        : repNorm.includes("android")
+          ? "android"
+          : repNorm.includes("linux") || repNorm.includes("x11") || repNorm.includes("cros")
+            ? "linux"
+            : null;
+
+  if (!chFamily || !repFamily || chFamily === repFamily) {
+    return { inconsistent: false };
   }
-  if (chNorm.includes("mac") && (repNorm.includes("win") || repNorm.includes("linux"))) {
-    return {
-      inconsistent: true,
-      reason: `Sec-CH-UA-Platform (${secChPlatform}) contradicts client navigator.platform (${reportedPlatform})`,
-    };
+
+  // Android browsers legitimately report `Linux armv8l` / `Linux aarch64` as navigator.platform
+  if (chFamily === "android" && repFamily === "linux") {
+    return { inconsistent: false };
   }
-  return { inconsistent: false };
+
+  return {
+    inconsistent: true,
+    reason: `Sec-CH-UA-Platform (${secChPlatform}) contradicts client navigator.platform (${reportedPlatform})`,
+  };
 }
 
 export function parseUserAgentSummary(userAgent: string): ParsedUserAgent {
@@ -340,6 +373,21 @@ export function parseDetailedUserAgent(
   };
 }
 
+const STABLE_JA4_HEADER_SET = new Set([
+  "sec-ch-ua",
+  "sec-ch-ua-platform",
+  "sec-ch-ua-mobile",
+  "accept",
+  "accept-encoding",
+  "accept-language",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "sec-fetch-dest",
+  "priority",
+  "upgrade-insecure-requests",
+  "user-agent",
+]);
+
 /**
  * Resolves upstream X-JA4-Fingerprint or computes a canonical deterministic TLS/HTTP JA4-style hash
  * from request headers when TLS termination runs upstream (Cloudflare Tunnel / Traefik / Caddy).
@@ -364,7 +412,7 @@ export function resolveOrSynthesizeJa4(headers: Headers): string {
   ];
   const headerOrder = Array.from(headers.keys())
     .map((k) => k.toLowerCase())
-    .filter((k) => k !== "x-bloumeid-key" && k !== "content-length")
+    .filter((k) => STABLE_JA4_HEADER_SET.has(k))
     .join(",");
 
   const isH2OrHttps =
