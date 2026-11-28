@@ -412,5 +412,15 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(authRes.status).toBe(200);
     expect(authRes.headers.get("Cache-Control")).toBe("no-store");
   });
+
+  it("blocks open redirects while preserving valid deep-link admin paths", async () => {
+    const { sanitizeInternalRedirect } = await import("../src/lib/security");
+    expect(sanitizeInternalRedirect("/sites")).toBe("/sites");
+    expect(sanitizeInternalRedirect("/visitors/vis_123456789")).toBe("/visitors/vis_123456789");
+    expect(sanitizeInternalRedirect("//evil.com")).toBe("/dashboard");
+    expect(sanitizeInternalRedirect("https://evil.com/phish")).toBe("/dashboard");
+    expect(sanitizeInternalRedirect("/\\evil.com")).toBe("/dashboard");
+    expect(sanitizeInternalRedirect(null)).toBe("/dashboard");
+  });
 });
 
