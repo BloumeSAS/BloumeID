@@ -33,7 +33,6 @@ import { CopyableMono } from "@/components/ui/copyable-mono";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const PREVIEW_PUBLIC_KEY = "bid_pub_preview_local";
 const GITHUB_REPO_URL = "https://github.com/BloumeSAS/BloumeID";
 const NPM_URL = "https://www.npmjs.com/package/@bloume/id";
 const BLOUME_URL = "https://bloume.fr";
@@ -56,12 +55,37 @@ export default function LandingPage() {
     const t0 = performance.now();
     try {
       const client = new BloumeID({
-        apiKey: PREVIEW_PUBLIC_KEY,
-        endpoint: "/api/v1/fingerprint",
+        apiKey: "",
+        endpoint: "",
         options: { timeout: 4000 },
       });
-      const res = await client.get({ tag: "landing_live_inspector" });
-      setResult(res);
+      const localRes = await client.get({ tag: "landing_live_inspector" });
+      try {
+        const previewRes = await fetch("/api/v1/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullHash: localRes.thumbmark,
+            hardwareHash: localRes.hardwareHash,
+            durationMs: localRes.info.durationMs,
+            browserName: localRes.browserName,
+            browserVersion: localRes.browserVersion,
+            os: localRes.os,
+            osVersion: localRes.osVersion,
+            device: localRes.device,
+            tag: "landing_live_inspector",
+            components: localRes.components,
+          }),
+        });
+        if (previewRes.ok) {
+          const enriched = (await previewRes.json()) as BloumeIDResult;
+          setResult(enriched);
+        } else {
+          setResult(localRes);
+        }
+      } catch {
+        setResult(localRes);
+      }
     } catch {
       // Fallback gracefully if offline
     } finally {

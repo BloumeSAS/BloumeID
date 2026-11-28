@@ -51,6 +51,7 @@ import { GET as verifyRequestGET } from "../src/app/api/v1/requests/[requestId]/
 import { GET as getVisitorGET } from "../src/app/api/v1/visitors/[visitorId]/route";
 import { GET as getVisitorVisitsGET } from "../src/app/api/v1/visitors/[visitorId]/visits/route";
 import { GET as healthGET } from "../src/app/api/health/route";
+import { POST as previewPOST } from "../src/app/api/v1/preview/route";
 import { GET as sdkBundleGET } from "../src/app/sdk/v1/bloumeid.js/route";
 
 function createFakeTarGzWithMmdb(fileName: string, content: Buffer): Buffer {
@@ -493,5 +494,42 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(fsMod.existsSync(pathMod.join(tmpGeoDir, "GeoLite2-ASN.mmdb"))).toBe(true);
 
     fsMod.rmSync(tmpGeoDir, { recursive: true, force: true });
+  });
+
+  it("enriches landing live inspector via POST /api/v1/preview with real IP & GeoIP without DB writes", async () => {
+    const res = await previewPOST(
+      new Request("http://localhost:3000/api/v1/preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Forwarded-For": "185.159.156.42, 10.0.0.1",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0.0.0",
+        },
+        body: JSON.stringify({
+          fullHash: "cd".repeat(32),
+          hardwareHash: "eb".repeat(32),
+          durationMs: 42,
+          tag: "landing_live_inspector",
+          components: {
+            antiSpoof: { isBot: false, isSpoofed: false, isIncognito: false },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ip: string;
+      confidence: { revision: string };
+      ipLocation: {
+        city: { name: string | null };
+        country: { code: string | null; name: string | null };
+        asn: { asn: string | null; name: string | null };
+      };
+    };
+    expect(body.ip).toBe("185.159.156.42");
+    expect(body.confidence.revision).toBe(APP_VERSION);
+    expect(body.ipLocation.country.code).toBe("FR");
+    expect(body.ipLocation.city.name).toBe("Paris");
+    expect(body.ipLocation.asn.asn).toBe("AS212238");
   });
 });
