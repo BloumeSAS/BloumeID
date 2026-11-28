@@ -7,6 +7,7 @@ import {
   generateSnowflakeId,
   hashSecretKey,
   maskSecretKey,
+  wrapSiteSecretKey,
 } from "./snowflake";
 import { THREAT_FEEDS } from "./feeds";
 import { globalThreatTrie } from "./cidr-trie";
@@ -40,6 +41,7 @@ interface InternalSiteRecord {
   publicKey: string;
   secretKeyHash: string;
   secretKeyHint: string;
+  encryptedSecretKey?: string | null;
   webhookUrl: string | null;
   webhookSecret: string | null;
   riskThreshold: number;
@@ -232,6 +234,7 @@ async function ensureMemSiteInDatabase(memSite: InternalSiteRecord): Promise<Int
         publicKey: memSite.publicKey,
         secretKeyHash: memSite.secretKeyHash,
         secretKeyHint: memSite.secretKeyHint,
+        encryptedSecretKey: memSite.encryptedSecretKey ?? null,
         webhookUrl: memSite.webhookUrl,
         webhookSecret: memSite.webhookSecret,
         riskThreshold: memSite.riskThreshold,
@@ -276,8 +279,21 @@ export async function verifySiteSecretKey(secretKey: string): Promise<InternalSi
     const allSites = await prisma.site.findMany({ where: { isActive: true } });
     for (const s of allSites) {
       if (constantTimeEqual(s.secretKeyHash, targetHash)) {
+        let encryptedSecretKey = s.encryptedSecretKey ?? null;
+        if (!encryptedSecretKey) {
+          try {
+            encryptedSecretKey = wrapSiteSecretKey(secretKey);
+            await prisma.site.update({
+              where: { id: s.id },
+              data: { encryptedSecretKey },
+            });
+          } catch {
+            // Non-blocking lazy backfill
+          }
+        }
         return {
           ...s,
+          encryptedSecretKey,
           config: (s.config as unknown as SiteCollectorsConfig) ?? DEFAULT_COLLECTORS,
         };
       }
@@ -286,6 +302,9 @@ export async function verifySiteSecretKey(secretKey: string): Promise<InternalSi
 
   for (const s of memSites) {
     if (s.isActive && constantTimeEqual(s.secretKeyHash, targetHash)) {
+      if (!s.encryptedSecretKey) {
+        s.encryptedSecretKey = wrapSiteSecretKey(secretKey);
+      }
       return dbConnected ? ensureMemSiteInDatabase(s) : s;
     }
   }
@@ -1049,6 +1068,7 @@ export async function createSiteRecord(input: {
   const secretKeyPlain = generateApiKey("bid_sec");
   const secretKeyHash = hashSecretKey(secretKeyPlain);
   const secretKeyHint = maskSecretKey(secretKeyPlain);
+  const encryptedSecretKey = wrapSiteSecretKey(secretKeyPlain);
   const webhookSecret = `whsec_${generateApiKey("bid_sec").slice(8)}`;
   const config: SiteCollectorsConfig = {
     ...DEFAULT_COLLECTORS,
@@ -1064,6 +1084,7 @@ export async function createSiteRecord(input: {
         publicKey,
         secretKeyHash,
         secretKeyHint,
+        encryptedSecretKey,
         webhookUrl: input.webhookUrl ?? null,
         webhookSecret,
         riskThreshold: input.riskThreshold ?? 3,
@@ -1089,6 +1110,7 @@ export async function createSiteRecord(input: {
     publicKey,
     secretKeyHash,
     secretKeyHint,
+    encryptedSecretKey,
     webhookUrl: input.webhookUrl ?? null,
     webhookSecret,
     riskThreshold: input.riskThreshold ?? 3,
@@ -1118,12 +1140,14 @@ export async function updateSiteRecord(
   let newPublicKey: string | undefined;
   let newSecretHash: string | undefined;
   let newSecretHint: string | undefined;
+  let newEncryptedSecretKey: string | undefined;
 
   if (input.rotateKeys) {
     newPublicKey = generateApiKey("bid_pub");
     rotatedSecretPlain = generateApiKey("bid_sec");
     newSecretHash = hashSecretKey(rotatedSecretPlain);
     newSecretHint = maskSecretKey(rotatedSecretPlain);
+    newEncryptedSecretKey = wrapSiteSecretKey(rotatedSecretPlain);
   }
 
   if (await isDatabaseConnected()) {
@@ -1147,6 +1171,7 @@ export async function updateSiteRecord(
                 publicKey: newPublicKey,
                 secretKeyHash: newSecretHash,
                 secretKeyHint: newSecretHint,
+                encryptedSecretKey: newEncryptedSecretKey,
               }
             : {}),
         },
@@ -1170,6 +1195,7 @@ export async function updateSiteRecord(
     memSite.publicKey = newPublicKey;
     memSite.secretKeyHash = newSecretHash;
     memSite.secretKeyHint = newSecretHint;
+    memSite.encryptedSecretKey = newEncryptedSecretKey;
   }
   memSite.updatedAt = new Date();
   return toPublicSiteDTO(memSite, rotatedSecretPlain);

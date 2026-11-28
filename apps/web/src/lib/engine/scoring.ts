@@ -35,7 +35,10 @@ export function computeDangerScore(input: ThreatScoringInput): ThreatScoringResu
   }
 
   if (input.isTor) {
-    rawPoints += 3;
+    rawPoints = Math.max(4, rawPoints + 4);
+    if (input.isSpoofed || input.isBot) {
+      rawPoints = 5;
+    }
     reasons.push("tor_exit_node");
   }
 

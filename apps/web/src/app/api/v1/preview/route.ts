@@ -5,10 +5,12 @@ import { APP_VERSION, APP_VERSION_TAG } from "@/lib/version";
 import { parseSafeJsonBody } from "@/lib/security";
 import { generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
+  detectTorBrowserFromComponents,
   evaluateClientHintsConsistency,
   evaluateJa4Consistency,
   extractRealClientIp,
-  parseUserAgentSummary,
+  parseDetailedUserAgent,
+  resolveOrSynthesizeJa4,
 } from "@/lib/engine/network";
 import { checkSlidingWindowRateLimit } from "@/lib/engine/redis";
 import { evaluateIpThreatIntel } from "@/lib/engine/feeds";
@@ -52,26 +54,31 @@ export async function POST(request: Request): Promise<NextResponse> {
   const payload = parsed.data;
   const comp = payload.components as unknown as FingerprintComponents;
   const userAgent = request.headers.get("user-agent") ?? "";
-  const uaSummary = parseUserAgentSummary(userAgent);
+  const uaSummary = parseDetailedUserAgent(userAgent, request.headers, comp.userAgentData);
   const netIntel = await evaluateIpThreatIntel(ipAddress);
 
   const chEval = evaluateClientHintsConsistency(
     request.headers,
     comp.hardware?.platform ?? comp.userAgentData?.platform
   );
-  const ja4Hash = request.headers.get("x-ja4-fingerprint")?.trim() || null;
+  const ja4Hash = resolveOrSynthesizeJa4(request.headers);
   const ja4Eval = evaluateJa4Consistency(ja4Hash, userAgent);
+  const torBrowserSignal = detectTorBrowserFromComponents(comp, userAgent);
 
   const isBotClient = Boolean(comp.antiSpoof?.isBot);
+  const isTorDetected = netIntel.isTor || torBrowserSignal.isTor;
   const isSpoofedClient =
-    Boolean(comp.antiSpoof?.isSpoofed) || ja4Eval.inconsistent || chEval.inconsistent;
+    Boolean(comp.antiSpoof?.isSpoofed) ||
+    ja4Eval.inconsistent ||
+    chEval.inconsistent ||
+    torBrowserSignal.isSpoofedFallback;
   const isIncognitoClient = Boolean(comp.antiSpoof?.isIncognito);
 
   const scoring = computeDangerScore({
     isBot: isBotClient,
     isSpoofed: isSpoofedClient,
     isVpn: netIntel.isVpn,
-    isTor: netIntel.isTor,
+    isTor: isTorDetected,
     isProxy: netIntel.isProxy,
     isDatacenter: netIntel.isDatacenter,
     isIncognito: isIncognitoClient,
@@ -98,9 +105,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       incognito: isIncognitoClient,
       browserName: payload.browserName ?? uaSummary.browser,
-      browserVersion: payload.browserVersion ?? "",
+      browserVersion: payload.browserVersion ?? uaSummary.browserVersion,
       os: payload.os ?? uaSummary.os,
-      osVersion: payload.osVersion ?? "",
+      osVersion: payload.osVersion ?? uaSummary.osVersion,
       device: payload.device ?? uaSummary.device,
       ip: ipAddress,
       ipLocation: {
@@ -125,14 +132,14 @@ export async function POST(request: Request): Promise<NextResponse> {
         isSpoofed: isSpoofedClient,
         isIncognito: isIncognitoClient,
         isVpn: netIntel.isVpn,
-        isTor: netIntel.isTor,
+        isTor: isTorDetected,
         isDatacenter: netIntel.isDatacenter,
         isProxy: netIntel.isProxy,
         isVirtualMachine: Boolean(comp.antiSpoof?.isVirtualMachine),
         crossBrowserMatched: false,
         vpn: netIntel.isVpn,
         proxy: netIntel.isProxy,
-        tor: netIntel.isTor,
+        tor: isTorDetected,
         datacenter: netIntel.isDatacenter,
         bot: isBotClient,
         spoofed: isSpoofedClient,

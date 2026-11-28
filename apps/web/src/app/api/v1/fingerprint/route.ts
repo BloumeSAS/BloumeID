@@ -1,16 +1,24 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { APP_VERSION, APP_VERSION_TAG } from "@/lib/version";
+import { APP_VERSION } from "@/lib/version";
 import { parseSafeJsonBody, isJsonPayloadSafe } from "@/lib/security";
 import { computeAntiReplaySignature, type FingerprintComponents } from "@bloume/id";
-import { constantTimeEqual, generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
+  constantTimeEqual,
+  decryptTransportEnvelopeV2,
+  generateSnowflakeId,
+  sealVerificationResult,
+  unwrapSiteSecretKey,
+} from "@/lib/engine/snowflake";
+import {
+  detectTorBrowserFromComponents,
   evaluateClientHintsConsistency,
   evaluateJa4Consistency,
   extractIpSubnet,
   extractRealClientIp,
   isOriginAllowedForSite,
-  parseUserAgentSummary,
+  parseDetailedUserAgent,
+  resolveOrSynthesizeJa4,
 } from "@/lib/engine/network";
 import {
   checkSlidingWindowRateLimit,
@@ -32,7 +40,24 @@ import {
 } from "@/lib/engine/repository";
 import { dispatchSignedWebhook, shouldTriggerWebhook } from "@/lib/engine/webhooks";
 
-const FingerprintPayloadSchema = z.object({
+const EncryptedEnvelopeV2Schema = z.object({
+  v: z.literal(2),
+  ts: z.number().int(),
+  nonce: z.string().min(8).max(128),
+  iv: z.string().min(12).max(64),
+  ciphertext: z.string().min(16).max(64 * 1024),
+});
+
+const InnerFingerprintPayloadSchema = z.object({
+  fullHash: z.string().min(16).max(128),
+  hardwareHash: z.string().min(16).max(128),
+  durationMs: z.number().min(0).max(60000).optional().default(10),
+  linkedId: z.string().max(256).optional(),
+  tag: z.union([z.record(z.unknown()), z.string()]).optional(),
+  components: z.record(z.unknown()),
+});
+
+const LegacyFingerprintPayloadSchema = z.object({
   timestamp: z.number().int(),
   nonce: z.string().min(8).max(128),
   signature: z.string().min(32).max(128),
@@ -116,54 +141,108 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const parsed = FingerprintPayloadSchema.safeParse(bodyResult.data);
-  if (!parsed.success || !isJsonPayloadSafe(parsed.data.components)) {
-    return NextResponse.json(
-      { error: "Payload validation failed" },
-      { status: 400, headers: corsHeaders }
-    );
-  }
-
-  const payload = parsed.data;
-
+  let payload: z.infer<typeof InnerFingerprintPayloadSchema>;
   const now = Date.now();
-  if (Math.abs(now - payload.timestamp) > 5 * 60 * 1000) {
-    return NextResponse.json(
-      { error: "Request timestamp outside allowed ±5 minute anti-replay window" },
-      { status: 400, headers: corsHeaders }
-    );
-  }
+  const resolvedOrigin = origin && origin !== "null" ? origin : "";
 
-  const expectedSig = computeAntiReplaySignature(
-    apiKey,
-    payload.timestamp,
-    payload.nonce,
-    payload.fullHash,
-    payload.hardwareHash
-  );
+  const v2Parsed = EncryptedEnvelopeV2Schema.safeParse(bodyResult.data);
+  if (v2Parsed.success) {
+    const v2 = v2Parsed.data;
+    if (Math.abs(now - v2.ts) > 60 * 1000) {
+      return NextResponse.json(
+        { error: "Encrypted request timestamp outside allowed ±60s anti-replay window" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
 
-  if (!constantTimeEqual(expectedSig, payload.signature)) {
-    return NextResponse.json(
-      { error: "Invalid anti-replay payload signature" },
-      { status: 401, headers: corsHeaders }
-    );
-  }
+    const decrypted = decryptTransportEnvelopeV2({
+      publicKey: apiKey,
+      ts: v2.ts,
+      nonce: v2.nonce,
+      origin: resolvedOrigin,
+      ivB64u: v2.iv,
+      ciphertextB64u: v2.ciphertext,
+    });
+    if (!decrypted || !isJsonPayloadSafe(decrypted)) {
+      return NextResponse.json(
+        { error: "Failed to decrypt or authenticate encrypted transport envelope" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
 
-  const isFreshNonce = await consumeAntiReplayNonce(site.publicId, payload.nonce);
-  if (!isFreshNonce) {
-    return NextResponse.json(
-      { error: "Replay detected: nonce already consumed" },
-      { status: 409, headers: corsHeaders }
+    const innerParsed = InnerFingerprintPayloadSchema.safeParse(decrypted);
+    if (!innerParsed.success || !isJsonPayloadSafe(innerParsed.data.components)) {
+      return NextResponse.json(
+        { error: "Decrypted payload validation failed" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const isFreshNonce = await consumeAntiReplayNonce(site.publicId, v2.nonce, 120);
+    if (!isFreshNonce) {
+      return NextResponse.json(
+        { error: "Replay detected: nonce already consumed" },
+        { status: 409, headers: corsHeaders }
+      );
+    }
+    payload = innerParsed.data;
+  } else {
+    const parsed = LegacyFingerprintPayloadSchema.safeParse(bodyResult.data);
+    if (!parsed.success || !isJsonPayloadSafe(parsed.data.components)) {
+      return NextResponse.json(
+        { error: "Payload validation failed" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const legacy = parsed.data;
+    if (Math.abs(now - legacy.timestamp) > 5 * 60 * 1000) {
+      return NextResponse.json(
+        { error: "Request timestamp outside allowed ±5 minute anti-replay window" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const expectedSig = computeAntiReplaySignature(
+      apiKey,
+      legacy.timestamp,
+      legacy.nonce,
+      legacy.fullHash,
+      legacy.hardwareHash
     );
+
+    if (!constantTimeEqual(expectedSig, legacy.signature)) {
+      return NextResponse.json(
+        { error: "Invalid anti-replay payload signature" },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    const isFreshNonce = await consumeAntiReplayNonce(site.publicId, legacy.nonce, 600);
+    if (!isFreshNonce) {
+      return NextResponse.json(
+        { error: "Replay detected: nonce already consumed" },
+        { status: 409, headers: corsHeaders }
+      );
+    }
+    payload = {
+      fullHash: legacy.fullHash,
+      hardwareHash: legacy.hardwareHash,
+      durationMs: legacy.durationMs,
+      linkedId: legacy.linkedId,
+      tag: legacy.tag,
+      components: legacy.components,
+    };
   }
 
   const ipSubnet = extractIpSubnet(ipAddress);
-  const ja4Hash = request.headers.get("x-ja4-fingerprint");
+  const ja4Hash = resolveOrSynthesizeJa4(request.headers);
   const userAgent = request.headers.get("user-agent") ?? "";
-  const uaSummary = parseUserAgentSummary(userAgent);
-  const ja4Eval = evaluateJa4Consistency(ja4Hash, userAgent);
-
   const comp = payload.components as unknown as FingerprintComponents;
+  const uaSummary = parseDetailedUserAgent(userAgent, request.headers, comp.userAgentData);
+  const ja4Eval = evaluateJa4Consistency(ja4Hash, userAgent);
+  const torBrowserSignal = detectTorBrowserFromComponents(comp, userAgent);
+
   const chEval = evaluateClientHintsConsistency(
     request.headers,
     comp.hardware?.platform ?? comp.userAgentData?.platform
@@ -172,15 +251,19 @@ export async function POST(request: Request): Promise<NextResponse> {
   const netIntel = await evaluateIpThreatIntel(ipAddress);
 
   const isBotClient = Boolean(comp.antiSpoof?.isBot);
+  const isTorDetected = netIntel.isTor || torBrowserSignal.isTor;
   const isSpoofedClient =
-    Boolean(comp.antiSpoof?.isSpoofed) || ja4Eval.inconsistent || chEval.inconsistent;
+    Boolean(comp.antiSpoof?.isSpoofed) ||
+    ja4Eval.inconsistent ||
+    chEval.inconsistent ||
+    torBrowserSignal.isSpoofedFallback;
   const isIncognitoClient = Boolean(comp.antiSpoof?.isIncognito);
 
   const store = getReconciliationStore();
   const initialDangerScore = computeDangerScore({
     isBot: isBotClient,
     isSpoofed: isSpoofedClient,
-    isTor: netIntel.isTor,
+    isTor: isTorDetected,
     isVpn: netIntel.isVpn,
     isDatacenter: netIntel.isDatacenter,
     isProxy: netIntel.isProxy,
@@ -208,7 +291,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const finalScoring = computeDangerScore({
     isBot: isBotClient,
     isSpoofed: isSpoofedClient,
-    isTor: netIntel.isTor,
+    isTor: isTorDetected,
     isVpn: netIntel.isVpn,
     isDatacenter: netIntel.isDatacenter,
     isProxy: netIntel.isProxy,
@@ -225,7 +308,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     sitePublicId: site.publicId,
     visitorPublicId: reconciled.visitorPublicId,
     visitorTrustStatus: visitorProfile?.visitor.trustStatus ?? "neutral",
-    isTor: netIntel.isTor,
+    isTor: isTorDetected,
     isVpn: netIntel.isVpn,
     isDatacenter: netIntel.isDatacenter,
     isBot: isBotClient,
@@ -259,7 +342,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     longitude: netIntel.longitude,
     isVpn: netIntel.isVpn,
     isProxy: netIntel.isProxy,
-    isTor: netIntel.isTor,
+    isTor: isTorDetected,
     isDatacenter: netIntel.isDatacenter,
     isBot: isBotClient,
     isSpoofed: isSpoofedClient,
@@ -303,7 +386,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         isBot: isBotClient,
         isSpoofed: isSpoofedClient,
         isVpn: netIntel.isVpn,
-        isTor: netIntel.isTor,
+        isTor: isTorDetected,
         isDatacenter: netIntel.isDatacenter,
         isProxy: netIntel.isProxy,
         isIncognito: isIncognitoClient,
@@ -342,75 +425,61 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const isoNow = new Date().toISOString();
-  const firstSeen = visitorProfile?.visitor.firstSeenAt ?? isoNow;
-  const lastSeen = visitorProfile?.visitor.lastSeenAt ?? isoNow;
-
-  return NextResponse.json(
-    {
-      visitorId: reconciled.visitorPublicId,
-      thumbmark: payload.fullHash,
-      hardwareHash: payload.hardwareHash,
-      requestId,
-      visitorFound: reconciled.matchType !== "new_visitor",
-      confidence: {
-        score: reconciled.confidence,
-        revision: APP_VERSION,
-        comment:
-          reconciled.matchType === "cross_browser_hardware_subnet"
-            ? "Reconciled across browsers via hardwareHash + IP subnet"
-            : `Deterministic fingerprint evaluation (${APP_VERSION_TAG})`,
-      },
-      incognito: isIncognitoClient,
-      browserName: uaSummary.browser,
-      browserVersion: "131.0",
-      os: uaSummary.os,
-      osVersion: "",
-      device: uaSummary.device,
-      ip: ipAddress,
-      ipLocation: {
-        city: { name: netIntel.city },
-        country: { code: netIntel.country, name: netIntel.countryName },
-        latitude: netIntel.latitude,
-        longitude: netIntel.longitude,
-        asn: {
-          asn: netIntel.asnNumber ? `AS${netIntel.asnNumber}` : null,
-          name: netIntel.asnOrg,
-        },
-      },
-      firstSeenAt: { global: firstSeen, subscription: firstSeen },
-      lastSeenAt: { global: lastSeen, subscription: lastSeen },
-      linkedId: payload.linkedId ?? null,
-      tag: payload.tag ?? null,
-      components: comp,
-      info: {
+  const plainSiteSecret = unwrapSiteSecretKey(site.encryptedSecretKey);
+  const sealedResult = plainSiteSecret
+    ? sealVerificationResult(plainSiteSecret, {
+        verified: true,
+        requestId,
+        visitorId: reconciled.visitorPublicId,
+        siteId: site.publicId,
+        thumbmark: payload.fullHash,
+        hardwareHash: payload.hardwareHash,
         dangerLevel: finalScoring.dangerLevel,
         action: ruleVerdict.action,
         matchedRuleId: ruleVerdict.matchedRuleId,
-        isBot: isBotClient,
-        isSpoofed: isSpoofedClient,
-        isIncognito: isIncognitoClient,
-        isVpn: netIntel.isVpn,
-        isTor: netIntel.isTor,
-        isDatacenter: netIntel.isDatacenter,
-        isProxy: netIntel.isProxy,
-        isVirtualMachine: Boolean(comp.antiSpoof?.isVirtualMachine),
-        crossBrowserMatched: reconciled.crossBrowserMatched,
-        vpn: netIntel.isVpn,
-        proxy: netIntel.isProxy,
-        tor: netIntel.isTor,
-        datacenter: netIntel.isDatacenter,
-        bot: isBotClient,
-        spoofed: isSpoofedClient,
-        ipAddress,
-        asnNumber: netIntel.asnNumber,
-        asnOrg: netIntel.asnOrg,
-        country: netIntel.country,
-        city: netIntel.city,
-        latitude: netIntel.latitude,
-        longitude: netIntel.longitude,
-        durationMs: payload.durationMs,
-        collectorCount: 72,
+        confidence: reconciled.confidence,
+        flags: {
+          isBot: isBotClient,
+          isSpoofed: isSpoofedClient,
+          isVpn: netIntel.isVpn,
+          isTor: isTorDetected,
+          isDatacenter: netIntel.isDatacenter,
+          isProxy: netIntel.isProxy,
+          isIncognito: isIncognitoClient,
+          crossBrowserMatched: reconciled.crossBrowserMatched,
+        },
+        network: {
+          ipAddress,
+          ipSubnet,
+          ja4Hash,
+          asnNumber: netIntel.asnNumber,
+          asnOrg: netIntel.asnOrg,
+          country: netIntel.country,
+          city: netIntel.city,
+        },
+        browser: {
+          name: uaSummary.browser,
+          version: uaSummary.browserVersion,
+          os: uaSummary.os,
+          osVersion: uaSummary.osVersion,
+          device: uaSummary.device,
+        },
+        createdAt: isoNow,
+      })
+    : null;
+
+  // Strictly minimal, non-leaking public browser response (zero raw signals, IP, ASN, geo, dangerLevel or reasons).
+  return NextResponse.json(
+    {
+      visitorId: reconciled.visitorPublicId,
+      requestId,
+      visitorFound: reconciled.matchType !== "new_visitor",
+      thumbmark: payload.fullHash,
+      confidence: {
+        score: reconciled.confidence,
+        revision: APP_VERSION,
       },
+      sealedResult,
     },
     { status: 200, headers: corsHeaders }
   );

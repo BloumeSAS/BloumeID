@@ -130,11 +130,14 @@ export async function checkSlidingWindowRateLimit(params: {
 }
 
 /**
- * Consumes a single-use anti-replay nonce with a 10-minute TTL.
+ * Consumes a single-use anti-replay nonce with configurable TTL (default 600s, 120s for v2 encrypted envelopes).
  * Returns true if the nonce is fresh; false if it was already seen.
  */
-export async function consumeAntiReplayNonce(sitePublicId: string, nonce: string): Promise<boolean> {
-  const ttlSeconds = 600;
+export async function consumeAntiReplayNonce(
+  sitePublicId: string,
+  nonce: string,
+  ttlSeconds = 600
+): Promise<boolean> {
   const key = `bloumeid:nonce:${sitePublicId}:${nonce}`;
   const client = getRedisClient();
 
