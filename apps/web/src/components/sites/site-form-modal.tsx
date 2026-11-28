@@ -89,7 +89,7 @@ export function SiteFormModal({ open, onOpenChange, onCreated }: SiteFormModalPr
         }),
       });
 
-      const data = (await res.json()) as { site?: PublicSiteDTO; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { site?: PublicSiteDTO; error?: string };
       if (!res.ok || !data.site) {
         setErrorMsg(data.error ?? `HTTP ${res.status}`);
         return;
