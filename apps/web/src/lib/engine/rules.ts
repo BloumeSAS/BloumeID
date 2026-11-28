@@ -82,7 +82,15 @@ function evaluateSingleCondition(
     return String(actual).toLowerCase() !== String(cond.value).toLowerCase();
   }
   if (cond.operator === "gte") {
-    return Number(actual) >= Number(cond.value);
+    if (cond.value === "" || typeof cond.value === "boolean" || Array.isArray(cond.value)) {
+      return false;
+    }
+    const threshold = Number(cond.value);
+    const actualNum = Number(actual);
+    if (!Number.isFinite(threshold) || !Number.isFinite(actualNum)) {
+      return false;
+    }
+    return actualNum >= threshold;
   }
 
   const list = Array.isArray(cond.value)

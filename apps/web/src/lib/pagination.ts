@@ -29,12 +29,14 @@ export function computePaginationMeta(
   pageSize: number,
   totalItems: number
 ): PaginationMeta {
-  const safeTotal = Math.max(0, totalItems);
-  const totalPages = Math.max(1, Math.ceil(safeTotal / Math.max(1, pageSize)));
-  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const safeTotal = Number.isFinite(totalItems) ? Math.max(0, Math.floor(totalItems)) : 0;
+  const safePageSize = Number.isFinite(pageSize) && pageSize >= 1 ? Math.floor(pageSize) : 1;
+  const safePageInput = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
+  const totalPages = Math.max(1, Math.ceil(safeTotal / safePageSize));
+  const currentPage = Math.min(safePageInput, totalPages);
   return {
     page: currentPage,
-    pageSize,
+    pageSize: safePageSize,
     totalItems: safeTotal,
     totalPages,
     hasNextPage: currentPage < totalPages,

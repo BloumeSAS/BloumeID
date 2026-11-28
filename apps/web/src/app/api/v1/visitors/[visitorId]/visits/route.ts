@@ -54,7 +54,10 @@ export async function GET(
   const url = new URL(request.url);
   const requestIdFilter = url.searchParams.get("request_id");
   const linkedIdFilter = url.searchParams.get("linked_id");
-  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? 50)));
+  const rawLimit = Number(url.searchParams.get("limit") ?? 50);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(100, Math.max(1, Math.floor(rawLimit)))
+    : 50;
   const { page, pageSize, hasExplicitPage } = parsePaginationParams(url.searchParams, limit);
 
   const filteredVisits = data.events

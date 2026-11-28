@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import Redis from "ioredis";
 
 export interface VelocityCheckResult {
@@ -17,11 +18,18 @@ class MemoryFallbackCache {
   }
 
   public setNxEx(key: string, value: string, ttlSeconds: number): boolean {
+    const now = this.now();
+    if (this.kv.size > 10_000) {
+      for (const [k, v] of this.kv) {
+        if (v.expiresAt <= now) this.kv.delete(k);
+      }
+      if (this.kv.size > 10_000) this.kv.clear();
+    }
     const existing = this.kv.get(key);
-    if (existing && existing.expiresAt > this.now()) {
+    if (existing && existing.expiresAt > now) {
       return false;
     }
-    this.kv.set(key, { value, expiresAt: this.now() + ttlSeconds * 1000 });
+    this.kv.set(key, { value, expiresAt: now + ttlSeconds * 1000 });
     return true;
   }
 
@@ -31,8 +39,15 @@ class MemoryFallbackCache {
   } {
     const now = this.now();
     const minScore = now - windowMs;
+    if (this.zsets.size > 10_000) {
+      for (const [k, arr] of this.zsets) {
+        const active = arr.filter((item) => item.score > minScore);
+        if (active.length === 0) this.zsets.delete(k);
+        else this.zsets.set(k, active);
+      }
+    }
     const list = (this.zsets.get(key) ?? []).filter((item) => item.score > minScore);
-    list.push({ score: now, member: `${now}-${Math.random()}` });
+    list.push({ score: now, member: `${now}-${crypto.randomUUID()}` });
     this.zsets.set(key, list);
     return {
       allowed: list.length <= maxLimit,
@@ -42,6 +57,11 @@ class MemoryFallbackCache {
 
   public addSetMemberWithTtl(key: string, member: string, ttlSeconds: number): number {
     const now = this.now();
+    if (this.sets.size > 10_000) {
+      for (const [k, v] of this.sets) {
+        if (v.expiresAt <= now) this.sets.delete(k);
+      }
+    }
     let entry = this.sets.get(key);
     if (!entry || entry.expiresAt <= now) {
       entry = { members: new Set<string>(), expiresAt: now + ttlSeconds * 1000 };
@@ -80,6 +100,16 @@ export function getRedisClient(): Redis | null {
       redisInstance.on("error", () => {
         redisHealthy = false;
       });
+      redisInstance.on("close", () => {
+        redisHealthy = false;
+      });
+      redisInstance.on("end", () => {
+        redisHealthy = false;
+      });
+      // Initiate non-blocking background handshake so `redisHealthy` becomes true in production
+      void redisInstance.connect().catch(() => {
+        redisHealthy = false;
+      });
     } catch {
       redisInstance = null;
       redisHealthy = false;
@@ -106,7 +136,7 @@ export async function checkSlidingWindowRateLimit(params: {
       const redisKey = `bloumeid:rl:${params.key}`;
       const multi = client.multi();
       multi.zremrangebyscore(redisKey, 0, minScore);
-      multi.zadd(redisKey, now, `${now}-${Math.random()}`);
+      multi.zadd(redisKey, now, `${now}-${crypto.randomUUID()}`);
       multi.zcard(redisKey);
       multi.expire(redisKey, params.windowSeconds + 5);
       const res = await multi.exec();

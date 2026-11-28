@@ -16,7 +16,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const sitePublicId = url.searchParams.get("siteId") ?? "all";
   const query = url.searchParams.get("q") ?? "";
-  const minDanger = Math.max(0, Math.min(5, Number(url.searchParams.get("minDanger") ?? 0)));
+  const rawMinDanger = Number(url.searchParams.get("minDanger") ?? 0);
+  const minDanger = Number.isFinite(rawMinDanger)
+    ? Math.max(0, Math.min(5, Math.trunc(rawMinDanger)))
+    : 0;
   const parsedVector = VectorSchema.safeParse(url.searchParams.get("vector") ?? "all");
   const vector = parsedVector.success ? parsedVector.data : "all";
   const linkedId = url.searchParams.get("linkedId") ?? undefined;

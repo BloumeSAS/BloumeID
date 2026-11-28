@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
 import { paginateArray, parsePaginationParams } from "@/lib/pagination";
+import { parseSafeJsonBody } from "@/lib/security";
 import {
   createSiteRecord,
   deleteSiteRecord,
@@ -82,13 +83,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
-  const parsed = CreateSiteSchema.safeParse(raw);
+  const parsed = CreateSiteSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten() },
@@ -109,13 +108,11 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
-  const parsed = UpdateSiteSchema.safeParse(raw);
+  const parsed = UpdateSiteSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten() },

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
 import { paginateArray, parsePaginationParams } from "@/lib/pagination";
+import { parseSafeJsonBody } from "@/lib/security";
 import {
   createSecurityRule,
   deleteSecurityRule,
@@ -23,7 +24,12 @@ const ConditionSchema = z.object({
     "ipSubnet",
   ]),
   operator: z.enum(["eq", "neq", "gte", "in", "not_in"]),
-  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+  value: z.union([
+    z.string().max(256),
+    z.number().finite(),
+    z.boolean(),
+    z.array(z.string().max(128)).max(200),
+  ]),
 });
 
 const CreateRuleSchema = z.object({
@@ -31,7 +37,7 @@ const CreateRuleSchema = z.object({
   name: z.string().min(1).max(160),
   description: z.string().max(400).nullable().optional(),
   action: z.enum(["allow", "challenge", "block", "flag"]),
-  conditions: z.array(ConditionSchema).min(1),
+  conditions: z.array(ConditionSchema).min(1).max(20),
   priority: z.number().int().min(1).max(1000).optional(),
 });
 
@@ -63,13 +69,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
-  const parsed = CreateRuleSchema.safeParse(raw);
+  const parsed = CreateRuleSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten() },
@@ -84,13 +88,11 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
-  const parsed = UpdateRuleSchema.safeParse(raw);
+  const parsed = UpdateRuleSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }

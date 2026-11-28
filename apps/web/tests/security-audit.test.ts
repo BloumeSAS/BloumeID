@@ -292,5 +292,89 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     await expect(sdkServer.verifyRequest("req_123/../admin")).rejects.toThrow();
     await expect(sdkServer.getVisitor("vis_123?admin=1")).rejects.toThrow();
   });
+
+  it("handles NaN query params, rejects visitor self-merge and enforces numeric gte rules safely", async () => {
+    const { GET: eventsGET } = await import("../src/app/api/admin/events/route");
+    const { PATCH: visitorsPATCH } = await import("../src/app/api/admin/visitors/route");
+    const { POST: rulesPOST } = await import("../src/app/api/admin/rules/route");
+    const { computePaginationMeta } = await import("../src/lib/pagination");
+    const { evaluateSecurityRules } = await import("../src/lib/engine/rules");
+    const { getConfiguredMasterKey } = await import("../src/lib/auth");
+
+    const masterKey = getConfiguredMasterKey();
+
+    // NaN query param on admin/events must not crash or return NaN
+    const nanEventsRes = await eventsGET(
+      new Request("http://localhost:3000/api/admin/events?minDanger=notanumber", {
+        headers: { "X-Admin-Master-Key": masterKey },
+      })
+    );
+    expect(nanEventsRes.status).toBe(200);
+
+    // Pagination helper NaN safety
+    const meta = computePaginationMeta(Number.NaN, Number.NaN, 10);
+    expect(meta.page).toBe(1);
+    expect(meta.pageSize).toBe(1);
+    expect(meta.totalPages).toBe(10);
+
+    // Reject self-merge on visitor PATCH
+    const selfMergeRes = await visitorsPATCH(
+      new Request("http://localhost:3000/api/admin/visitors", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Master-Key": masterKey,
+        },
+        body: JSON.stringify({
+          publicId: "vis_123456",
+          mergeSourceVisitorId: "vis_123456",
+        }),
+      })
+    );
+    expect(selfMergeRes.status).toBe(400);
+
+    // Prototype pollution rejected on admin/rules POST
+    const pollutedRuleRes = await rulesPOST(
+      new Request("http://localhost:3000/api/admin/rules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Master-Key": masterKey,
+        },
+        body: '{"__proto__":{"polluted":true},"name":"Bad","action":"block","conditions":[]}',
+      })
+    );
+    expect(pollutedRuleRes.status).toBe(400);
+
+    // Numeric `gte` rule must reject empty/non-numeric thresholds rather than coercing "" -> 0
+    const ruleEval = evaluateSecurityRules(
+      [
+        {
+          publicId: "rule_nan_test",
+          sitePublicId: null,
+          name: "Invalid gte",
+          action: "block",
+          priority: 1,
+          isEnabled: true,
+          hitCount: 0,
+          conditions: [{ field: "dangerLevel", operator: "gte", value: "" }],
+        },
+      ],
+      {
+        sitePublicId: "site_1",
+        visitorPublicId: "vis_1",
+        isTor: false,
+        isVpn: false,
+        isDatacenter: false,
+        isBot: false,
+        isSpoofed: false,
+        dangerLevel: 0,
+        country: "FR",
+        asnNumber: 3215,
+        ipSubnet: "198.51.100.0/24",
+      }
+    );
+    expect(ruleEval.action).toBe("allow");
+  });
 });
 
