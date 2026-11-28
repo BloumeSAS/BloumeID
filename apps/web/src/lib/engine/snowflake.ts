@@ -10,7 +10,12 @@ export class SnowflakeGenerator {
 
   constructor(workerId?: number) {
     const envWorker = Number(process.env.WORKER_ID ?? 1);
-    const resolved = typeof workerId === "number" ? workerId : Number.isFinite(envWorker) ? envWorker : 1;
+    const resolved =
+      typeof workerId === "number" && Number.isFinite(workerId)
+        ? Math.trunc(workerId)
+        : Number.isFinite(envWorker)
+          ? Math.trunc(envWorker)
+          : 1;
     this.workerId = BigInt(Math.max(0, Math.min(1023, resolved)));
   }
 
