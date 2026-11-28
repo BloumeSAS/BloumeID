@@ -487,5 +487,38 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(badLookup.status).toBe(400);
     expect(badLookup.headers.get("Cache-Control")).toBe("no-store");
   });
+
+  it("enforces strict param validation and no-store on admin events, visitors, and rules", async () => {
+    const { GET: eventsGET } = await import("../src/app/api/admin/events/route");
+    const { GET: visitorsGET } = await import("../src/app/api/admin/visitors/route");
+    const { DELETE: rulesDELETE } = await import("../src/app/api/admin/rules/route");
+    const { getConfiguredMasterKey } = await import("../src/lib/auth");
+    const key = getConfiguredMasterKey();
+
+    const badEvents = await eventsGET(
+      new Request("http://localhost:3000/api/admin/events?siteId=not_a_site", {
+        headers: { "X-Admin-Master-Key": key },
+      })
+    );
+    expect(badEvents.status).toBe(400);
+    expect(badEvents.headers.get("Cache-Control")).toBe("no-store");
+
+    const badVisitor = await visitorsGET(
+      new Request("http://localhost:3000/api/admin/visitors?visitorId=invalid-vis", {
+        headers: { "X-Admin-Master-Key": key },
+      })
+    );
+    expect(badVisitor.status).toBe(400);
+    expect(badVisitor.headers.get("Cache-Control")).toBe("no-store");
+
+    const badRule = await rulesDELETE(
+      new Request("http://localhost:3000/api/admin/rules?publicId=rule_bad!", {
+        method: "DELETE",
+        headers: { "X-Admin-Master-Key": key },
+      })
+    );
+    expect(badRule.status).toBe(400);
+    expect(badRule.headers.get("Cache-Control")).toBe("no-store");
+  });
 });
 
