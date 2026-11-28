@@ -55,6 +55,15 @@ export default function SitesPage() {
 
   const [deleteModalSite, setDeleteModalSite] = React.useState<PublicSiteDTO | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const loadSites = React.useCallback(async (signal?: AbortSignal) => {
     try {
@@ -101,22 +110,32 @@ export default function SitesPage() {
     publicId: string,
     payload: Record<string, unknown>
   ): Promise<PublicSiteDTO | null> => {
-    const res = await fetch("/api/admin/sites", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publicId, ...payload }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { site: PublicSiteDTO };
-      setSites((prev) => prev.map((s) => (s.publicId === publicId ? data.site : s)));
-      if (keysModalSite?.publicId === publicId) setKeysModalSite(data.site);
-      if (configModalSite?.publicId === publicId) setConfigModalSite(data.site);
-      triggerManualRefresh();
-      if (payload.testWebhook) {
-        setToast(dict.sites.webhookSent);
-        setTimeout(() => setToast(null), 3000);
+    try {
+      const res = await fetch("/api/admin/sites", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId, ...payload }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { site: PublicSiteDTO };
+        setSites((prev) => prev.map((s) => (s.publicId === publicId ? data.site : s)));
+        if (keysModalSite?.publicId === publicId) setKeysModalSite(data.site);
+        if (configModalSite?.publicId === publicId) setConfigModalSite(data.site);
+        triggerManualRefresh();
+        if (payload.testWebhook) {
+          setToast(dict.sites.webhookSent);
+          if (toastTimerRef.current !== null) {
+            clearTimeout(toastTimerRef.current);
+          }
+          toastTimerRef.current = setTimeout(() => {
+            toastTimerRef.current = null;
+            setToast(null);
+          }, 3000);
+        }
+        return data.site;
       }
-      return data.site;
+    } catch {
+      // Ignore transient network errors on site patch
     }
     return null;
   };
