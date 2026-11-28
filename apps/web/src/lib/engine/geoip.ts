@@ -178,6 +178,11 @@ export async function downloadAndUpdateGeoLite2(options?: {
         );
       } finally {
         clearTimeout(timer);
+        try {
+          if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        } catch {
+          // Ignore temp cleanup failure
+        }
       }
     }
 
@@ -211,14 +216,21 @@ export async function downloadAndUpdateGeoLite2(options?: {
         );
       } finally {
         clearTimeout(timer);
+        try {
+          if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        } catch {
+          // Ignore temp cleanup failure
+        }
       }
     }
 
     return false;
   };
 
-  const cityUpdated = await downloadEdition("GeoLite2-City", MIRROR_CITY_URLS);
-  const asnUpdated = await downloadEdition("GeoLite2-ASN", MIRROR_ASN_URLS);
+  const [cityUpdated, asnUpdated] = await Promise.all([
+    downloadEdition("GeoLite2-City", MIRROR_CITY_URLS),
+    downloadEdition("GeoLite2-ASN", MIRROR_ASN_URLS),
+  ]);
   lastSyncStatus =
     cityUpdated || asnUpdated
       ? errors.length > 0

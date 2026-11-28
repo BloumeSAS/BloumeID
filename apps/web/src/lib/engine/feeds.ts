@@ -251,7 +251,7 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
           const lines = text.split(/\r?\n/);
           for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith("ASN")) continue;
+            if (!trimmed || trimmed.toUpperCase().startsWith("ASN")) continue;
             const commaIdx = trimmed.indexOf(",");
             if (commaIdx === -1) continue;
             const asnNum = Number(trimmed.slice(0, commaIdx).replace(/"/g, "").trim());
@@ -289,26 +289,28 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
         clearTimeout(timer);
       }
 
-      try {
-        await prisma.threatFeedStatus.upsert({
-          where: { feedName: feed.feedName },
-          update: {
-            recordCount: count,
-            lastSyncedAt: new Date(),
-            status,
-            errorMessage,
-          },
-          create: {
-            publicId: generateSnowflakeId("feed"),
-            feedName: feed.feedName,
-            recordCount: count,
-            lastSyncedAt: new Date(),
-            status,
-            errorMessage,
-          },
-        });
-      } catch {
-        // Allow sync to succeed in memory even if database is unreachable during unit tests
+      if (process.env.DATABASE_URL?.trim()) {
+        try {
+          await prisma.threatFeedStatus.upsert({
+            where: { feedName: feed.feedName },
+            update: {
+              recordCount: count,
+              lastSyncedAt: new Date(),
+              status,
+              errorMessage,
+            },
+            create: {
+              publicId: generateSnowflakeId("feed"),
+              feedName: feed.feedName,
+              recordCount: count,
+              lastSyncedAt: new Date(),
+              status,
+              errorMessage,
+            },
+          });
+        } catch {
+          // Allow sync to succeed in memory even if database is unreachable during unit tests
+        }
       }
 
       return { feedName: feed.feedName, recordCount: count, status };
