@@ -133,6 +133,10 @@ export async function dispatchSignedWebhook(params: {
   const baseDelayMs = params.baseDelayMs ?? 250;
   const fetchFn = params.fetchImpl ?? fetch;
   const targetEndpoint = new URL(check.url.pathname + check.url.search, check.url.origin);
+  if (targetEndpoint.protocol !== "https:" && targetEndpoint.protocol !== "http:") {
+    return { delivered: false, attempts: 0 };
+  }
+  const safeTargetUrl = targetEndpoint.href;
 
   const body = JSON.stringify(params.payload);
   const signature = signHmacSha256(params.webhookSecret, body);
@@ -141,7 +145,7 @@ export async function dispatchSignedWebhook(params: {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
-      const res = await fetchFn(targetEndpoint, {
+      const res = await fetchFn(safeTargetUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

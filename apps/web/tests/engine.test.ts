@@ -477,8 +477,8 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     let attempt = 0;
     const mockFetch: typeof fetch = async (input) => {
       attempt += 1;
-      const url = String(input);
-      if (url.includes("github.com")) {
+      const parsedUrl = new URL(String(input));
+      if (parsedUrl.hostname === "github.com") {
         return new Response("Forbidden", { status: 403 });
       }
       return new Response(new Uint8Array(validMmdbStub), { status: 200 });
