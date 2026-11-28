@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { FingerprintComponents } from "@bloume/id";
 import { APP_VERSION, APP_VERSION_TAG } from "@/lib/version";
+import { parseSafeJsonBody } from "@/lib/security";
 import { generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
   evaluateClientHintsConsistency,
@@ -38,14 +39,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
 
-  const parsed = PreviewPayloadSchema.safeParse(raw);
+  const parsed = PreviewPayloadSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }

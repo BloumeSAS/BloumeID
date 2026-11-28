@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { constantTimeEqual, signHmacSha256 } from "@/lib/engine/snowflake";
+export { sanitizeInternalRedirect } from "@/lib/security";
 
 export const ADMIN_SESSION_COOKIE = "bloumeid_admin_session";
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours

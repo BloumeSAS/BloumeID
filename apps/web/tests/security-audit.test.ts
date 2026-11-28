@@ -168,5 +168,91 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     const res = await POST(req);
     expect(res.status).toBe(413);
   });
+
+  it("blocks unauthenticated requests across /api/admin/* and enforces Open Redirect & Prototype Pollution guards", async () => {
+    const { GET: sitesListGET } = await import("../src/app/api/admin/sites/route");
+    const { GET: siteByIdGET } = await import("../src/app/api/admin/sites/[siteId]/route");
+    const { GET: visitorsGET } = await import("../src/app/api/admin/visitors/route");
+    const { GET: rulesGET } = await import("../src/app/api/admin/rules/route");
+    const { GET: settingsGET } = await import("../src/app/api/admin/settings/route");
+    const { sanitizeInternalRedirect, isJsonPayloadSafe } = await import("../src/lib/security");
+    const { POST: previewPOST } = await import("../src/app/api/v1/preview/route");
+
+    expect((await sitesListGET(new Request("http://localhost:3000/api/admin/sites"))).status).toBe(401);
+    expect(
+      (
+        await siteByIdGET(new Request("http://localhost:3000/api/admin/sites/site_123"), {
+          params: Promise.resolve({ siteId: "site_123" }),
+        })
+      ).status
+    ).toBe(401);
+    expect((await visitorsGET(new Request("http://localhost:3000/api/admin/visitors"))).status).toBe(401);
+    expect((await rulesGET(new Request("http://localhost:3000/api/admin/rules"))).status).toBe(401);
+    expect((await settingsGET(new Request("http://localhost:3000/api/admin/settings"))).status).toBe(401);
+
+    // Open Redirect prevention
+    expect(sanitizeInternalRedirect("https://evil.example.com")).toBe("/dashboard");
+    expect(sanitizeInternalRedirect("//evil.example.com")).toBe("/dashboard");
+    expect(sanitizeInternalRedirect("/\\evil.example.com")).toBe("/dashboard");
+    expect(sanitizeInternalRedirect("/sites")).toBe("/sites");
+    expect(sanitizeInternalRedirect("/guides")).toBe("/guides");
+
+    // Prototype Pollution guard
+    const pollutedObj = JSON.parse('{"__proto__":{"isAdmin":true},"components":{}}') as unknown;
+    expect(isJsonPayloadSafe(pollutedObj)).toBe(false);
+
+    const pollutedRes = await previewPOST(
+      new Request("http://localhost:3000/api/v1/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: '{"__proto__":{"isAdmin":true},"fullHash":"aaaaaaaaaaaaaaaa","hardwareHash":"bbbbbbbbbbbbbbbb"}',
+      })
+    );
+    expect(pollutedRes.status).toBe(400);
+  });
+
+  it("enforces strict public vs secret key separation, HTTP security headers & SDK server ID validation", async () => {
+    const { GET: verifyRequestGET } = await import("../src/app/api/v1/requests/[requestId]/route");
+    const { GET: getVisitorGET } = await import("../src/app/api/v1/visitors/[visitorId]/route");
+    const { BloumeIDServer } = await import("@bloume/id/server");
+    const nextConfig = (await import("../next.config")).default;
+
+    const testSite = await createSiteRecord({
+      name: "Privilege Sep Site",
+      domains: ["localhost"],
+    });
+
+    // Public key bid_pub_ MUST be rejected on secret endpoints
+    const reqWithPubKey = await verifyRequestGET(
+      new Request("http://localhost:3000/api/v1/requests/req_73000000000000501", {
+        headers: { Authorization: `Bearer ${testSite.publicKey}` },
+      }),
+      { params: Promise.resolve({ requestId: "req_73000000000000501" }) }
+    );
+    expect(reqWithPubKey.status).toBe(401);
+
+    const visWithPubKey = await getVisitorGET(
+      new Request("http://localhost:3000/api/v1/visitors/vis_73000000000000101", {
+        headers: { Authorization: `Bearer ${testSite.publicKey}` },
+      }),
+      { params: Promise.resolve({ visitorId: "vis_73000000000000101" }) }
+    );
+    expect(visWithPubKey.status).toBe(401);
+
+    // HTTP Security headers configured
+    const headerRules = await nextConfig.headers?.();
+    const allHeaders = headerRules?.[0]?.headers ?? [];
+    const headerNames = allHeaders.map((h) => h.key);
+    expect(headerNames).toContain("X-Frame-Options");
+    expect(headerNames).toContain("X-Content-Type-Options");
+    expect(headerNames).toContain("Content-Security-Policy");
+    expect(headerNames).toContain("Referrer-Policy");
+    expect(headerNames).toContain("Permissions-Policy");
+
+    // SDK server client rejects traversal / invalid Snowflake IDs
+    const sdkServer = new BloumeIDServer({ secretKey: "bid_sec_test_key_123456" });
+    await expect(sdkServer.verifyRequest("req_123/../admin")).rejects.toThrow();
+    await expect(sdkServer.getVisitor("vis_123?admin=1")).rejects.toThrow();
+  });
 });
 

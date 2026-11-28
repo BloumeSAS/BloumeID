@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { useI18n } from "@/i18n/provider";
+import { sanitizeInternalRedirect } from "@/lib/security";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,11 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push("/dashboard");
+        const params = new URLSearchParams(window.location.search);
+        const target = sanitizeInternalRedirect(
+          params.get("redirect") ?? params.get("callbackUrl")
+        );
+        router.push(target);
         router.refresh();
         return;
       }

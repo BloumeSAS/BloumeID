@@ -26,12 +26,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SiteFormModal } from "@/components/sites/site-form-modal";
 import { paginateArray } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import type { PublicSiteDTO } from "@/types";
 
 export default function SitesPage() {
-  const { dict, refreshTick, selectedSiteId } = useI18n();
+  const { dict, refreshTick, selectedSiteId, triggerManualRefresh } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [query, setQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"all" | "active" | "paused">("all");
@@ -40,10 +41,6 @@ export default function SitesPage() {
 
   // Modals State
   const [createOpen, setCreateOpen] = React.useState(false);
-  const [newName, setNewName] = React.useState("");
-  const [newDomains, setNewDomains] = React.useState("localhost, *.example.com");
-  const [newWebhook, setNewWebhook] = React.useState("");
-  const [newThreshold, setNewThreshold] = React.useState(3);
 
   const [sdkModalSite, setSdkModalSite] = React.useState<PublicSiteDTO | null>(null);
   const [keysModalSite, setKeysModalSite] = React.useState<PublicSiteDTO | null>(null);
@@ -54,6 +51,7 @@ export default function SitesPage() {
   const [editDomains, setEditDomains] = React.useState("");
   const [editWebhook, setEditWebhook] = React.useState("");
   const [editThreshold, setEditThreshold] = React.useState(3);
+  const [editIsActive, setEditIsActive] = React.useState(true);
 
   const [deleteModalSite, setDeleteModalSite] = React.useState<PublicSiteDTO | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -93,32 +91,6 @@ export default function SitesPage() {
   const total30d = scopedSites.reduce((acc, s) => acc + (s.requests30d ?? 0), 0);
   const activeCount = scopedSites.filter((s) => s.isActive).length;
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const domains = newDomains
-      .split(",")
-      .map((d) => d.trim())
-      .filter(Boolean);
-    const res = await fetch("/api/admin/sites", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newName,
-        domains,
-        webhookUrl: newWebhook.trim() ? newWebhook.trim() : null,
-        riskThreshold: newThreshold,
-      }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { site: PublicSiteDTO };
-      setSites((prev) => [data.site, ...prev]);
-      setNewName("");
-      setNewWebhook("");
-      setCreateOpen(false);
-      setSdkModalSite(data.site);
-    }
-  };
-
   const handlePatchSite = async (
     publicId: string,
     payload: Record<string, unknown>
@@ -133,6 +105,7 @@ export default function SitesPage() {
       setSites((prev) => prev.map((s) => (s.publicId === publicId ? data.site : s)));
       if (keysModalSite?.publicId === publicId) setKeysModalSite(data.site);
       if (configModalSite?.publicId === publicId) setConfigModalSite(data.site);
+      triggerManualRefresh();
       if (payload.testWebhook) {
         setToast(dict.sites.webhookSent);
         setTimeout(() => setToast(null), 3000);
@@ -142,12 +115,35 @@ export default function SitesPage() {
     return null;
   };
 
-  const openConfigModal = (site: PublicSiteDTO) => {
-    setConfigModalSite(site);
+  const hydrateConfigFields = React.useCallback((site: PublicSiteDTO) => {
     setEditName(site.name);
     setEditDomains(site.domains.join(", "));
     setEditWebhook(site.webhookUrl ?? "");
     setEditThreshold(site.riskThreshold);
+    setEditIsActive(site.isActive);
+  }, []);
+
+  const closeConfigModal = React.useCallback(() => {
+    setConfigModalSite(null);
+    setEditName("");
+    setEditDomains("");
+    setEditWebhook("");
+    setEditThreshold(3);
+    setEditIsActive(true);
+  }, []);
+
+  const openConfigModal = (site: PublicSiteDTO) => {
+    setConfigModalSite(site);
+    hydrateConfigFields(site);
+    fetch(`/api/admin/sites/${encodeURIComponent(site.publicId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { site?: PublicSiteDTO } | null) => {
+        if (data?.site) {
+          setConfigModalSite(data.site);
+          hydrateConfigFields(data.site);
+        }
+      })
+      .catch(() => undefined);
   };
 
   const handleSaveConfig = async (e: React.FormEvent) => {
@@ -158,12 +154,13 @@ export default function SitesPage() {
       .map((d) => d.trim())
       .filter(Boolean);
     await handlePatchSite(configModalSite.publicId, {
-      name: editName,
+      name: editName.trim(),
       domains,
       webhookUrl: editWebhook.trim() ? editWebhook.trim() : null,
       riskThreshold: editThreshold,
+      isActive: editIsActive,
     });
-    setConfigModalSite(null);
+    closeConfigModal();
   };
 
   const handleConfirmDelete = async () => {
@@ -175,6 +172,7 @@ export default function SitesPage() {
     if (res.ok) {
       setSites((prev) => prev.filter((s) => s.publicId !== deleteModalSite.publicId));
       setDeleteModalSite(null);
+      triggerManualRefresh();
     }
   };
 
@@ -278,7 +276,7 @@ export default function SitesPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 pt-2">
-                    <Button size="sm" variant="outline" onClick={() => setConfigModalSite(site)}>
+                    <Button size="sm" variant="outline" onClick={() => openConfigModal(site)}>
                       <Settings2 className="h-3.5 w-3.5" />
                       <span>{dict.common.actions}</span>
                     </Button>
@@ -472,83 +470,14 @@ export default function SitesPage() {
         </>
       )}
 
-      {/* 1. CREATE SITE MODAL */}
-      <Dialog
+      {/* 1. UNIFIED CREATE SITE MODAL */}
+      <SiteFormModal
         open={createOpen}
         onOpenChange={setCreateOpen}
-        title={dict.sites.createSite}
-        description={dict.sites.subtitle}
-        closeLabel={dict.common.close}
-      >
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Tabs defaultValue="identity">
-            <TabsList>
-              <TabsTrigger value="identity">{dict.sites.siteName}</TabsTrigger>
-              <TabsTrigger value="security">{dict.sites.riskThreshold}</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="identity" className="space-y-3 pt-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="site-name">{dict.sites.siteName}</Label>
-                <Input
-                  id="site-name"
-                  data-testid="new-site-name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder={dict.sites.siteNamePlaceholder}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="site-domains">{dict.sites.allowedDomains}</Label>
-                <Input
-                  id="site-domains"
-                  data-testid="new-site-domains"
-                  value={newDomains}
-                  onChange={(e) => setNewDomains(e.target.value)}
-                  placeholder={dict.sites.allowedDomainsPlaceholder}
-                  required
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="security" className="space-y-3 pt-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="site-threshold">{dict.sites.riskThreshold}</Label>
-                <Input
-                  id="site-threshold"
-                  type="number"
-                  min={0}
-                  max={5}
-                  value={newThreshold}
-                  onChange={(e) => setNewThreshold(Number(e.target.value))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="site-webhook">
-                  {dict.sites.webhookUrl}
-                </Label>
-                <Input
-                  id="site-webhook"
-                  value={newWebhook}
-                  onChange={(e) => setNewWebhook(e.target.value)}
-                  placeholder={dict.sites.webhookUrlPlaceholder}
-                />
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
-              {dict.common.cancel}
-            </Button>
-            <Button type="submit" data-testid="create-site-btn">
-              <Plus className="h-4 w-4" />
-              <span>{dict.common.create}</span>
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+        onCreated={(site) =>
+          setSites((prev) => [site, ...prev.filter((s) => s.publicId !== site.publicId)])
+        }
+      />
 
       {/* 2. SDK INTEGRATION MODAL (@bloume/id) */}
       <Dialog
@@ -688,13 +617,22 @@ if (verified.dangerLevel >= ${sdkModalSite.riskThreshold} || verified.flags.isBo
       {/* 4. SITE CONFIGURATION & COLLECTORS MODAL */}
       <Dialog
         open={Boolean(configModalSite)}
-        onOpenChange={(open) => !open && setConfigModalSite(null)}
+        onOpenChange={(open) => !open && closeConfigModal()}
         title={configModalSite?.name ?? dict.common.actions}
         description={dict.sites.collectorsTitle}
         closeLabel={dict.common.close}
       >
         {configModalSite ? (
           <form onSubmit={handleSaveConfig} className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2">
+              <span className="text-xs font-medium">{dict.sites.statusLabel}</span>
+              <Switch
+                checked={editIsActive}
+                ariaLabel={dict.sites.statusLabel}
+                onCheckedChange={setEditIsActive}
+              />
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label>{dict.sites.siteName}</Label>
@@ -769,7 +707,7 @@ if (verified.dangerLevel >= ${sdkModalSite.riskThreshold} || verified.flags.isBo
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setConfigModalSite(null)}>
+              <Button type="button" variant="ghost" onClick={closeConfigModal}>
                 {dict.common.cancel}
               </Button>
               <Button type="submit">{dict.common.save}</Button>
