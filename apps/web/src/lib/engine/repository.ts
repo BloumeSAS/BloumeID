@@ -296,27 +296,27 @@ export async function verifySiteSecretKey(secretKey: string): Promise<InternalSi
   const dbConnected = await isDatabaseConnected();
 
   if (dbConnected) {
-    const allSites = await prisma.site.findMany({ where: { isActive: true } });
-    for (const s of allSites) {
-      if (constantTimeEqual(s.secretKeyHash, targetHash)) {
-        let encryptedSecretKey = s.encryptedSecretKey ?? null;
-        if (!encryptedSecretKey) {
-          try {
-            encryptedSecretKey = wrapSiteSecretKey(secretKey);
-            await prisma.site.update({
-              where: { id: s.id },
-              data: { encryptedSecretKey },
-            });
-          } catch {
-            // Non-blocking lazy backfill
-          }
+    const matched = await prisma.site.findFirst({
+      where: { secretKeyHash: targetHash, isActive: true },
+    });
+    if (matched && constantTimeEqual(matched.secretKeyHash, targetHash)) {
+      let encryptedSecretKey = matched.encryptedSecretKey ?? null;
+      if (!encryptedSecretKey) {
+        try {
+          encryptedSecretKey = wrapSiteSecretKey(secretKey);
+          await prisma.site.update({
+            where: { id: matched.id },
+            data: { encryptedSecretKey },
+          });
+        } catch {
+          // Non-blocking lazy backfill
         }
-        return {
-          ...s,
-          encryptedSecretKey,
-          config: (s.config as unknown as SiteCollectorsConfig) ?? DEFAULT_COLLECTORS,
-        };
       }
+      return {
+        ...matched,
+        encryptedSecretKey,
+        config: (matched.config as unknown as SiteCollectorsConfig) ?? DEFAULT_COLLECTORS,
+      };
     }
   }
 
@@ -463,6 +463,9 @@ export function getReconciliationStore(): ReconciliationStore {
         notes: null,
       };
       memVisitors.push(newVis);
+      if (memVisitors.length > 5000) {
+        memVisitors.splice(0, memVisitors.length - 5000);
+      }
       return { id: newVis.id, publicId: newVis.publicId };
     },
   };
@@ -1280,6 +1283,9 @@ export async function listSites(): Promise<PublicSiteDTO[]> {
           { requests24h: map24h.get(s.id) ?? 0, requests30d: map30d.get(s.id) ?? 0 }
         )
       );
+    }
+    if (memSites.length === 0) {
+      return [];
     }
   }
   return memSites.map((s) => toPublicSiteDTO(s));

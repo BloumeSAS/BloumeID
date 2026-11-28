@@ -482,7 +482,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* PRO Command Palette Dialog (Ctrl+K) */}
       <Dialog
         open={commandOpen}
-        onOpenChange={setCommandOpen}
+        onOpenChange={(open) => {
+          setCommandOpen(open);
+          if (!open) setCommandQuery("");
+        }}
         title={dict.common.commandPalette}
         description={dict.common.commandPlaceholder}
         closeLabel={dict.common.close}
@@ -536,6 +539,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="mt-4 space-y-2 border-t border-border pt-4">
             <Link
               href="/"
+              onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -546,7 +550,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               variant="destructive"
               size="sm"
               className="w-full"
-              onClick={handleLogout}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                void handleLogout();
+              }}
             >
               <LogOut className="h-4 w-4" />
               <span>{dict.common.logout}</span>

@@ -184,6 +184,13 @@ describe("Admin Auth, Control Plane APIs (Dashboard, Events, Rules, Sites, Visit
     expect(rotateRes.status).toBe(200);
     const rotatedBody = (await rotateRes.json()) as typeof createdBody;
     expect(rotatedBody.site.publicKey).not.toBe(createdBody.site.publicKey);
+    expect(rotatedBody.site.secretKeyPlain).toMatch(/^bid_sec_/);
+
+    const { verifySiteSecretKey } = await import("../src/lib/engine/repository");
+    const verifiedRotated = await verifySiteSecretKey(rotatedBody.site.secretKeyPlain!);
+    expect(verifiedRotated?.publicId).toBe(createdBody.site.publicId);
+    expect(await verifySiteSecretKey(createdBody.site.secretKeyPlain!)).toBeNull();
+    expect(await verifySiteSecretKey("bid_sec_nonexistent_invalid_key")).toBeNull();
 
     const listSitesRes = await sitesGET(
       new Request("http://localhost:3000/api/admin/sites", { headers: authHeaders })
