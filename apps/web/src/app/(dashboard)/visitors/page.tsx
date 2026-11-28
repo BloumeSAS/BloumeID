@@ -78,25 +78,35 @@ export default function VisitorsPage() {
     }
   }, [selectedSiteId, timeRange, policyFilter, query, onlyHighRisk, page, pageSize]);
 
-  React.useEffect(() => {
-    setPage(1);
-  }, [selectedSiteId, timeRange, policyFilter, query, onlyHighRisk]);
+  const visitorsFilterKey = `${selectedSiteId}|${timeRange}|${policyFilter}|${query}|${onlyHighRisk}`;
+  const prevVisitorsFilterKeyRef = React.useRef(visitorsFilterKey);
 
   React.useEffect(() => {
+    if (prevVisitorsFilterKeyRef.current !== visitorsFilterKey) {
+      prevVisitorsFilterKeyRef.current = visitorsFilterKey;
+      if (page !== 1) {
+        setPage(1);
+        return () => abortRef.current?.abort();
+      }
+    }
     void loadVisitors();
     return () => abortRef.current?.abort();
-  }, [loadVisitors, refreshTick]);
+  }, [visitorsFilterKey, page, loadVisitors, refreshTick]);
 
   const handleQuickTrust = async (publicId: string, trustStatus: VisitorTrustStatus) => {
-    const res = await fetch("/api/admin/visitors", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publicId, trustStatus }),
-    });
-    if (res.ok) {
-      setVisitors((prev) =>
-        prev.map((v) => (v.publicId === publicId ? { ...v, trustStatus } : v))
-      );
+    try {
+      const res = await fetch("/api/admin/visitors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId, trustStatus }),
+      });
+      if (res.ok) {
+        setVisitors((prev) =>
+          prev.map((v) => (v.publicId === publicId ? { ...v, trustStatus } : v))
+        );
+      }
+    } catch {
+      // Ignore transient network errors on quick-trust action
     }
   };
 

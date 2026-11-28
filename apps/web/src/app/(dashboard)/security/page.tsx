@@ -33,12 +33,19 @@ export default function SecurityCenterPage() {
     hasPreviousPage: false,
   });
 
-  React.useEffect(() => {
-    setBlockedPage(1);
-    setTrustedPage(1);
-  }, [timeRange, selectedSiteId]);
+  const securityFilterKey = `${timeRange}|${selectedSiteId}`;
+  const prevSecurityFilterKeyRef = React.useRef(securityFilterKey);
 
   React.useEffect(() => {
+    if (prevSecurityFilterKeyRef.current !== securityFilterKey) {
+      prevSecurityFilterKeyRef.current = securityFilterKey;
+      if (blockedPage !== 1 || trustedPage !== 1) {
+        setBlockedPage(1);
+        setTrustedPage(1);
+        return undefined;
+      }
+    }
+
     const controller = new AbortController();
     const baseParams = { period: timeRange, siteId: selectedSiteId, pageSize: "10" };
     const blockedParams = new URLSearchParams({
@@ -74,7 +81,7 @@ export default function SecurityCenterPage() {
     ]);
 
     return () => controller.abort();
-  }, [timeRange, selectedSiteId, refreshTick, blockedPage, trustedPage]);
+  }, [securityFilterKey, timeRange, selectedSiteId, refreshTick, blockedPage, trustedPage]);
 
   return (
     <div className="space-y-6">

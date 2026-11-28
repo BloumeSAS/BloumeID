@@ -105,14 +105,20 @@ export default function EventsAuditPage() {
     }
   }, [selectedSiteId, timeRange, query, minDanger, vector, actionFilter, page, pageSize]);
 
-  React.useEffect(() => {
-    setPage(1);
-  }, [selectedSiteId, timeRange, query, minDanger, vector, actionFilter]);
+  const eventsFilterKey = `${selectedSiteId}|${timeRange}|${query}|${minDanger}|${vector}|${actionFilter}`;
+  const prevEventsFilterKeyRef = React.useRef(eventsFilterKey);
 
   React.useEffect(() => {
+    if (prevEventsFilterKeyRef.current !== eventsFilterKey) {
+      prevEventsFilterKeyRef.current = eventsFilterKey;
+      if (page !== 1) {
+        setPage(1);
+        return () => abortRef.current?.abort();
+      }
+    }
     void loadEvents();
     return () => abortRef.current?.abort();
-  }, [loadEvents, refreshTick]);
+  }, [eventsFilterKey, page, loadEvents, refreshTick]);
 
   React.useEffect(() => {
     if (!livePolling) return;
