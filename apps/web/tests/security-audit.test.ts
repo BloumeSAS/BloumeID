@@ -462,5 +462,30 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(body.status).toBe("ok");
     expect(body.version).toBe(APP_VERSION);
   });
+
+  it("validates /api/admin/dashboard siteId and /api/admin/settings lookup_ip with no-store", async () => {
+    const { GET: dashboardGET } = await import("../src/app/api/admin/dashboard/route");
+    const { POST: settingsPOST } = await import("../src/app/api/admin/settings/route");
+    const { getConfiguredMasterKey } = await import("../src/lib/auth");
+    const key = getConfiguredMasterKey();
+
+    const badDash = await dashboardGET(
+      new Request("http://localhost:3000/api/admin/dashboard?siteId=bad_site_param", {
+        headers: { "X-Admin-Master-Key": key },
+      })
+    );
+    expect(badDash.status).toBe(400);
+    expect(badDash.headers.get("Cache-Control")).toBe("no-store");
+
+    const badLookup = await settingsPOST(
+      new Request("http://localhost:3000/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Master-Key": key },
+        body: JSON.stringify({ action: "lookup_ip", ipAddress: "not-an-ip-address" }),
+      })
+    );
+    expect(badLookup.status).toBe(400);
+    expect(badLookup.headers.get("Cache-Control")).toBe("no-store");
+  });
 });
 

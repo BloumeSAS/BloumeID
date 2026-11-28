@@ -5,7 +5,7 @@ import {
   createSignedAdminSessionToken,
   verifyMasterKey,
 } from "@/lib/auth";
-import { parseSafeJsonBody } from "@/lib/security";
+import { NO_STORE_HEADERS, parseSafeJsonBody } from "@/lib/security";
 import { extractRealClientIp } from "@/lib/engine/network";
 import { checkSlidingWindowRateLimit } from "@/lib/engine/redis";
 
@@ -26,27 +26,39 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "rate_limited", message: "Too many login attempts" },
-      { status: 429 }
+      { status: 429, headers: NO_STORE_HEADERS }
     );
   }
 
   const bodyResult = await parseSafeJsonBody(request, 8 * 1024);
   if (!bodyResult.ok) {
-    return NextResponse.json({ error: "invalid_json" }, { status: bodyResult.status });
+    return NextResponse.json(
+      { error: "invalid_json" },
+      { status: bodyResult.status, headers: NO_STORE_HEADERS }
+    );
   }
 
   const parsed = LoginSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
-    return NextResponse.json({ error: "validation_error" }, { status: 400 });
+    return NextResponse.json(
+      { error: "validation_error" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
   }
 
   const isValid = verifyMasterKey(parsed.data.masterKey);
   if (!isValid) {
-    return NextResponse.json({ error: "invalid_key" }, { status: 401 });
+    return NextResponse.json(
+      { error: "invalid_key" },
+      { status: 401, headers: NO_STORE_HEADERS }
+    );
   }
 
   const sessionToken = createSignedAdminSessionToken();
-  const response = NextResponse.json({ authenticated: true }, { status: 200 });
+  const response = NextResponse.json(
+    { authenticated: true },
+    { status: 200, headers: NO_STORE_HEADERS }
+  );
 
   response.cookies.set({
     name: ADMIN_SESSION_COOKIE,

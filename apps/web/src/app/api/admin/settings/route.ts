@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
-import { parseSafeJsonBody, sanitizeCsvCell } from "@/lib/security";
+import { NO_STORE_HEADERS, parseSafeJsonBody, sanitizeCsvCell } from "@/lib/security";
 import { globalThreatTrie } from "@/lib/engine/cidr-trie";
 import {
   ensureDefaultTrieSeeded,
@@ -18,8 +18,8 @@ import {
 
 const ActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("sync_feeds") }),
-  z.object({ action: z.literal("update_geolite2"), licenseKey: z.string().optional() }),
-  z.object({ action: z.literal("lookup_ip"), ipAddress: z.string().min(3).max(128) }),
+  z.object({ action: z.literal("update_geolite2"), licenseKey: z.string().trim().optional() }),
+  z.object({ action: z.literal("lookup_ip"), ipAddress: z.string().trim().ip() }),
   z.object({
     action: z.literal("purge_events"),
     retentionDays: z.number().int().min(1).max(3650),
@@ -28,7 +28,7 @@ const ActionSchema = z.discriminatedUnion("action", [
 
 export async function GET(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
   ensureDefaultTrieSeeded();
@@ -53,6 +53,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         {
           status: 200,
           headers: {
+            ...NO_STORE_HEADERS,
             "Content-Type": "application/json",
             "Content-Disposition": 'attachment; filename="bloumeid-export.json"',
           },
@@ -87,6 +88,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     return new NextResponse([csvHeader, ...csvRows].join("\n"), {
       status: 200,
       headers: {
+        ...NO_STORE_HEADERS,
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": 'attachment; filename="bloumeid-export.csv"',
       },
@@ -103,48 +105,54 @@ export async function GET(request: Request): Promise<NextResponse> {
       geoip,
       retentionDaysDefault: Number(process.env.RETENTION_DAYS ?? 90),
     },
-    { status: 200 }
+    { status: 200, headers: NO_STORE_HEADERS }
   );
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
   const bodyResult = await parseSafeJsonBody(request);
   if (!bodyResult.ok) {
-    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+    return NextResponse.json(
+      { error: bodyResult.error },
+      { status: bodyResult.status, headers: NO_STORE_HEADERS }
+    );
   }
 
   const parsed = ActionSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Validation failed" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
   }
 
   if (parsed.data.action === "sync_feeds") {
     const syncResult = await syncAllThreatFeeds();
-    return NextResponse.json(syncResult, { status: 200 });
+    return NextResponse.json(syncResult, { status: 200, headers: NO_STORE_HEADERS });
   }
 
   if (parsed.data.action === "update_geolite2") {
     const geoResult = await downloadAndUpdateGeoLite2({
       licenseKey: parsed.data.licenseKey,
     });
-    return NextResponse.json(geoResult, { status: 200 });
+    return NextResponse.json(geoResult, { status: 200, headers: NO_STORE_HEADERS });
   }
 
   if (parsed.data.action === "lookup_ip") {
-    const intel = await evaluateIpThreatIntel(parsed.data.ipAddress.trim());
+    const intel = await evaluateIpThreatIntel(parsed.data.ipAddress);
     return NextResponse.json(
       {
-        ipAddress: parsed.data.ipAddress.trim(),
+        ipAddress: parsed.data.ipAddress,
         ...intel,
       },
-      { status: 200 }
+      { status: 200, headers: NO_STORE_HEADERS }
     );
   }
 
   const purgedCount = await purgeOldFingerprintEvents(parsed.data.retentionDays);
-  return NextResponse.json({ purgedCount }, { status: 200 });
+  return NextResponse.json({ purgedCount }, { status: 200, headers: NO_STORE_HEADERS });
 }
