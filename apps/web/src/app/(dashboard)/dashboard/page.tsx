@@ -178,9 +178,9 @@ export default function DashboardPage() {
       return metrics.platformDistribution;
     }
     return [
-      { name: "Phone", count: 1161, share: 62 },
-      { name: "Desktop", count: 655, share: 35 },
-      { name: "Tablet", count: 68, share: 3 },
+      { name: "Phone", count: 0, share: 0 },
+      { name: "Desktop", count: 0, share: 0 },
+      { name: "Tablet", count: 0, share: 0 },
     ];
   }, [metrics?.platformDistribution]);
 

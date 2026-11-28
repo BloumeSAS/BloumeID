@@ -38,7 +38,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/bloume-sas/bloumeid:1.0.0
+    image: bloumesas/bloumeid:latest
     container_name: bloumeid-web
     restart: unless-stopped
     ports:
