@@ -1024,5 +1024,12 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
 
     const deliveriesForA = await listWebhookDeliveries(siteA.publicId);
     expect(deliveriesForA.every((d) => d.sitePublicId === siteA.publicId)).toBe(true);
+
+    const lightweightEvents = await listFingerprintEvents({
+      sitePublicId: siteA.publicId,
+      includeComponents: false,
+    });
+    expect(lightweightEvents.length).toBeGreaterThanOrEqual(1);
+    expect(lightweightEvents.every((e) => Object.keys(e.components).length === 0)).toBe(true);
   });
 });

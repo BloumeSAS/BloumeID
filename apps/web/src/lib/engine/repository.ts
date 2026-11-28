@@ -751,9 +751,11 @@ export async function listFingerprintEvents(filters?: {
   since?: Date;
   until?: Date;
   limit?: number;
+  includeComponents?: boolean;
 }): Promise<PublicFingerprintEventDTO[]> {
   ensureFeedsInitialized();
   const limit = filters?.limit ?? 100;
+  const includeComponents = filters?.includeComponents !== false;
   const q = filters?.query?.trim().toLowerCase() ?? "";
   const minDanger = filters?.minDanger ?? 0;
   const vector = filters?.vector ?? "all";
@@ -791,7 +793,41 @@ export async function listFingerprintEvents(filters?: {
         where: dbWhere,
         orderBy: { createdAt: "desc" },
         take: limit,
-        include: {
+        select: {
+          publicId: true,
+          fullHash: true,
+          hardwareHash: true,
+          ipAddress: true,
+          ipSubnet: true,
+          ja4Hash: true,
+          asnNumber: true,
+          asnOrg: true,
+          country: true,
+          city: true,
+          latitude: true,
+          longitude: true,
+          isVpn: true,
+          isProxy: true,
+          isTor: true,
+          isDatacenter: true,
+          isBot: true,
+          isSpoofed: true,
+          isIncognito: true,
+          crossBrowserMatched: true,
+          dangerLevel: true,
+          confidence: true,
+          durationMs: true,
+          ruleAction: true,
+          matchedRuleId: true,
+          linkedId: true,
+          tag: true,
+          browser: true,
+          os: true,
+          device: true,
+          userAgent: true,
+          origin: true,
+          components: includeComponents,
+          createdAt: true,
           site: { select: { publicId: true } },
           visitor: { select: { publicId: true } },
         },
@@ -833,7 +869,9 @@ export async function listFingerprintEvents(filters?: {
           device: evt.device,
           userAgent: evt.userAgent,
           origin: evt.origin,
-          components: evt.components as unknown as FingerprintComponents,
+          components: includeComponents
+            ? (evt.components as unknown as FingerprintComponents)
+            : ({} as unknown as FingerprintComponents),
           createdAt: evt.createdAt.toISOString(),
         });
       }
@@ -848,13 +886,15 @@ export async function listFingerprintEvents(filters?: {
     for (const e of [...memEvents].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())) {
       if (!seenPublicIds.has(e.publicId)) {
         seenPublicIds.add(e.publicId);
-        allEvents.push(
-          mapInternalEventToDTO(
-            e,
-            memSitePublicIdById.get(e.siteId) ?? "site_unknown",
-            memVisitorPublicIdById.get(e.visitorId) ?? "vis_unknown"
-          )
+        const dto = mapInternalEventToDTO(
+          e,
+          memSitePublicIdById.get(e.siteId) ?? "site_unknown",
+          memVisitorPublicIdById.get(e.visitorId) ?? "vis_unknown"
         );
+        if (!includeComponents) {
+          dto.components = {} as unknown as FingerprintComponents;
+        }
+        allEvents.push(dto);
       }
     }
   }
@@ -1997,6 +2037,7 @@ export async function getDashboardMetrics(
       since: prevSince,
       until: since,
       limit: 500,
+      includeComponents: false,
     }),
   ]);
 
