@@ -148,17 +148,31 @@ export default function DashboardPage() {
     }
   };
 
+  const abortRef = React.useRef<AbortController | null>(null);
+
   const loadMetrics = React.useCallback(async () => {
-    const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
-    const res = await fetch(`/api/admin/dashboard?${params.toString()}`);
-    if (res.ok) {
-      const data = (await res.json()) as DashboardMetricsDTO;
-      setMetrics(data);
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
+      const res = await fetch(`/api/admin/dashboard?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      if (res.ok && !controller.signal.aborted) {
+        const data = (await res.json()) as DashboardMetricsDTO;
+        setMetrics(data);
+      }
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        throw err;
+      }
     }
   }, [timeRange, selectedSiteId]);
 
   React.useEffect(() => {
     void loadMetrics();
+    return () => abortRef.current?.abort();
   }, [loadMetrics, refreshTick]);
 
   const filteredNetworks = React.useMemo(() => {

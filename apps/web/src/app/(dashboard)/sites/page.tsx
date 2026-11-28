@@ -57,7 +57,7 @@ export default function SitesPage() {
   const [toast, setToast] = React.useState<string | null>(null);
 
   const loadSites = React.useCallback(async () => {
-    const res = await fetch("/api/admin/sites");
+    const res = await fetch("/api/admin/sites?all=true");
     if (res.ok) {
       const data = (await res.json()) as { sites: PublicSiteDTO[] };
       setSites(data.sites);

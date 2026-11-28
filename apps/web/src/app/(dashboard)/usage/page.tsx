@@ -21,15 +21,20 @@ export default function UsagePage() {
   const [pageSize, setPageSize] = React.useState(10);
 
   React.useEffect(() => {
-    fetch("/api/admin/sites?all=true")
+    setPage(1);
+  }, [selectedSiteId]);
+
+  React.useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/admin/sites?all=true", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sites?: PublicSiteDTO[] } | null) => {
-        if (data?.sites) setSites(data.sites);
+        if (data?.sites && !controller.signal.aborted) setSites(data.sites);
       })
       .catch(() => undefined);
 
     const params = new URLSearchParams({ period: "30d", siteId: selectedSiteId });
-    fetch(`/api/admin/dashboard?${params.toString()}`)
+    fetch(`/api/admin/dashboard?${params.toString()}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then(
         (
@@ -38,7 +43,7 @@ export default function UsagePage() {
             recentHighRiskEvents?: Array<{ linkedId: string | null; tag: unknown }>;
           } | null
         ) => {
-          if (typeof data?.totalEvents === "number") {
+          if (typeof data?.totalEvents === "number" && !controller.signal.aborted) {
             setPeriodEvents(data.totalEvents);
             const evts = data.recentHighRiskEvents ?? [];
             if (data.totalEvents === 0 || evts.length === 0) {
@@ -54,6 +59,7 @@ export default function UsagePage() {
         }
       )
       .catch(() => undefined);
+    return () => controller.abort();
   }, [selectedSiteId, refreshTick]);
 
   const scopedSites = React.useMemo(
