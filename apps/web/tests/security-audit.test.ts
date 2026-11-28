@@ -761,6 +761,47 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
       if (prevWorkerId === undefined) delete process.env.WORKER_ID;
       else process.env.WORKER_ID = prevWorkerId;
     }
+
+    const { evaluateSecurityRules } = await import("../src/lib/engine/rules");
+    const tieBreak = evaluateSecurityRules(
+      [
+        {
+          publicId: "rule_global_50",
+          sitePublicId: null,
+          name: "Global Block",
+          action: "block",
+          priority: 50,
+          isEnabled: true,
+          hitCount: 0,
+          conditions: [{ field: "isVpn", operator: "eq", value: true }],
+        },
+        {
+          publicId: "rule_site_50",
+          sitePublicId: "site_tie_break",
+          name: "Site Challenge Override",
+          action: "challenge",
+          priority: 50,
+          isEnabled: true,
+          hitCount: 0,
+          conditions: [{ field: "isVpn", operator: "eq", value: true }],
+        },
+      ],
+      {
+        sitePublicId: "site_tie_break",
+        visitorPublicId: "vis_1",
+        isTor: false,
+        isVpn: true,
+        isDatacenter: false,
+        isBot: false,
+        isSpoofed: false,
+        dangerLevel: 1,
+        country: "FR",
+        asnNumber: 3215,
+        ipSubnet: "198.51.100.0/24",
+      }
+    );
+    expect(tieBreak.matchedRuleId).toBe("rule_site_50");
+    expect(tieBreak.action).toBe("challenge");
   });
 });
 

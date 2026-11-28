@@ -134,7 +134,12 @@ export function evaluateSecurityRules(
         r.isEnabled &&
         (r.sitePublicId === null || r.sitePublicId === ctx.sitePublicId)
     )
-    .sort((a, b) => a.priority - b.priority);
+    .sort((a, b) => {
+      const priorityDelta = a.priority - b.priority;
+      if (priorityDelta !== 0) return priorityDelta;
+      // Site-specific rules deterministically override global rules at equal priority
+      return (a.sitePublicId ? 0 : 1) - (b.sitePublicId ? 0 : 1);
+    });
 
   for (const rule of applicable) {
     if (

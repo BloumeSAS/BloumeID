@@ -88,6 +88,7 @@ export function LocaleSwitcher({
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
+    if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setOpen(false);
@@ -104,7 +105,7 @@ export function LocaleSwitcher({
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [open]);
 
   const current = SUPPORTED_LOCALES.find((item) => item.code === locale) ?? SUPPORTED_LOCALES[0]!;
 
