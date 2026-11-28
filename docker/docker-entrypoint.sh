@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+export NPM_CONFIG_UPDATE_NOTIFIER=false
+export NPM_CONFIG_FUND=false
+
 echo "[BloumeID] Starting container entrypoint..."
 
 # 0. Ensure GeoLite2 data directories exist and are writable by nextjs (even on Coolify host mounts)
@@ -21,7 +24,12 @@ if [ -n "$DATABASE_URL" ]; then
 
   # 2. Run versioned Prisma migrations (never prisma db push in production)
   echo "[BloumeID] Applying versioned Prisma migrations (prisma migrate deploy)..."
-  npx --yes prisma@6.19.3 migrate deploy --schema=/app/apps/web/prisma/schema.prisma || echo "[BloumeID] Warning: prisma migrate deploy skipped or handled externally"
+  PRISMA_SCHEMA="/app/apps/web/prisma/schema.prisma"
+  if [ -x "/app/node_modules/.bin/prisma" ]; then
+    /app/node_modules/.bin/prisma migrate deploy --schema="$PRISMA_SCHEMA" || echo "[BloumeID] Warning: prisma migrate deploy skipped or handled externally"
+  else
+    npm_config_update_notifier=false npm_config_fund=false npx --yes prisma@6.19.3 migrate deploy --schema="$PRISMA_SCHEMA" || echo "[BloumeID] Warning: prisma migrate deploy skipped or handled externally"
+  fi
 fi
 
 # 3. Trigger non-blocking background threat feed synchronization once server is up
