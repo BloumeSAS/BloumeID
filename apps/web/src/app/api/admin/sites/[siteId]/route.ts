@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
-import { parseSafeJsonBody } from "@/lib/security";
+import { NO_STORE_HEADERS, parseSafeJsonBody } from "@/lib/security";
 import {
   deleteSiteRecord,
   listSites,
@@ -34,19 +34,22 @@ export async function GET(
   context: { params: Promise<{ siteId: string }> }
 ): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
   }
   const { siteId } = await context.params;
   const parsedId = SiteIdParamSchema.safeParse(siteId);
   if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid site publicId" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid site publicId" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
   }
   const sites = await listSites();
   const site = sites.find((s) => s.publicId === parsedId.data);
   if (!site) {
-    return NextResponse.json({ error: "Site not found" }, { status: 404 });
+    return NextResponse.json({ error: "Site not found" }, { status: 404, headers: NO_STORE_HEADERS });
   }
-  return NextResponse.json({ site }, { status: 200 });
+  return NextResponse.json({ site }, { status: 200, headers: NO_STORE_HEADERS });
 }
 
 export async function PATCH(
@@ -54,32 +57,53 @@ export async function PATCH(
   context: { params: Promise<{ siteId: string }> }
 ): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
   }
   const { siteId } = await context.params;
   const parsedId = SiteIdParamSchema.safeParse(siteId);
   if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid site publicId" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid site publicId" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
   }
   const bodyResult = await parseSafeJsonBody(request);
   if (!bodyResult.ok) {
-    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+    return NextResponse.json(
+      { error: bodyResult.error },
+      { status: bodyResult.status, headers: NO_STORE_HEADERS }
+    );
   }
   const parsed = PatchSiteByIdSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Validation failed" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
   }
-  if (parsed.data.webhookUrl && parsed.data.webhookUrl.trim().length > 0) {
-    const check = validateWebhookUrl(parsed.data.webhookUrl);
+  const normalizedWebhook =
+    parsed.data.webhookUrl === undefined
+      ? undefined
+      : parsed.data.webhookUrl && parsed.data.webhookUrl.trim().length > 0
+        ? parsed.data.webhookUrl.trim()
+        : null;
+  if (normalizedWebhook) {
+    const check = validateWebhookUrl(normalizedWebhook);
     if (!check.valid) {
-      return NextResponse.json({ error: check.reason ?? "Invalid webhookUrl" }, { status: 400 });
+      return NextResponse.json(
+        { error: check.reason ?? "Invalid webhookUrl" },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
     }
   }
-  const updated = await updateSiteRecord(parsedId.data, parsed.data);
+  const updated = await updateSiteRecord(parsedId.data, {
+    ...parsed.data,
+    webhookUrl: normalizedWebhook,
+  });
   if (!updated) {
-    return NextResponse.json({ error: "Site not found" }, { status: 404 });
+    return NextResponse.json({ error: "Site not found" }, { status: 404, headers: NO_STORE_HEADERS });
   }
-  return NextResponse.json({ site: updated }, { status: 200 });
+  return NextResponse.json({ site: updated }, { status: 200, headers: NO_STORE_HEADERS });
 }
 
 export async function DELETE(
@@ -87,13 +111,16 @@ export async function DELETE(
   context: { params: Promise<{ siteId: string }> }
 ): Promise<NextResponse> {
   if (!isAdminAuthenticatedFromRequest(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE_HEADERS });
   }
   const { siteId } = await context.params;
   const parsedId = SiteIdParamSchema.safeParse(siteId);
   if (!parsedId.success) {
-    return NextResponse.json({ error: "Invalid site publicId" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid site publicId" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
   }
   const deleted = await deleteSiteRecord(parsedId.data);
-  return NextResponse.json({ deleted }, { status: deleted ? 200 : 404 });
+  return NextResponse.json({ deleted }, { status: deleted ? 200 : 404, headers: NO_STORE_HEADERS });
 }

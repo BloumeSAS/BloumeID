@@ -65,8 +65,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [adminUsername, setAdminUsername] = React.useState("admin");
 
-  const loadSites = React.useCallback(() => {
-    fetch("/api/admin/sites?all=true")
+  const loadSites = React.useCallback((signal?: AbortSignal) => {
+    fetch("/api/admin/sites?all=true", { signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sites?: PublicSiteDTO[] } | null) => {
         if (data?.sites) setSites(data.sites);
@@ -75,17 +75,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   React.useEffect(() => {
-    fetch("/api/admin/me")
+    const controller = new AbortController();
+    fetch("/api/admin/me", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { username?: string } | null) => {
         if (data?.username) setAdminUsername(data.username);
       })
       .catch(() => undefined);
+    return () => controller.abort();
   }, []);
 
   React.useEffect(() => {
-    loadSites();
+    const controller = new AbortController();
+    loadSites(controller.signal);
+    return () => controller.abort();
   }, [loadSites, refreshTick]);
+
+  React.useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
