@@ -75,13 +75,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   React.useEffect(() => {
-    loadSites();
     fetch("/api/admin/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { username?: string } | null) => {
         if (data?.username) setAdminUsername(data.username);
       })
       .catch(() => undefined);
+  }, []);
+
+  React.useEffect(() => {
+    loadSites();
   }, [loadSites, refreshTick]);
 
   React.useEffect(() => {
