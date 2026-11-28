@@ -843,14 +843,19 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
   });
 
   it("reconciles Level 1 and Level 2 visitors cleanly without unnecessary full-array copies", async () => {
-    const { createSiteRecord, getReconciliationStore, recordFingerprintEvent } = await import(
-      "../src/lib/engine/repository"
-    );
+    const {
+      createSiteRecord,
+      findSiteByPublicKey,
+      getReconciliationStore,
+      recordFingerprintEvent,
+    } = await import("../src/lib/engine/repository");
     const { reconcileVisitorIdentity } = await import("../src/lib/engine/reconcile");
     const site = await createSiteRecord({ name: "Reconcile Perf Site", domains: ["localhost"] });
+    const internalSite = await findSiteByPublicKey(site.publicKey);
+    expect(internalSite).not.toBeNull();
     const store = getReconciliationStore();
     const first = await reconcileVisitorIdentity(store, {
-      siteInternalId: 999999,
+      siteInternalId: internalSite!.id,
       fullHash: "hash_lvl1_perf_test_0001",
       hardwareHash: "hw_lvl2_perf_test_0001",
       ipSubnet: "198.51.100.0/24",
@@ -859,7 +864,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     });
     await recordFingerprintEvent({
       publicId: "req_perf_test_001",
-      siteId: 999999,
+      siteId: internalSite!.id,
       visitorId: first.visitorInternalId,
       fullHash: "hash_lvl1_perf_test_0001",
       hardwareHash: "hw_lvl2_perf_test_0001",
@@ -889,7 +894,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     });
     expect(site.publicId).toMatch(/^site_/);
     const second = await reconcileVisitorIdentity(store, {
-      siteInternalId: 999999,
+      siteInternalId: internalSite!.id,
       fullHash: "hash_lvl1_perf_test_0001",
       hardwareHash: "hw_lvl2_perf_test_0001",
       ipSubnet: "198.51.100.0/24",
@@ -901,6 +906,16 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
   });
 
   it("filters events, visitors and security rules accurately per site and threat vector", async () => {
+    const {
+      getReconciliationStore,
+      listFingerprintEvents,
+      listVisitors,
+      createSecurityRule,
+      listSecurityRules,
+      getEventByPublicId,
+      listWebhookDeliveries,
+      getVisitorTrustStatus,
+    } = await import("../src/lib/engine/repository");
     const siteA = await createSiteRecord({ name: "Audit Site A", domains: ["audit-a.example.com"] });
     const siteB = await createSiteRecord({ name: "Audit Site B", domains: ["audit-b.example.com"] });
     const internalSiteA = await findSiteByPublicKey(siteA.publicKey);
@@ -908,10 +923,26 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(internalSiteA).not.toBeNull();
     expect(internalSiteB).not.toBeNull();
 
+    const store = getReconciliationStore();
+    const visitorA = await store.createOrUpdateVisitor({
+      existingVisitorId: null,
+      newVisitorPublicId: "vis_audit_bot_1",
+      siteInternalId: internalSiteA!.id,
+      hardwareHash: "hw_audit_bot_1",
+      dangerLevel: 4,
+    });
+    const visitorClean = await store.createOrUpdateVisitor({
+      existingVisitorId: null,
+      newVisitorPublicId: "vis_audit_clean_2",
+      siteInternalId: internalSiteA!.id,
+      hardwareHash: "hw_audit_clean_2",
+      dangerLevel: 0,
+    });
+
     await recordFingerprintEvent({
       publicId: "req_audit_bot_1",
       siteId: internalSiteA!.id,
-      visitorId: 910001,
+      visitorId: visitorA.id,
       fullHash: "fh_audit_bot_1",
       hardwareHash: "hw_audit_bot_1",
       ipAddress: "203.0.113.10",
@@ -949,7 +980,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     await recordFingerprintEvent({
       publicId: "req_audit_clean_2",
       siteId: internalSiteB!.id,
-      visitorId: 910002,
+      visitorId: visitorClean.id,
       fullHash: "fh_audit_clean_2",
       hardwareHash: "hw_audit_clean_2",
       ipAddress: "203.0.113.20",
