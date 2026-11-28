@@ -815,4 +815,15 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(trie.size()).toBe(0);
     expect(trie.lookup("8.8.8.8").size).toBe(0);
   });
+
+  it("returns deterministic threat feed IDs and aggregates dashboard metrics cleanly", async () => {
+    const { getDashboardMetrics, listThreatFeedStatuses } = await import("../src/lib/engine/repository");
+    const first = await listThreatFeedStatuses();
+    const second = await listThreatFeedStatuses();
+    expect(first.map((f) => f.publicId)).toEqual(second.map((f) => f.publicId));
+
+    const metrics = await getDashboardMetrics("24h");
+    expect(metrics.totalEvents).toBeGreaterThanOrEqual(0);
+    expect(metrics.uniqueVisitors).toBeLessThanOrEqual(metrics.totalEvents);
+  });
 });
