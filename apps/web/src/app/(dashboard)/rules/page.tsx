@@ -83,22 +83,26 @@ export default function SecurityRulesPage() {
             : valueStr;
 
     const safePriority = Number.isFinite(priority) ? Math.max(1, Math.min(1000, Math.round(priority))) : 25;
-    const res = await fetch("/api/admin/rules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sitePublicId: selectedSiteId === "all" ? null : selectedSiteId,
-        name: trimmedName,
-        action,
-        priority: safePriority,
-        conditions: [{ field, operator, value: parsedVal }],
-      }),
-    });
+    try {
+      const res = await fetch("/api/admin/rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sitePublicId: selectedSiteId === "all" ? null : selectedSiteId,
+          name: trimmedName,
+          action,
+          priority: safePriority,
+          conditions: [{ field, operator, value: parsedVal }],
+        }),
+      });
 
-    if (res.ok) {
-      setName("");
-      setCreateOpen(false);
-      await loadRules();
+      if (res.ok) {
+        setName("");
+        setCreateOpen(false);
+        await loadRules();
+      }
+    } catch {
+      // Ignore transient network errors on rule creation
     }
   };
 
@@ -110,39 +114,51 @@ export default function SecurityRulesPage() {
     operator: RuleConditionOperator;
     value: string | number | boolean;
   }) => {
-    const res = await fetch("/api/admin/rules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sitePublicId: selectedSiteId === "all" ? null : selectedSiteId,
-        name: tpl.name,
-        action: tpl.action,
-        priority: tpl.priority,
-        conditions: [{ field: tpl.field, operator: tpl.operator, value: tpl.value }],
-      }),
-    });
-    if (res.ok) {
-      await loadRules();
+    try {
+      const res = await fetch("/api/admin/rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sitePublicId: selectedSiteId === "all" ? null : selectedSiteId,
+          name: tpl.name,
+          action: tpl.action,
+          priority: tpl.priority,
+          conditions: [{ field: tpl.field, operator: tpl.operator, value: tpl.value }],
+        }),
+      });
+      if (res.ok) {
+        await loadRules();
+      }
+    } catch {
+      // Ignore transient network errors on template creation
     }
   };
 
   const handleToggle = async (publicId: string, isEnabled: boolean) => {
-    const res = await fetch("/api/admin/rules", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ publicId, isEnabled }),
-    });
-    if (res.ok) {
-      setRules((prev) => prev.map((r) => (r.publicId === publicId ? { ...r, isEnabled } : r)));
+    try {
+      const res = await fetch("/api/admin/rules", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publicId, isEnabled }),
+      });
+      if (res.ok) {
+        setRules((prev) => prev.map((r) => (r.publicId === publicId ? { ...r, isEnabled } : r)));
+      }
+    } catch {
+      // Ignore transient network errors on rule toggle
     }
   };
 
   const handleDelete = async (publicId: string) => {
-    const res = await fetch(`/api/admin/rules?publicId=${encodeURIComponent(publicId)}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      setRules((prev) => prev.filter((r) => r.publicId !== publicId));
+    try {
+      const res = await fetch(`/api/admin/rules?publicId=${encodeURIComponent(publicId)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setRules((prev) => prev.filter((r) => r.publicId !== publicId));
+      }
+    } catch {
+      // Ignore transient network errors on rule deletion
     }
   };
 

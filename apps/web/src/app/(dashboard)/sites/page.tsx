@@ -56,13 +56,26 @@ export default function SitesPage() {
   const [deleteModalSite, setDeleteModalSite] = React.useState<PublicSiteDTO | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const configAbortRef = React.useRef<AbortController | null>(null);
 
   React.useEffect(() => {
     return () => {
       if (toastTimerRef.current !== null) {
         clearTimeout(toastTimerRef.current);
       }
+      configAbortRef.current?.abort();
     };
+  }, []);
+
+  const showToast = React.useCallback((message: string) => {
+    setToast(message);
+    if (toastTimerRef.current !== null) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
+      setToast(null);
+    }, 3000);
   }, []);
 
   const loadSites = React.useCallback(async (signal?: AbortSignal) => {
@@ -123,14 +136,7 @@ export default function SitesPage() {
         if (configModalSite?.publicId === publicId) setConfigModalSite(data.site);
         triggerManualRefresh();
         if (payload.testWebhook) {
-          setToast(dict.sites.webhookSent);
-          if (toastTimerRef.current !== null) {
-            clearTimeout(toastTimerRef.current);
-          }
-          toastTimerRef.current = setTimeout(() => {
-            toastTimerRef.current = null;
-            setToast(null);
-          }, 3000);
+          showToast(dict.sites.webhookSent);
         }
         return data.site;
       }
@@ -149,6 +155,7 @@ export default function SitesPage() {
   }, []);
 
   const closeConfigModal = React.useCallback(() => {
+    configAbortRef.current?.abort();
     setConfigModalSite(null);
     setEditName("");
     setEditDomains("");
@@ -158,12 +165,17 @@ export default function SitesPage() {
   }, []);
 
   const openConfigModal = (site: PublicSiteDTO) => {
+    configAbortRef.current?.abort();
+    const controller = new AbortController();
+    configAbortRef.current = controller;
     setConfigModalSite(site);
     hydrateConfigFields(site);
-    fetch(`/api/admin/sites/${encodeURIComponent(site.publicId)}`)
+    fetch(`/api/admin/sites/${encodeURIComponent(site.publicId)}`, {
+      signal: controller.signal,
+    })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { site?: PublicSiteDTO } | null) => {
-        if (data?.site) {
+        if (data?.site && !controller.signal.aborted) {
           setConfigModalSite(data.site);
           hydrateConfigFields(data.site);
         }
@@ -179,7 +191,7 @@ export default function SitesPage() {
       .map((d) => d.trim())
       .filter(Boolean);
     if (domains.length === 0) {
-      setToast(dict.sites.allowedDomains);
+      showToast(dict.sites.allowedDomains);
       return;
     }
     const safeThreshold = Number.isFinite(editThreshold)
@@ -199,14 +211,18 @@ export default function SitesPage() {
 
   const handleConfirmDelete = async () => {
     if (!deleteModalSite) return;
-    const res = await fetch(
-      `/api/admin/sites?publicId=${encodeURIComponent(deleteModalSite.publicId)}`,
-      { method: "DELETE" }
-    );
-    if (res.ok) {
-      setSites((prev) => prev.filter((s) => s.publicId !== deleteModalSite.publicId));
-      setDeleteModalSite(null);
-      triggerManualRefresh();
+    try {
+      const res = await fetch(
+        `/api/admin/sites?publicId=${encodeURIComponent(deleteModalSite.publicId)}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        setSites((prev) => prev.filter((s) => s.publicId !== deleteModalSite.publicId));
+        setDeleteModalSite(null);
+        triggerManualRefresh();
+      }
+    } catch {
+      // Ignore transient network errors on site delete
     }
   };
 

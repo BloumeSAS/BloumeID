@@ -181,9 +181,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [allNavItems, commandQuery, sites, router, setSelectedSiteId]);
 
   const handleLogout = async () => {
-    await fetch("/api/admin/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
+    try {
+      await fetch("/api/admin/auth/logout", { method: "POST" });
+    } catch {
+      // Navigate back to login even if logout request fails transiently
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
   };
 
   const getTimeLabel = (r: GlobalTimeRange): string => {
