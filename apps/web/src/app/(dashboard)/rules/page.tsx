@@ -44,11 +44,18 @@ export default function SecurityRulesPage() {
   const [simIsSpoofed, setSimIsSpoofed] = React.useState(false);
   const [simIsDatacenter, setSimIsDatacenter] = React.useState(true);
 
-  const loadRules = React.useCallback(async () => {
-    const res = await fetch(`/api/admin/rules?siteId=${encodeURIComponent(selectedSiteId)}`);
-    if (res.ok) {
-      const data = (await res.json()) as { rules: PublicSecurityRuleDTO[] };
-      setRules(data.rules);
+  const loadRules = React.useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch(
+        `/api/admin/rules?siteId=${encodeURIComponent(selectedSiteId)}`,
+        { signal }
+      );
+      if (res.ok && !signal?.aborted) {
+        const data = (await res.json()) as { rules: PublicSecurityRuleDTO[] };
+        setRules(data.rules);
+      }
+    } catch {
+      // Ignore abort or transient fetch errors
     }
   }, [selectedSiteId]);
 
@@ -57,7 +64,9 @@ export default function SecurityRulesPage() {
   }, [selectedSiteId]);
 
   React.useEffect(() => {
-    void loadRules();
+    const controller = new AbortController();
+    void loadRules(controller.signal);
+    return () => controller.abort();
   }, [loadRules, refreshTick]);
 
   const handleCreate = async (e: React.FormEvent) => {

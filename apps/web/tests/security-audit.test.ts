@@ -604,5 +604,54 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(isOriginAllowedForSite("null", ["localhost", "null.example.com"])).toBe(false);
     expect(isOriginAllowedForSite("https://sub.example.com.", ["*."])).toBe(false);
   });
+
+  it("hardens CSP directives and rejects whitespace gte / empty array rule conditions", async () => {
+    const { default: nextConfig } = await import("../next.config");
+    const headerRules = await nextConfig.headers?.();
+    const csp = headerRules?.[0]?.headers.find((h) => h.key === "Content-Security-Policy")?.value ?? "";
+    expect(csp).toContain("base-uri 'self'");
+    expect(csp).toContain("form-action 'self'");
+    expect(csp).toContain("object-src 'none'");
+
+    const { evaluateSecurityRules } = await import("../src/lib/engine/rules");
+    const evalRes = evaluateSecurityRules(
+      [
+        {
+          publicId: "rule_ws_gte",
+          sitePublicId: null,
+          name: "Whitespace gte",
+          action: "block",
+          priority: 1,
+          isEnabled: true,
+          hitCount: 0,
+          conditions: [{ field: "dangerLevel", operator: "gte", value: "   " }],
+        },
+        {
+          publicId: "rule_empty_in",
+          sitePublicId: null,
+          name: "Empty array in",
+          action: "block",
+          priority: 2,
+          isEnabled: true,
+          hitCount: 0,
+          conditions: [{ field: "country", operator: "in", value: ["", "  "] }],
+        },
+      ],
+      {
+        sitePublicId: "site_1",
+        visitorPublicId: "vis_1",
+        isTor: false,
+        isVpn: false,
+        isDatacenter: false,
+        isBot: false,
+        isSpoofed: false,
+        dangerLevel: 0,
+        country: null,
+        asnNumber: null,
+        ipSubnet: "198.51.100.0/24",
+      }
+    );
+    expect(evalRes.action).toBe("allow");
+  });
 });
 

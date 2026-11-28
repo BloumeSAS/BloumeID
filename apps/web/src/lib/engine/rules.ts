@@ -82,7 +82,11 @@ function evaluateSingleCondition(
     return String(actual).toLowerCase() !== String(cond.value).toLowerCase();
   }
   if (cond.operator === "gte") {
-    if (cond.value === "" || typeof cond.value === "boolean" || Array.isArray(cond.value)) {
+    if (
+      (typeof cond.value === "string" && cond.value.trim().length === 0) ||
+      typeof cond.value === "boolean" ||
+      Array.isArray(cond.value)
+    ) {
       return false;
     }
     const threshold = Number(cond.value);
@@ -94,7 +98,7 @@ function evaluateSingleCondition(
   }
 
   const list = Array.isArray(cond.value)
-    ? cond.value.map((x) => String(x).trim().toLowerCase())
+    ? cond.value.map((x) => String(x).trim().toLowerCase()).filter(Boolean)
     : String(cond.value)
         .split(",")
         .map((x) => x.trim().toLowerCase())
