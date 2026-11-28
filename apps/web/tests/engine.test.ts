@@ -685,8 +685,8 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(THREAT_FEEDS.length).toBeGreaterThanOrEqual(15);
 
     const mockFeedFetch: typeof fetch = async (input) => {
-      const url = String(input);
-      if (url.includes("ip-ranges.amazonaws.com")) {
+      const parsed = new URL(String(input));
+      if (parsed.hostname === "ip-ranges.amazonaws.com") {
         return new Response(
           JSON.stringify({
             prefixes: [{ ip_prefix: "3.10.0.0/16" }],
@@ -695,7 +695,7 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
           { status: 200 }
         );
       }
-      if (url.includes("gstatic.com/ipranges/cloud.json")) {
+      if (parsed.hostname === "www.gstatic.com" && parsed.pathname === "/ipranges/cloud.json") {
         return new Response(
           JSON.stringify({
             prefixes: [{ ipv4Prefix: "35.190.0.0/16" }, { ipv6Prefix: "2600:1900::/28" }],
@@ -703,19 +703,22 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
           { status: 200 }
         );
       }
-      if (url.includes("onionoo.torproject.org")) {
+      if (parsed.hostname === "onionoo.torproject.org") {
         return new Response(
           JSON.stringify({ relays: [{ r: true, a: ["[2a0b:f4c2::7]:9001"] }] }),
           { status: 200 }
         );
       }
-      if (url.includes("bad-asn-list.csv")) {
+      if (
+        parsed.hostname === "raw.githubusercontent.com" &&
+        parsed.pathname === "/brianhama/bad-asn-list/master/bad-asn-list.csv"
+      ) {
         return new Response('ASN,Entity\n199999,"Bulletproof Host Test"', { status: 200 });
       }
-      if (url.includes("spamhaus.org/drop/drop.txt")) {
+      if (parsed.hostname === "www.spamhaus.org" && parsed.pathname === "/drop/drop.txt") {
         return new Response("1.10.16.0/20 ; SBL999\n", { status: 200 });
       }
-      if (url.includes("spamhaus.org/drop/dropv6.txt")) {
+      if (parsed.hostname === "www.spamhaus.org" && parsed.pathname === "/drop/dropv6.txt") {
         return new Response("2a06:a005::/32 ; SBL998\n", { status: 200 });
       }
       return new Response("198.18.0.0/24\n", { status: 200 });
