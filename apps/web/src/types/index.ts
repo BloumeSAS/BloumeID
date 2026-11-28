@@ -70,6 +70,7 @@ export interface PublicFingerprintEventDTO {
   crossBrowserMatched: boolean;
   dangerLevel: number;
   confidence: number;
+  durationMs?: number;
   ruleAction: SecurityRuleAction;
   matchedRuleId: string | null;
   linkedId: string | null;

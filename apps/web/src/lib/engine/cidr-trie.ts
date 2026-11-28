@@ -162,8 +162,12 @@ export const DATACENTER_ASN_KEYWORDS: readonly string[] = [
   "iliad-entreprises",
   "vultr",
   "choopa",
+  "constant",
   "linode",
   "akamai connected cloud",
+  "akamai",
+  "cloudflare",
+  "fastly",
   "m247",
   "leaseweb",
   "contabo",
@@ -174,9 +178,27 @@ export const DATACENTER_ASN_KEYWORDS: readonly string[] = [
   "ionos",
   "upcloud",
   "kamatera",
-  "Equinix",
+  "equinix",
   "cogent",
   "hurricane electric",
+  "alibaba",
+  "tencent",
+  "oracle",
+  "rackspace",
+  "frantech",
+  "buyvm",
+  "netcup",
+  "cherry servers",
+  "stark industries",
+  "pq hosting",
+  "melbikomas",
+  "shockhosting",
+  "datapacket",
+  "worldstream",
+  "hostkey",
+  "time4vps",
+  "aeza",
+  "voxility",
 ];
 
 export const VPN_ASN_KEYWORDS: readonly string[] = [
@@ -191,6 +213,17 @@ export const VPN_ASN_KEYWORDS: readonly string[] = [
   "windscribe",
   "ipvanish",
   "vyprvpn",
+  "ivpn",
+  "mozillavpn",
+  "mozilla vpn",
+  "torguard",
+  "purevpn",
+  "airvpn",
+  "ipredator",
+  "perfect privacy",
+  "privatevpn",
+  "astrill",
+  "hide.me",
 ];
 
 export function classifyAsnOrganization(asnOrg: string | null | undefined): {
@@ -209,4 +242,25 @@ export function classifyAsnOrganization(asnOrg: string | null | undefined): {
 }
 
 export const globalThreatTrie = new CidrRadixTrie();
+
+const badAsnRegistry = new Map<number, string>();
+
+export function clearBadAsns(): void {
+  badAsnRegistry.clear();
+}
+
+export function registerBadAsn(asnNumber: number, entityName: string): boolean {
+  if (!Number.isInteger(asnNumber) || asnNumber <= 0) return false;
+  badAsnRegistry.set(asnNumber, entityName.trim() || `AS${asnNumber}`);
+  return true;
+}
+
+export function lookupBadAsn(asnNumber: number | null | undefined): string | null {
+  if (asnNumber === null || asnNumber === undefined) return null;
+  return badAsnRegistry.get(asnNumber) ?? null;
+}
+
+export function badAsnCount(): number {
+  return badAsnRegistry.size;
+}
 

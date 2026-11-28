@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import type { DashboardMetricsDTO } from "@/types";
 
 export default function SmartSignalsPage() {
-  const { dict, timeRange, selectedSiteId } = useI18n();
+  const { dict, timeRange, selectedSiteId, refreshTick } = useI18n();
   const [metrics, setMetrics] = React.useState<DashboardMetricsDTO | null>(null);
   const [toggles, setToggles] = React.useState({
     bots: true,
@@ -27,7 +27,10 @@ export default function SmartSignalsPage() {
         if (data) setMetrics(data);
       })
       .catch(() => undefined);
-  }, [timeRange, selectedSiteId]);
+  }, [timeRange, selectedSiteId, refreshTick]);
+
+  const datacenterCount =
+    metrics?.vectorDistribution.find((v) => v.vector.includes("Datacenter"))?.count ?? 0;
 
   const cards = [
     {
@@ -36,7 +39,7 @@ export default function SmartSignalsPage() {
       desc: dict.smartSignals.botsDesc,
       icon: Bot,
       color: "text-rose-500",
-      count: metrics?.vectorDistribution.find((v) => v.vector.includes("Bot"))?.count ?? 4,
+      count: metrics?.vectorDistribution.find((v) => v.vector.includes("Bot"))?.count ?? 0,
     },
     {
       key: "fraud" as const,
@@ -52,7 +55,7 @@ export default function SmartSignalsPage() {
       desc: dict.smartSignals.networkDesc,
       icon: Globe,
       color: "text-sky-500",
-      count: metrics?.vpnTorCount ?? 0,
+      count: (metrics?.vpnTorCount ?? 0) + datacenterCount,
     },
     {
       key: "spoof" as const,
@@ -60,7 +63,7 @@ export default function SmartSignalsPage() {
       desc: dict.smartSignals.spoofDesc,
       icon: Sparkles,
       color: "text-primary",
-      count: metrics?.vectorDistribution.find((v) => v.vector.includes("Spoof"))?.count ?? 5,
+      count: metrics?.vectorDistribution.find((v) => v.vector.includes("Spoof"))?.count ?? 0,
     },
     {
       key: "incognito" as const,
@@ -68,7 +71,7 @@ export default function SmartSignalsPage() {
       desc: dict.smartSignals.incognitoDesc,
       icon: EyeOff,
       color: "text-emerald-500",
-      count: metrics?.vectorDistribution.find((v) => v.vector.includes("Incognito"))?.count ?? 6,
+      count: metrics?.vectorDistribution.find((v) => v.vector.includes("Incognito"))?.count ?? 0,
     },
   ];
 

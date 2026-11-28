@@ -12,33 +12,59 @@ import { paginateArray } from "@/lib/pagination";
 import type { PublicSiteDTO } from "@/types";
 
 export default function UsagePage() {
-  const { dict, timeRange, selectedSiteId, refreshTick } = useI18n();
+  const { dict, selectedSiteId, refreshTick } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [periodEvents, setPeriodEvents] = React.useState<number | null>(null);
+  const [fpProPercent, setFpProPercent] = React.useState<number>(0);
+  const [thumbmarkPercent, setThumbmarkPercent] = React.useState<number>(0);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(10);
 
   React.useEffect(() => {
-    fetch("/api/admin/sites")
+    fetch("/api/admin/sites?all=true")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sites?: PublicSiteDTO[] } | null) => {
         if (data?.sites) setSites(data.sites);
       })
       .catch(() => undefined);
 
-    const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
+    const params = new URLSearchParams({ period: "30d", siteId: selectedSiteId });
     fetch(`/api/admin/dashboard?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { totalEvents?: number } | null) => {
-        if (typeof data?.totalEvents === "number") setPeriodEvents(data.totalEvents);
-      })
+      .then(
+        (
+          data: {
+            totalEvents?: number;
+            recentHighRiskEvents?: Array<{ linkedId: string | null; tag: unknown }>;
+          } | null
+        ) => {
+          if (typeof data?.totalEvents === "number") {
+            setPeriodEvents(data.totalEvents);
+            const evts = data.recentHighRiskEvents ?? [];
+            if (data.totalEvents === 0 || evts.length === 0) {
+              setFpProPercent(0);
+              setThumbmarkPercent(0);
+            } else {
+              const fpTagged = evts.filter((e) => Boolean(e.linkedId) || Boolean(e.tag)).length;
+              const fpPct = Math.round((fpTagged / evts.length) * 100);
+              setFpProPercent(fpPct);
+              setThumbmarkPercent(100 - fpPct);
+            }
+          }
+        }
+      )
       .catch(() => undefined);
-  }, [timeRange, selectedSiteId, refreshTick]);
+  }, [selectedSiteId, refreshTick]);
 
-  const total30d = periodEvents ?? sites.reduce((acc, s) => acc + (s.requests30d ?? 0), 0);
+  const scopedSites = React.useMemo(
+    () => (selectedSiteId === "all" ? sites : sites.filter((s) => s.publicId === selectedSiteId)),
+    [sites, selectedSiteId]
+  );
+  const siteSum30d = scopedSites.reduce((acc, s) => acc + (s.requests30d ?? 0), 0);
+  const total30d = Math.max(periodEvents ?? 0, siteSum30d);
   const paginatedSites = React.useMemo(
-    () => paginateArray(sites, page, pageSize),
-    [sites, page, pageSize]
+    () => paginateArray(scopedSites, page, pageSize),
+    [scopedSites, page, pageSize]
   );
 
   return (
@@ -73,7 +99,9 @@ export default function UsagePage() {
             <CardTitle className="text-sm">{dict.usagePage.thumbmarkCalls}</CardTitle>
             <Activity className="h-4 w-4 text-sky-500" />
           </CardHeader>
-          <CardContent className="font-mono text-2xl font-bold">68%</CardContent>
+          <CardContent className="font-mono text-2xl font-bold">
+            {thumbmarkPercent}%
+          </CardContent>
         </Card>
 
         <Card>
@@ -81,7 +109,7 @@ export default function UsagePage() {
             <CardTitle className="text-sm">{dict.usagePage.fpProCalls}</CardTitle>
             <Activity className="h-4 w-4 text-emerald-500" />
           </CardHeader>
-          <CardContent className="font-mono text-2xl font-bold">32%</CardContent>
+          <CardContent className="font-mono text-2xl font-bold">{fpProPercent}%</CardContent>
         </Card>
       </div>
 
