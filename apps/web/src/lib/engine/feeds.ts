@@ -1,14 +1,29 @@
-import { classifyAsnOrganization, globalThreatTrie, type ThreatCategory } from "./cidr-trie";
+import {
+  classifyAsnOrganization,
+  clearBadAsns,
+  globalThreatTrie,
+  lookupBadAsn,
+  registerBadAsn,
+  type ThreatCategory,
+} from "./cidr-trie";
 import { lookupGeoIp } from "./geoip";
 import { generateSnowflakeId } from "./snowflake";
 import { prisma } from "@/lib/prisma";
+
+export type ThreatFeedFormat =
+  | "cidr_text"
+  | "onionoo_ipv6_json"
+  | "aws_ip_json"
+  | "gcp_ip_json"
+  | "bad_asn_csv";
 
 export interface FeedDefinition {
   feedName: string;
   url: string;
   category: ThreatCategory;
-  format?: "cidr_text" | "onionoo_ipv6_json";
+  format?: ThreatFeedFormat;
   fallbackCidrs: string[];
+  fallbackAsns?: Array<{ asn: number; entity: string }>;
 }
 
 export const THREAT_FEEDS: readonly FeedDefinition[] = [
@@ -20,11 +35,25 @@ export const THREAT_FEEDS: readonly FeedDefinition[] = [
     fallbackCidrs: ["185.159.156.0/24", "193.138.218.0/24", "45.83.220.0/22"],
   },
   {
+    feedName: "x4bnet_vpn_ipv6",
+    url: "https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/vpn/ipv6.txt",
+    category: "vpn",
+    format: "cidr_text",
+    fallbackCidrs: ["2001:550:1d05::/48", "2001:ac8::/32"],
+  },
+  {
     feedName: "x4bnet_datacenter_ipv4",
     url: "https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt",
     category: "datacenter",
     format: "cidr_text",
     fallbackCidrs: ["51.38.0.0/16", "138.68.0.0/16", "95.216.0.0/16"],
+  },
+  {
+    feedName: "x4bnet_datacenter_ipv6",
+    url: "https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv6.txt",
+    category: "datacenter",
+    format: "cidr_text",
+    fallbackCidrs: ["2001:4f8:2::/48", "2001:470::/32"],
   },
   {
     feedName: "tor_bulk_exit_list",
@@ -45,6 +74,75 @@ export const THREAT_FEEDS: readonly FeedDefinition[] = [
       "2a03:e600:100::/48",
     ],
   },
+  {
+    feedName: "tor_secops_exit_mirror",
+    url: "https://raw.githubusercontent.com/SecOps-Institute/Tor-IP-Addresses/master/tor-exit-nodes.lst",
+    category: "tor",
+    format: "cidr_text",
+    fallbackCidrs: ["185.220.102.0/24", "185.220.103.0/24"],
+  },
+  {
+    feedName: "aws_datacenter_ip_ranges",
+    url: "https://ip-ranges.amazonaws.com/ip-ranges.json",
+    category: "datacenter",
+    format: "aws_ip_json",
+    fallbackCidrs: ["3.5.140.0/22", "52.94.76.0/22"],
+  },
+  {
+    feedName: "gcp_datacenter_ip_ranges",
+    url: "https://www.gstatic.com/ipranges/cloud.json",
+    category: "datacenter",
+    format: "gcp_ip_json",
+    fallbackCidrs: ["34.64.0.0/10", "35.184.0.0/13"],
+  },
+  {
+    feedName: "firehol_level1_netset",
+    url: "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset",
+    category: "proxy",
+    format: "cidr_text",
+    fallbackCidrs: ["45.142.212.0/22"],
+  },
+  {
+    feedName: "firehol_webclient_netset",
+    url: "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_webclient.netset",
+    category: "proxy",
+    format: "cidr_text",
+    fallbackCidrs: ["194.26.135.0/24"],
+  },
+  {
+    feedName: "ipsum_threat_proxies",
+    url: "https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt",
+    category: "proxy",
+    format: "cidr_text",
+    fallbackCidrs: ["45.155.205.0/24"],
+  },
+  {
+    feedName: "spamhaus_drop_ipv4",
+    url: "https://www.spamhaus.org/drop/drop.txt",
+    category: "datacenter",
+    format: "cidr_text",
+    fallbackCidrs: ["1.10.16.0/20"],
+  },
+  {
+    feedName: "spamhaus_drop_ipv6",
+    url: "https://www.spamhaus.org/drop/dropv6.txt",
+    category: "datacenter",
+    format: "cidr_text",
+    fallbackCidrs: ["2a06:a005::/32"],
+  },
+  {
+    feedName: "brianhama_bad_asn_list",
+    url: "https://raw.githubusercontent.com/brianhama/bad-asn-list/master/bad-asn-list.csv",
+    category: "datacenter",
+    format: "bad_asn_csv",
+    fallbackCidrs: [],
+    fallbackAsns: [
+      { asn: 24940, entity: "Hetzner Online GmbH" },
+      { asn: 16276, entity: "OVH SAS" },
+      { asn: 14061, entity: "DigitalOcean, LLC" },
+      { asn: 9009, entity: "M247 Europe SRL" },
+    ],
+  },
 ];
 
 let seededDefaults = false;
@@ -55,8 +153,19 @@ export function ensureDefaultTrieSeeded(): void {
     for (const cidr of feed.fallbackCidrs) {
       globalThreatTrie.insert(cidr, feed.category);
     }
+    if (feed.fallbackAsns) {
+      for (const item of feed.fallbackAsns) {
+        registerBadAsn(item.asn, item.entity);
+      }
+    }
   }
   seededDefaults = true;
+}
+
+function extractCidrToken(rawLine: string): string {
+  const withoutComment = rawLine.split(/[;#]/)[0]?.trim() ?? "";
+  if (!withoutComment) return "";
+  return withoutComment.split(/\s+/)[0]?.trim() ?? "";
 }
 
 export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promise<{
@@ -64,6 +173,7 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
   feeds: Array<{ feedName: string; recordCount: number; status: string }>;
 }> {
   globalThreatTrie.clear();
+  clearBadAsns();
   const results: Array<{ feedName: string; recordCount: number; status: string }> = [];
 
   for (const feed of THREAT_FEEDS) {
@@ -74,7 +184,10 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 12000);
-      const res = await fetchImpl(feed.url, { signal: controller.signal });
+      const res = await fetchImpl(feed.url, {
+        signal: controller.signal,
+        headers: { "User-Agent": "BloumeID-ThreatIntel/1.0" },
+      });
       clearTimeout(timer);
 
       if (!res.ok) {
@@ -90,7 +203,6 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
           if (relay.r === false || !Array.isArray(relay.a)) continue;
           for (const rawAddr of relay.a) {
             if (!rawAddr.includes(":")) continue;
-            // Strip [ipv6]:port -> ipv6
             const normalized = rawAddr.startsWith("[")
               ? rawAddr.slice(1, rawAddr.indexOf("]") !== -1 ? rawAddr.indexOf("]") : undefined)
               : rawAddr;
@@ -99,9 +211,47 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
             }
           }
         }
-        // Always include curated IPv6 fallback exit blocks in addition to live relays
         for (const cidr of feed.fallbackCidrs) {
           if (globalThreatTrie.insert(cidr, feed.category)) {
+            count += 1;
+          }
+        }
+      } else if (feed.format === "aws_ip_json") {
+        const json = (await res.json()) as {
+          prefixes?: Array<{ ip_prefix?: string }>;
+          ipv6_prefixes?: Array<{ ipv6_prefix?: string }>;
+        };
+        for (const item of json.prefixes ?? []) {
+          if (item.ip_prefix && globalThreatTrie.insert(item.ip_prefix, feed.category)) {
+            count += 1;
+          }
+        }
+        for (const item of json.ipv6_prefixes ?? []) {
+          if (item.ipv6_prefix && globalThreatTrie.insert(item.ipv6_prefix, feed.category)) {
+            count += 1;
+          }
+        }
+      } else if (feed.format === "gcp_ip_json") {
+        const json = (await res.json()) as {
+          prefixes?: Array<{ ipv4Prefix?: string; ipv6Prefix?: string }>;
+        };
+        for (const item of json.prefixes ?? []) {
+          const cidr = item.ipv4Prefix ?? item.ipv6Prefix;
+          if (cidr && globalThreatTrie.insert(cidr, feed.category)) {
+            count += 1;
+          }
+        }
+      } else if (feed.format === "bad_asn_csv") {
+        const text = await res.text();
+        const lines = text.split(/\r?\n/);
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("ASN")) continue;
+          const commaIdx = trimmed.indexOf(",");
+          if (commaIdx === -1) continue;
+          const asnNum = Number(trimmed.slice(0, commaIdx).replace(/"/g, "").trim());
+          const entity = trimmed.slice(commaIdx + 1).replace(/^"|"$/g, "").trim();
+          if (registerBadAsn(asnNum, entity)) {
             count += 1;
           }
         }
@@ -109,7 +259,8 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
         const text = await res.text();
         const lines = text.split(/\r?\n/);
         for (const line of lines) {
-          if (globalThreatTrie.insert(line, feed.category)) {
+          const token = extractCidrToken(line);
+          if (token && globalThreatTrie.insert(token, feed.category)) {
             count += 1;
           }
         }
@@ -120,6 +271,13 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
       for (const cidr of feed.fallbackCidrs) {
         if (globalThreatTrie.insert(cidr, feed.category)) {
           count += 1;
+        }
+      }
+      if (feed.fallbackAsns) {
+        for (const item of feed.fallbackAsns) {
+          if (registerBadAsn(item.asn, item.entity)) {
+            count += 1;
+          }
         }
       }
     }
@@ -175,12 +333,14 @@ export async function evaluateIpThreatIntel(
   ensureDefaultTrieSeeded();
   const categories = globalThreatTrie.lookup(ipAddress);
   const geo = await lookupGeoIp(ipAddress);
-  const asnOrg = providedAsnOrg ?? geo.asnOrg;
+  const badAsnEntity = lookupBadAsn(geo.asnNumber);
+  const asnOrg = providedAsnOrg ?? geo.asnOrg ?? badAsnEntity;
   const asnClass = classifyAsnOrganization(asnOrg);
 
   const isTor = categories.has("tor");
   const isVpn = categories.has("vpn") || asnClass.isVpn;
-  const isDatacenter = categories.has("datacenter") || asnClass.isDatacenter;
+  const isDatacenter =
+    categories.has("datacenter") || asnClass.isDatacenter || Boolean(badAsnEntity);
   const isProxy = categories.has("proxy");
 
   return {

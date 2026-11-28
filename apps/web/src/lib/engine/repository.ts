@@ -92,6 +92,7 @@ interface InternalEventRecord {
   crossBrowserMatched: boolean;
   dangerLevel: number;
   confidence: number;
+  durationMs?: number;
   ruleAction: SecurityRuleAction;
   matchedRuleId: string | null;
   linkedId: string | null;
@@ -198,11 +199,19 @@ async function isDatabaseConnected(): Promise<boolean> {
   }
 }
 
-function toPublicSiteDTO(site: InternalSiteRecord, plainSecret?: string): PublicSiteDTO {
+function toPublicSiteDTO(
+  site: InternalSiteRecord,
+  plainSecret?: string,
+  countsOverride?: { requests24h: number; requests30d: number }
+): PublicSiteDTO {
   const nowMs = Date.now();
   const siteEvents = memEvents.filter((e) => e.siteId === site.id);
-  const requests24h = siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 86400000).length;
-  const requests30d = siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 30 * 86400000).length;
+  const requests24h =
+    countsOverride?.requests24h ??
+    siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 86400000).length;
+  const requests30d =
+    countsOverride?.requests30d ??
+    siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 30 * 86400000).length;
   return {
     publicId: site.publicId,
     name: site.name,
@@ -450,6 +459,7 @@ export async function recordFingerprintEvent(params: {
   crossBrowserMatched: boolean;
   dangerLevel: number;
   confidence: number;
+  durationMs?: number;
   ruleAction?: SecurityRuleAction;
   matchedRuleId?: string | null;
   linkedId?: string | null;
@@ -464,6 +474,7 @@ export async function recordFingerprintEvent(params: {
   ensureFeedsInitialized();
   const latitude = params.latitude ?? null;
   const longitude = params.longitude ?? null;
+  const durationMs = params.durationMs ?? 0;
   const ruleAction = params.ruleAction ?? "allow";
   const matchedRuleId = params.matchedRuleId ?? null;
   const linkedId = params.linkedId ?? null;
@@ -497,6 +508,7 @@ export async function recordFingerprintEvent(params: {
           crossBrowserMatched: params.crossBrowserMatched,
           dangerLevel: params.dangerLevel,
           confidence: params.confidence,
+          durationMs,
           ruleAction,
           matchedRuleId,
           linkedId,
@@ -518,6 +530,7 @@ export async function recordFingerprintEvent(params: {
   memEvents.push({
     id: nextEventId++,
     ...params,
+    durationMs,
     latitude,
     longitude,
     ruleAction,
@@ -558,6 +571,7 @@ function mapInternalEventToDTO(
     crossBrowserMatched: memEvt.crossBrowserMatched,
     dangerLevel: memEvt.dangerLevel,
     confidence: memEvt.confidence,
+    durationMs: memEvt.durationMs ?? 0,
     ruleAction: memEvt.ruleAction,
     matchedRuleId: memEvt.matchedRuleId,
     linkedId: memEvt.linkedId,
@@ -608,6 +622,7 @@ export async function getEventByPublicId(
           crossBrowserMatched: evt.crossBrowserMatched,
           dangerLevel: evt.dangerLevel,
           confidence: evt.confidence,
+          durationMs: evt.durationMs ?? 0,
           ruleAction: (evt.ruleAction as SecurityRuleAction) ?? "allow",
           matchedRuleId: evt.matchedRuleId ?? null,
           linkedId: evt.linkedId ?? null,
@@ -748,6 +763,7 @@ export async function listFingerprintEvents(filters?: {
           crossBrowserMatched: evt.crossBrowserMatched,
           dangerLevel: evt.dangerLevel,
           confidence: evt.confidence,
+          durationMs: evt.durationMs ?? 0,
           ruleAction: (evt.ruleAction as SecurityRuleAction) ?? "allow",
           matchedRuleId: evt.matchedRuleId ?? null,
           linkedId: evt.linkedId ?? null,
@@ -1044,12 +1060,37 @@ export async function listSites(): Promise<PublicSiteDTO[]> {
   if (await isDatabaseConnected()) {
     const sites = await prisma.site.findMany({ orderBy: { createdAt: "desc" } });
     if (sites.length > 0) {
-      return sites.map((s) =>
-        toPublicSiteDTO({
-          ...s,
-          config: (s.config as unknown as SiteCollectorsConfig) ?? DEFAULT_COLLECTORS,
-        })
-      );
+      const nowMs = Date.now();
+      const since24h = new Date(nowMs - 86400000);
+      const since30d = new Date(nowMs - 30 * 86400000);
+      const [grouped24h, grouped30d] = await Promise.all([
+        prisma.fingerprintEvent.groupBy({
+          by: ["siteId"],
+          where: { createdAt: { gte: since24h } },
+          _count: { _all: true },
+        }),
+        prisma.fingerprintEvent.groupBy({
+          by: ["siteId"],
+          where: { createdAt: { gte: since30d } },
+          _count: { _all: true },
+        }),
+      ]);
+      const map24h = new Map<number, number>(grouped24h.map((g) => [g.siteId, g._count._all]));
+      const map30d = new Map<number, number>(grouped30d.map((g) => [g.siteId, g._count._all]));
+
+      return sites.map((s) => {
+        const memSiteEvents = memEvents.filter((e) => e.siteId === s.id);
+        const r24 = (map24h.get(s.id) ?? 0) + memSiteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 86400000).length;
+        const r30 = (map30d.get(s.id) ?? 0) + memSiteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 30 * 86400000).length;
+        return toPublicSiteDTO(
+          {
+            ...s,
+            config: (s.config as unknown as SiteCollectorsConfig) ?? DEFAULT_COLLECTORS,
+          },
+          undefined,
+          { requests24h: r24, requests30d: r30 }
+        );
+      });
     }
   }
   return memSites.map((s) => toPublicSiteDTO(s));
@@ -1460,6 +1501,38 @@ export async function updateVisitorAnnotations(
 // ==============================================================================
 export async function listSecurityRules(sitePublicId?: string): Promise<PublicSecurityRuleDTO[]> {
   ensureFeedsInitialized();
+  if (await isDatabaseConnected()) {
+    try {
+      const dbRules = await prisma.securityRule.findMany({
+        orderBy: { priority: "asc" },
+        include: { site: true },
+      });
+      const dbDtos: PublicSecurityRuleDTO[] = dbRules
+        .filter((r) => {
+          if (!sitePublicId || sitePublicId === "all") return true;
+          return r.siteId === null || r.site?.publicId === sitePublicId;
+        })
+        .map((r) => ({
+          publicId: r.publicId,
+          sitePublicId: r.site?.publicId ?? null,
+          name: r.name,
+          description: r.description,
+          action: (r.action as SecurityRuleAction) ?? "block",
+          conditions: (r.conditions as unknown as SecurityRuleCondition[]) ?? [],
+          priority: r.priority,
+          isEnabled: r.isEnabled,
+          hitCount: r.hitCount,
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        }));
+      if (dbDtos.length > 0 || memRules.length === 0) {
+        return dbDtos;
+      }
+    } catch {
+      // Fallback to memory
+    }
+  }
+
   return memRules
     .filter((r) => {
       if (!sitePublicId || sitePublicId === "all") return true;
@@ -1494,19 +1567,59 @@ export async function createSecurityRule(input: {
   priority?: number;
 }): Promise<PublicSecurityRuleDTO> {
   ensureFeedsInitialized();
+  const publicId = generateSnowflakeId("rule");
+  const priority = input.priority ?? 50;
+
+  if (await isDatabaseConnected()) {
+    try {
+      const dbSite = input.sitePublicId
+        ? await prisma.site.findUnique({ where: { publicId: input.sitePublicId } })
+        : null;
+      const created = await prisma.securityRule.create({
+        data: {
+          publicId,
+          siteId: dbSite?.id ?? null,
+          name: input.name,
+          description: input.description ?? null,
+          action: input.action,
+          conditions: input.conditions as unknown as object,
+          priority,
+          isEnabled: true,
+          hitCount: 0,
+        },
+        include: { site: true },
+      });
+      return {
+        publicId: created.publicId,
+        sitePublicId: created.site?.publicId ?? null,
+        name: created.name,
+        description: created.description,
+        action: (created.action as SecurityRuleAction) ?? "block",
+        conditions: (created.conditions as unknown as SecurityRuleCondition[]) ?? [],
+        priority: created.priority,
+        isEnabled: created.isEnabled,
+        hitCount: created.hitCount,
+        createdAt: created.createdAt.toISOString(),
+        updatedAt: created.updatedAt.toISOString(),
+      };
+    } catch {
+      // Fallback to memory
+    }
+  }
+
   const site = input.sitePublicId
     ? memSites.find((s) => s.publicId === input.sitePublicId)
     : null;
   const now = new Date();
   const rule: InternalSecurityRuleRecord = {
     id: nextRuleId++,
-    publicId: generateSnowflakeId("rule"),
+    publicId,
     siteId: site?.id ?? null,
     name: input.name,
     description: input.description ?? null,
     action: input.action,
     conditions: input.conditions,
-    priority: input.priority ?? 50,
+    priority,
     isEnabled: true,
     hitCount: 0,
     createdAt: now,
@@ -1538,6 +1651,41 @@ export async function updateSecurityRule(
   }
 ): Promise<PublicSecurityRuleDTO | null> {
   ensureFeedsInitialized();
+  if (await isDatabaseConnected()) {
+    try {
+      const existing = await prisma.securityRule.findUnique({
+        where: { publicId: rulePublicId },
+      });
+      if (existing) {
+        const updated = await prisma.securityRule.update({
+          where: { publicId: rulePublicId },
+          data: {
+            isEnabled: input.isEnabled ?? existing.isEnabled,
+            action: input.action ?? existing.action,
+            priority: input.priority ?? existing.priority,
+            ...(input.incrementHit ? { hitCount: { increment: 1 } } : {}),
+          },
+          include: { site: true },
+        });
+        return {
+          publicId: updated.publicId,
+          sitePublicId: updated.site?.publicId ?? null,
+          name: updated.name,
+          description: updated.description,
+          action: (updated.action as SecurityRuleAction) ?? "block",
+          conditions: (updated.conditions as unknown as SecurityRuleCondition[]) ?? [],
+          priority: updated.priority,
+          isEnabled: updated.isEnabled,
+          hitCount: updated.hitCount,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        };
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
   const rule = memRules.find((r) => r.publicId === rulePublicId);
   if (!rule) return null;
   if (input.isEnabled !== undefined) rule.isEnabled = input.isEnabled;
@@ -1563,6 +1711,14 @@ export async function updateSecurityRule(
 
 export async function deleteSecurityRule(rulePublicId: string): Promise<boolean> {
   ensureFeedsInitialized();
+  if (await isDatabaseConnected()) {
+    try {
+      await prisma.securityRule.delete({ where: { publicId: rulePublicId } });
+      return true;
+    } catch {
+      // Fallback
+    }
+  }
   const idx = memRules.findIndex((r) => r.publicId === rulePublicId);
   if (idx === -1) return false;
   memRules.splice(idx, 1);
@@ -1585,11 +1741,52 @@ export async function recordWebhookDelivery(input: {
   responseExcerpt?: string | null;
 }): Promise<PublicWebhookDeliveryDTO> {
   ensureFeedsInitialized();
-  const site = memSites.find((s) => s.publicId === input.sitePublicId) ?? memSites[0]!;
+  const publicId = generateSnowflakeId("whd");
+
+  if (await isDatabaseConnected()) {
+    try {
+      const dbSite = await prisma.site.findUnique({ where: { publicId: input.sitePublicId } });
+      if (dbSite) {
+        const created = await prisma.webhookDelivery.create({
+          data: {
+            publicId,
+            siteId: dbSite.id,
+            eventType: input.eventType,
+            requestId: input.requestId,
+            targetUrl: input.targetUrl,
+            statusCode: input.statusCode,
+            durationMs: input.durationMs,
+            delivered: input.delivered,
+            attempts: input.attempts,
+            payload: input.payload as unknown as object,
+            responseExcerpt: input.responseExcerpt ?? null,
+          },
+        });
+        return {
+          publicId: created.publicId,
+          sitePublicId: dbSite.publicId,
+          eventType: created.eventType,
+          requestId: created.requestId,
+          targetUrl: created.targetUrl,
+          statusCode: created.statusCode,
+          durationMs: created.durationMs,
+          delivered: created.delivered,
+          attempts: created.attempts,
+          payload: created.payload as Record<string, unknown>,
+          responseExcerpt: created.responseExcerpt,
+          createdAt: created.createdAt.toISOString(),
+        };
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  const site = memSites.find((s) => s.publicId === input.sitePublicId) ?? memSites[0];
   const item: InternalWebhookDeliveryRecord = {
     id: nextWebhookDeliveryId++,
-    publicId: generateSnowflakeId("whd"),
-    siteId: site.id,
+    publicId,
+    siteId: site?.id ?? 0,
     eventType: input.eventType,
     requestId: input.requestId,
     targetUrl: input.targetUrl,
@@ -1604,7 +1801,7 @@ export async function recordWebhookDelivery(input: {
   memWebhookDeliveries.unshift(item);
   return {
     publicId: item.publicId,
-    sitePublicId: site.publicId,
+    sitePublicId: site?.publicId ?? input.sitePublicId,
     eventType: item.eventType,
     requestId: item.requestId,
     targetUrl: item.targetUrl,
@@ -1622,9 +1819,41 @@ export async function listWebhookDeliveries(
   sitePublicId?: string
 ): Promise<PublicWebhookDeliveryDTO[]> {
   ensureFeedsInitialized();
+  if (await isDatabaseConnected()) {
+    try {
+      const dbRows = await prisma.webhookDelivery.findMany({
+        where:
+          sitePublicId && sitePublicId !== "all"
+            ? { site: { publicId: sitePublicId } }
+            : undefined,
+        orderBy: { createdAt: "desc" },
+        take: 25,
+        include: { site: true },
+      });
+      if (dbRows.length > 0 || memWebhookDeliveries.length === 0) {
+        return dbRows.map((d) => ({
+          publicId: d.publicId,
+          sitePublicId: d.site.publicId,
+          eventType: d.eventType,
+          requestId: d.requestId,
+          targetUrl: d.targetUrl,
+          statusCode: d.statusCode,
+          durationMs: d.durationMs,
+          delivered: d.delivered,
+          attempts: d.attempts,
+          payload: (d.payload as Record<string, unknown>) ?? {},
+          responseExcerpt: d.responseExcerpt,
+          createdAt: d.createdAt.toISOString(),
+        }));
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
   return memWebhookDeliveries
     .filter((d) => {
-      if (!sitePublicId) return true;
+      if (!sitePublicId || sitePublicId === "all") return true;
       const site = memSites.find((s) => s.id === d.siteId);
       return site?.publicId === sitePublicId;
     })
@@ -1841,6 +2070,14 @@ export async function getDashboardMetrics(
       isRisk: a.isRisk,
     }));
 
+  const durationSamples = eventsList
+    .map((e) => e.durationMs ?? 0)
+    .filter((ms) => ms > 0);
+  const avgCollectionMs =
+    durationSamples.length > 0
+      ? Math.round(durationSamples.reduce((a, b) => a + b, 0) / durationSamples.length)
+      : 0;
+
   return {
     period: normalizedPeriod,
     totalEvents,
@@ -1856,7 +2093,7 @@ export async function getDashboardMetrics(
     crossBrowserMatches,
     vpnTorCount,
     vpnSharePercent,
-    avgCollectionMs: 0,
+    avgCollectionMs,
     activeTrieCidrs: globalThreatTrie.size(),
     trendSeries,
     vectorDistribution,
@@ -1871,20 +2108,39 @@ export async function getDashboardMetrics(
 
 export async function listThreatFeedStatuses(): Promise<PublicThreatFeedDTO[]> {
   ensureFeedsInitialized();
+  const dbRowsByFeed = new Map<string, PublicThreatFeedDTO>();
   if (await isDatabaseConnected()) {
-    const rows = await prisma.threatFeedStatus.findMany({ orderBy: { feedName: "asc" } });
-    if (rows.length > 0) {
-      return rows.map((r) => ({
-        publicId: r.publicId,
-        feedName: r.feedName,
-        recordCount: r.recordCount,
-        lastSyncedAt: r.lastSyncedAt ? r.lastSyncedAt.toISOString() : null,
-        status: r.status,
-        errorMessage: r.errorMessage,
-      }));
+    try {
+      const rows = await prisma.threatFeedStatus.findMany({ orderBy: { feedName: "asc" } });
+      for (const r of rows) {
+        dbRowsByFeed.set(r.feedName, {
+          publicId: r.publicId,
+          feedName: r.feedName,
+          recordCount: r.recordCount,
+          lastSyncedAt: r.lastSyncedAt ? r.lastSyncedAt.toISOString() : null,
+          status: r.status,
+          errorMessage: r.errorMessage,
+        });
+      }
+    } catch {
+      // Fallback
     }
   }
-  return Array.from(memFeeds.values());
+
+  return THREAT_FEEDS.map((feed) => {
+    const dbEntry = dbRowsByFeed.get(feed.feedName);
+    if (dbEntry) return dbEntry;
+    const memEntry = memFeeds.get(feed.feedName);
+    if (memEntry) return memEntry;
+    return {
+      publicId: generateSnowflakeId("feed"),
+      feedName: feed.feedName,
+      recordCount: feed.fallbackCidrs.length + (feed.fallbackAsns?.length ?? 0),
+      lastSyncedAt: null,
+      status: "idle",
+      errorMessage: null,
+    };
+  });
 }
 
 export async function purgeOldFingerprintEvents(retentionDays: number): Promise<number> {

@@ -83,6 +83,7 @@ model FingerprintEvent {
   crossBrowserMatched Boolean  @default(false)
   dangerLevel         Int      @default(0)
   confidence          Float    @default(0.95)
+  durationMs          Int?     @default(0)
   ruleAction          String   @default("allow")
   matchedRuleId       String?
   linkedId            String?

@@ -22,7 +22,7 @@ import { paginateArray } from "@/lib/pagination";
 import type { PublicSecurityRuleDTO } from "@/types";
 
 export default function SecurityRulesPage() {
-  const { dict, selectedSiteId } = useI18n();
+  const { dict, selectedSiteId, refreshTick } = useI18n();
   const [rules, setRules] = React.useState<PublicSecurityRuleDTO[]>([]);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(15);
@@ -54,7 +54,7 @@ export default function SecurityRulesPage() {
 
   React.useEffect(() => {
     void loadRules();
-  }, [loadRules]);
+  }, [loadRules, refreshTick]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -313,7 +313,7 @@ export default function DashboardPage() {
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-2xl font-bold">{metrics?.totalEvents ?? 0}</span>
               <span className="font-mono text-xs text-muted-foreground">
-                {metrics?.throughputPerMin ?? 4.8} {dict.dashboard.throughputUnit}
+                {metrics?.throughputPerMin ?? 0} {dict.dashboard.throughputUnit}
               </span>
             </div>
             <p className="mt-1 text-xs text-emerald-500">
@@ -333,7 +333,7 @@ export default function DashboardPage() {
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-2xl font-bold">{metrics?.uniqueVisitors ?? 0}</span>
               <span className="font-mono text-xs text-muted-foreground">
-                {metrics?.returnRatePercent ?? 42}% {dict.dashboard.returnRateUnit}
+                {metrics?.returnRatePercent ?? 0}% {dict.dashboard.returnRateUnit}
               </span>
             </div>
             <p className="mt-1 text-xs text-emerald-500">
@@ -400,7 +400,7 @@ export default function DashboardPage() {
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-xl font-bold">{metrics?.vpnTorCount ?? 0}</span>
               <span className="font-mono text-xs text-muted-foreground">
-                {metrics?.vpnSharePercent ?? 28}%
+                {metrics?.vpnSharePercent ?? 0}%
               </span>
             </div>
           </CardContent>
@@ -414,7 +414,7 @@ export default function DashboardPage() {
             <Cpu className="h-4 w-4 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="font-mono text-xl font-bold">{metrics?.avgCollectionMs ?? 11} ms</div>
+            <div className="font-mono text-xl font-bold">{metrics?.avgCollectionMs ?? 0} ms</div>
           </CardContent>
         </Card>
 

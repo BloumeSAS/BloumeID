@@ -14,8 +14,11 @@ import {
 } from "../src/lib/engine/snowflake";
 import {
   CidrRadixTrie,
+  badAsnCount,
   classifyAsnOrganization,
+  lookupBadAsn,
 } from "../src/lib/engine/cidr-trie";
+import { THREAT_FEEDS, syncAllThreatFeeds } from "../src/lib/engine/feeds";
 import {
   evaluateClientHintsConsistency,
   evaluateJa4Consistency,
@@ -666,5 +669,62 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
       })
     );
     expect(expiredRes.status).toBe(400);
+
+    // Real site counts (requests24h / requests30d) & real avgCollectionMs in dashboard metrics
+    const sitesAfter = await listSites();
+    const matchedSite = sitesAfter.find((s) => s.publicId === testSite.publicId);
+    expect(matchedSite?.requests24h).toBeGreaterThanOrEqual(1);
+    expect(matchedSite?.requests30d).toBeGreaterThanOrEqual(1);
+
+    const siteMetrics = await getDashboardMetrics("24h", testSite.publicId);
+    expect(siteMetrics.totalEvents).toBeGreaterThanOrEqual(1);
+    expect(siteMetrics.avgCollectionMs).toBeGreaterThanOrEqual(22);
+  });
+
+  it("syncs 15 CIDR/ASN threat feeds including AWS/GCP JSON, Spamhaus DROP, IPv6 VPN/Tor and Bad-ASN CSV", async () => {
+    expect(THREAT_FEEDS.length).toBeGreaterThanOrEqual(15);
+
+    const mockFeedFetch: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("ip-ranges.amazonaws.com")) {
+        return new Response(
+          JSON.stringify({
+            prefixes: [{ ip_prefix: "3.10.0.0/16" }],
+            ipv6_prefixes: [{ ipv6_prefix: "2600:1f00::/24" }],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("gstatic.com/ipranges/cloud.json")) {
+        return new Response(
+          JSON.stringify({
+            prefixes: [{ ipv4Prefix: "35.190.0.0/16" }, { ipv6Prefix: "2600:1900::/28" }],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("onionoo.torproject.org")) {
+        return new Response(
+          JSON.stringify({ relays: [{ r: true, a: ["[2a0b:f4c2::7]:9001"] }] }),
+          { status: 200 }
+        );
+      }
+      if (url.includes("bad-asn-list.csv")) {
+        return new Response('ASN,Entity\n199999,"Bulletproof Host Test"', { status: 200 });
+      }
+      if (url.includes("spamhaus.org/drop/drop.txt")) {
+        return new Response("1.10.16.0/20 ; SBL999\n", { status: 200 });
+      }
+      if (url.includes("spamhaus.org/drop/dropv6.txt")) {
+        return new Response("2a06:a005::/32 ; SBL998\n", { status: 200 });
+      }
+      return new Response("198.18.0.0/24\n", { status: 200 });
+    };
+
+    const syncRes = await syncAllThreatFeeds(mockFeedFetch);
+    expect(syncRes.feeds.length).toBe(THREAT_FEEDS.length);
+    expect(syncRes.totalCidrs).toBeGreaterThanOrEqual(6);
+    expect(badAsnCount()).toBeGreaterThanOrEqual(1);
+    expect(lookupBadAsn(199999)).toBe("Bulletproof Host Test");
   });
 });

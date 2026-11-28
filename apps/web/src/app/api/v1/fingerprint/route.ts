@@ -350,6 +350,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     crossBrowserMatched: reconciled.crossBrowserMatched,
     dangerLevel: finalScoring.dangerLevel,
     confidence: reconciled.confidence,
+    durationMs: payload.durationMs,
     ruleAction: ruleVerdict.action,
     matchedRuleId: ruleVerdict.matchedRuleId,
     linkedId: payload.linkedId ?? null,

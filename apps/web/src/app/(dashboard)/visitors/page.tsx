@@ -200,7 +200,7 @@ export default function VisitorsPage() {
               <TableBody>
                 {filteredVisitors.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-xs text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-xs text-muted-foreground">
                       {dict.common.noDataPeriod}
                     </TableCell>
                   </TableRow>

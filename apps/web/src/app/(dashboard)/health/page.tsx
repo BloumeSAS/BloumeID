@@ -12,6 +12,8 @@ interface HealthResponse {
   version: string;
   workerId: number;
   threatTrieCidrs: number;
+  badAsnCount?: number;
+  sdkBundleSizeKb?: number;
   geoipLoaded: boolean;
   geoipMode: string;
   timestamp: string;
@@ -46,7 +48,7 @@ export default function HealthPage() {
     {
       title: dict.healthPage.trieCard,
       icon: Cpu,
-      value: `${(health?.threatTrieCidrs ?? 54133).toLocaleString()} CIDRs`,
+      value: `${(health?.threatTrieCidrs ?? 0).toLocaleString()} CIDRs / ${(health?.badAsnCount ?? 0).toLocaleString()} ASNs`,
       ok: (health?.threatTrieCidrs ?? 0) > 0,
     },
     {
@@ -58,7 +60,7 @@ export default function HealthPage() {
     {
       title: dict.healthPage.sdkCard,
       icon: HeartPulse,
-      value: `v${health?.version ?? APP_VERSION} (37 KB)`,
+      value: `v${health?.version ?? APP_VERSION} (${health?.sdkBundleSizeKb ?? 42} KB)`,
       ok: true,
     },
   ];
