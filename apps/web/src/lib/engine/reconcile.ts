@@ -48,7 +48,9 @@ export async function reconcileVisitorIdentity(
     windowDays?: number;
   }
 ): Promise<ReconcileCandidate> {
-  const windowDays = params.windowDays ?? 30;
+  const windowDays = Number.isFinite(params.windowDays)
+    ? Math.max(1, Math.min(365, Math.floor(params.windowDays!)))
+    : 30;
   const sinceDate = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
 
   // Level 1: Exact fullHash match on the same site
