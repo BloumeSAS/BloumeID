@@ -64,13 +64,17 @@ export function ipv6ToBigInt(ip: string): bigint | null {
 
 export function ipToUint32(ip: string): number | null {
   const trimmed = ip.trim();
-  const ipv4Match = trimmed.startsWith("::ffff:") ? trimmed.slice(7) : trimmed;
+  const ipv4Match = trimmed.toLowerCase().startsWith("::ffff:") ? trimmed.slice(7) : trimmed;
   const parts = ipv4Match.split(".");
   if (parts.length !== 4) return null;
 
   let result = 0;
   for (let i = 0; i < 4; i++) {
-    const octet = Number(parts[i]);
+    const part = parts[i] ?? "";
+    if (!/^\d{1,3}$/.test(part)) {
+      return null;
+    }
+    const octet = Number(part);
     if (!Number.isInteger(octet) || octet < 0 || octet > 255) {
       return null;
     }
@@ -81,7 +85,7 @@ export function ipToUint32(ip: string): number | null {
 
 export function extractIpSubnet(ip: string): string {
   const trimmed = ip.trim();
-  const ipv4 = trimmed.startsWith("::ffff:") ? trimmed.slice(7) : trimmed;
+  const ipv4 = trimmed.toLowerCase().startsWith("::ffff:") ? trimmed.slice(7) : trimmed;
   const v4Parts = ipv4.split(".");
   if (v4Parts.length === 4 && ipToUint32(ipv4) !== null) {
     return `${v4Parts[0]}.${v4Parts[1]}.${v4Parts[2]}.0/24`;
@@ -252,11 +256,13 @@ export function evaluateClientHintsConsistency(
 export function parseUserAgentSummary(userAgent: string): ParsedUserAgent {
   const ua = userAgent || "";
   let browser = "Unknown Browser";
-  if (/Edg\//i.test(ua)) browser = "Edge";
+  if (/Edg(?:A|iOS)?\//i.test(ua)) browser = "Edge";
   else if (/OPR\/|Opera/i.test(ua)) browser = "Opera";
-  else if (/Chrome\//i.test(ua)) browser = "Chrome";
-  else if (/Firefox\//i.test(ua)) browser = "Firefox";
-  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = "Safari";
+  else if (/(?:Chrome|CriOS)\//i.test(ua)) browser = "Chrome";
+  else if (/(?:Firefox|FxiOS)\//i.test(ua)) browser = "Firefox";
+  else if (/Safari\//i.test(ua) && !/(?:Chrome|CriOS|FxiOS|Edg(?:A|iOS)?)\//i.test(ua)) {
+    browser = "Safari";
+  }
 
   let os = "Unknown OS";
   if (/Windows NT/i.test(ua)) os = "Windows";

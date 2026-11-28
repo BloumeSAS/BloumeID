@@ -1044,5 +1044,12 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(public172.asnOrg).toBeNull();
     const docker172 = await lookupGeoIp("172.18.0.5");
     expect(docker172.country).toBe("FR");
+
+    const { ipToUint32 } = await import("../src/lib/engine/network");
+    expect(ipToUint32("192.0..1")).toBeNull();
+    expect(ipToUint32("127.0.0.0x1")).toBeNull();
+    expect(ipToUint32("::FFFF:198.51.100.4")).toBe(ipToUint32("198.51.100.4"));
+    expect(parseUserAgentSummary("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/131.0 Mobile/15E148 Safari/604.1").browser).toBe("Chrome");
+    expect(parseUserAgentSummary("Mozilla/5.0 (Linux; Android 14) Chrome/131.0 Mobile Safari/537.36 EdgA/131.0").browser).toBe("Edge");
   });
 });
