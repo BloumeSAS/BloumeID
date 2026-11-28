@@ -2,12 +2,12 @@
 
 <img src="apps/web/public/brand/logo.png" alt="BloumeID Logo" width="104" />
 
-# BloumeID v1.9.0
+# BloumeID v1.9.1
 
 **Plateforme Open-Source Self-Hosted de Fingerprinting (104 Signaux), Anti-Spoofing & Threat Intelligence**
 
-[![Version](https://img.shields.io/badge/version-v1.9.0-635bff?style=for-the-badge)](https://github.com/BloumeSAS/BloumeID/releases)
-[![SDK @bloume/id](https://img.shields.io/badge/SDK_%40bloume%2Fid-v1.3.0-cb3837?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/@bloume/id)
+[![Version](https://img.shields.io/badge/version-v1.9.1-635bff?style=for-the-badge)](https://github.com/BloumeSAS/BloumeID/releases)
+[![SDK @bloume/id](https://img.shields.io/badge/SDK_%40bloume%2Fid-v1.3.1-cb3837?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/@bloume/id)
 [![License](https://img.shields.io/badge/license-MIT-10b981?style=for-the-badge)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178c6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
@@ -34,7 +34,7 @@
 
 ## Tableau Comparatif Technique
 
-| Capacité / Architecture | **BloumeID v1.9.0** | Fingerprint.com Pro | ThumbmarkJS Pro |
+| Capacité / Architecture | **BloumeID v1.9.1** | Fingerprint.com Pro | ThumbmarkJS Pro |
 | :--- | :---: | :---: | :---: |
 | **Licence & Hébergement** | ✅ **MIT / 100 % Self-Hosted** | ❌ SaaS Propriétaire | ⚠️ SaaS Payant |
 | **Coût par requête** | ✅ **0 € (Illimité)** | ❌ $99 – $2 000+ / mois | ❌ Payant au volume |
