@@ -339,18 +339,25 @@ export function getReconciliationStore(): ReconciliationStore {
         const evt = await prisma.fingerprintEvent.findFirst({
           where: { siteId: siteInternalId, fullHash },
           orderBy: { createdAt: "desc" },
-          include: { visitor: true },
+          select: {
+            visitor: {
+              select: { id: true, publicId: true },
+            },
+          },
         });
         if (evt?.visitor) {
           return { id: evt.visitor.id, publicId: evt.visitor.publicId };
         }
+        return null;
       }
-      const memEvt = [...memEvents]
-        .reverse()
-        .find((e) => e.siteId === siteInternalId && e.fullHash === fullHash);
-      if (!memEvt) return null;
-      const vis = memVisitors.find((v) => v.id === memEvt.visitorId);
-      return vis ? { id: vis.id, publicId: vis.publicId } : null;
+      for (let i = memEvents.length - 1; i >= 0; i--) {
+        const memEvt = memEvents[i];
+        if (memEvt && memEvt.siteId === siteInternalId && memEvt.fullHash === fullHash) {
+          const vis = memVisitors.find((v) => v.id === memEvt.visitorId);
+          return vis ? { id: vis.id, publicId: vis.publicId } : null;
+        }
+      }
+      return null;
     },
 
     async findVisitorByHardwareAndSubnet({ siteInternalId, hardwareHash, ipSubnet, sinceDate }) {
@@ -363,24 +370,31 @@ export function getReconciliationStore(): ReconciliationStore {
             createdAt: { gte: sinceDate },
           },
           orderBy: { createdAt: "desc" },
-          include: { visitor: true },
+          select: {
+            visitor: {
+              select: { id: true, publicId: true },
+            },
+          },
         });
         if (evt?.visitor) {
           return { id: evt.visitor.id, publicId: evt.visitor.publicId };
         }
+        return null;
       }
-      const memEvt = [...memEvents]
-        .reverse()
-        .find(
-          (e) =>
-            e.siteId === siteInternalId &&
-            e.hardwareHash === hardwareHash &&
-            e.ipSubnet === ipSubnet &&
-            e.createdAt >= sinceDate
-        );
-      if (!memEvt) return null;
-      const vis = memVisitors.find((v) => v.id === memEvt.visitorId);
-      return vis ? { id: vis.id, publicId: vis.publicId } : null;
+      for (let i = memEvents.length - 1; i >= 0; i--) {
+        const memEvt = memEvents[i];
+        if (
+          memEvt &&
+          memEvt.siteId === siteInternalId &&
+          memEvt.hardwareHash === hardwareHash &&
+          memEvt.ipSubnet === ipSubnet &&
+          memEvt.createdAt >= sinceDate
+        ) {
+          const vis = memVisitors.find((v) => v.id === memEvt.visitorId);
+          return vis ? { id: vis.id, publicId: vis.publicId } : null;
+        }
+      }
+      return null;
     },
 
     async createOrUpdateVisitor({
@@ -559,6 +573,9 @@ export async function recordFingerprintEvent(params: {
     tag,
     createdAt: new Date(),
   });
+  if (memEvents.length > 5000) {
+    memEvents.splice(0, memEvents.length - 5000);
+  }
 }
 
 function mapInternalEventToDTO(

@@ -833,4 +833,62 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
       expect(s.requests30d ?? 0).toBeGreaterThanOrEqual(s.requests24h ?? 0);
     }
   });
+
+  it("reconciles Level 1 and Level 2 visitors cleanly without unnecessary full-array copies", async () => {
+    const { createSiteRecord, getReconciliationStore, recordFingerprintEvent } = await import(
+      "../src/lib/engine/repository"
+    );
+    const { reconcileVisitorIdentity } = await import("../src/lib/engine/reconcile");
+    const site = await createSiteRecord({ name: "Reconcile Perf Site", domains: ["localhost"] });
+    const store = getReconciliationStore();
+    const first = await reconcileVisitorIdentity(store, {
+      siteInternalId: 999999,
+      fullHash: "hash_lvl1_perf_test_0001",
+      hardwareHash: "hw_lvl2_perf_test_0001",
+      ipSubnet: "198.51.100.0/24",
+      dangerLevel: 0,
+      isSpoofed: false,
+    });
+    await recordFingerprintEvent({
+      publicId: "req_perf_test_001",
+      siteId: 999999,
+      visitorId: first.visitorInternalId,
+      fullHash: "hash_lvl1_perf_test_0001",
+      hardwareHash: "hw_lvl2_perf_test_0001",
+      ipAddress: "198.51.100.10",
+      ipSubnet: "198.51.100.0/24",
+      ja4Hash: null,
+      asnNumber: null,
+      asnOrg: null,
+      country: null,
+      city: null,
+      isVpn: false,
+      isProxy: false,
+      isTor: false,
+      isDatacenter: false,
+      isBot: false,
+      isSpoofed: false,
+      isIncognito: false,
+      crossBrowserMatched: false,
+      dangerLevel: 0,
+      confidence: 0.95,
+      browser: "Chrome",
+      os: "Windows",
+      device: "Desktop",
+      userAgent: "TestAgent",
+      origin: "http://localhost",
+      components: {} as never,
+    });
+    expect(site.publicId).toMatch(/^site_/);
+    const second = await reconcileVisitorIdentity(store, {
+      siteInternalId: 999999,
+      fullHash: "hash_lvl1_perf_test_0001",
+      hardwareHash: "hw_lvl2_perf_test_0001",
+      ipSubnet: "198.51.100.0/24",
+      dangerLevel: 0,
+      isSpoofed: false,
+    });
+    expect(second.visitorPublicId).toBe(first.visitorPublicId);
+    expect(second.matchType).toBe("exact_full_hash");
+  });
 });
