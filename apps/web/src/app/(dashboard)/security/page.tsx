@@ -8,27 +8,73 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyableMono } from "@/components/ui/copyable-mono";
 import { DataPagination } from "@/components/ui/data-pagination";
-import { paginateArray } from "@/lib/pagination";
-import type { PublicVisitorDTO } from "@/types";
+import type { PaginationMeta, PublicVisitorDTO } from "@/types";
 
 export default function SecurityCenterPage() {
   const { dict, timeRange, selectedSiteId, refreshTick } = useI18n();
-  const [visitors, setVisitors] = React.useState<PublicVisitorDTO[]>([]);
+  const [blocked, setBlocked] = React.useState<PublicVisitorDTO[]>([]);
+  const [trusted, setTrusted] = React.useState<PublicVisitorDTO[]>([]);
   const [blockedPage, setBlockedPage] = React.useState(1);
   const [trustedPage, setTrustedPage] = React.useState(1);
+  const [blockedMeta, setBlockedMeta] = React.useState<PaginationMeta>({
+    page: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
+  const [trustedMeta, setTrustedMeta] = React.useState<PaginationMeta>({
+    page: 1,
+    pageSize: 10,
+    totalItems: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
 
   React.useEffect(() => {
-    const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
-    fetch(`/api/admin/visitors?${params.toString()}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { visitors?: PublicVisitorDTO[] } | null) => {
-        if (data?.visitors) setVisitors(data.visitors);
-      })
-      .catch(() => undefined);
-  }, [timeRange, selectedSiteId, refreshTick]);
+    setBlockedPage(1);
+    setTrustedPage(1);
+  }, [timeRange, selectedSiteId]);
 
-  const blocked = visitors.filter((v) => v.trustStatus === "blocked");
-  const trusted = visitors.filter((v) => v.trustStatus === "trusted");
+  React.useEffect(() => {
+    const controller = new AbortController();
+    const baseParams = { period: timeRange, siteId: selectedSiteId, pageSize: "10" };
+    const blockedParams = new URLSearchParams({
+      ...baseParams,
+      trustStatus: "blocked",
+      page: String(blockedPage),
+    });
+    const trustedParams = new URLSearchParams({
+      ...baseParams,
+      trustStatus: "trusted",
+      page: String(trustedPage),
+    });
+
+    void Promise.all([
+      fetch(`/api/admin/visitors?${blockedParams.toString()}`, { signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { visitors?: PublicVisitorDTO[]; pagination?: PaginationMeta } | null) => {
+          if (data?.visitors && !controller.signal.aborted) {
+            setBlocked(data.visitors);
+            if (data.pagination) setBlockedMeta(data.pagination);
+          }
+        })
+        .catch(() => undefined),
+      fetch(`/api/admin/visitors?${trustedParams.toString()}`, { signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { visitors?: PublicVisitorDTO[]; pagination?: PaginationMeta } | null) => {
+          if (data?.visitors && !controller.signal.aborted) {
+            setTrusted(data.visitors);
+            if (data.pagination) setTrustedMeta(data.pagination);
+          }
+        })
+        .catch(() => undefined),
+    ]);
+
+    return () => controller.abort();
+  }, [timeRange, selectedSiteId, refreshTick, blockedPage, trustedPage]);
 
   return (
     <div className="space-y-6">
@@ -73,7 +119,7 @@ export default function SecurityCenterPage() {
             {blocked.length === 0 ? (
               <p className="text-xs text-muted-foreground">{dict.common.none}</p>
             ) : (
-              paginateArray(blocked, blockedPage, 10).items.map((v) => (
+              blocked.map((v) => (
                 <div
                   key={v.publicId}
                   className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 p-2.5"
@@ -90,10 +136,10 @@ export default function SecurityCenterPage() {
               ))
             )}
             <DataPagination
-              page={blockedPage}
-              pageSize={10}
-              totalItems={blocked.length}
-              totalPages={Math.max(1, Math.ceil(blocked.length / 10))}
+              page={blockedMeta.page}
+              pageSize={blockedMeta.pageSize}
+              totalItems={blockedMeta.totalItems}
+              totalPages={blockedMeta.totalPages}
               onPageChange={setBlockedPage}
               compact
             />
@@ -109,7 +155,7 @@ export default function SecurityCenterPage() {
             {trusted.length === 0 ? (
               <p className="text-xs text-muted-foreground">{dict.common.none}</p>
             ) : (
-              paginateArray(trusted, trustedPage, 10).items.map((v) => (
+              trusted.map((v) => (
                 <div
                   key={v.publicId}
                   className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 p-2.5"
@@ -126,10 +172,10 @@ export default function SecurityCenterPage() {
               ))
             )}
             <DataPagination
-              page={trustedPage}
-              pageSize={10}
-              totalItems={trusted.length}
-              totalPages={Math.max(1, Math.ceil(trusted.length / 10))}
+              page={trustedMeta.page}
+              pageSize={trustedMeta.pageSize}
+              totalItems={trustedMeta.totalItems}
+              totalPages={trustedMeta.totalPages}
               onPageChange={setTrustedPage}
               compact
             />

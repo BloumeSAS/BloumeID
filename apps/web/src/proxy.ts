@@ -101,9 +101,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       Boolean(headerKey) && (await constantTimeSecretEqual(headerKey ?? "", getConfiguredMasterKey()));
 
     if (!validCookie && !validHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
     }
-    return NextResponse.next();
+    const adminResponse = NextResponse.next();
+    adminResponse.headers.set("Cache-Control", "no-store");
+    return adminResponse;
   }
 
   const isProtectedPage = PROTECTED_PATHS.some(
