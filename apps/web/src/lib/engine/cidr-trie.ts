@@ -30,6 +30,27 @@ export class CidrRadixTrie {
     return this.cidrCount;
   }
 
+  public swapFrom(source: CidrRadixTrie): void {
+    this.rootV4 = source.rootV4;
+    this.rootV6 = source.rootV6;
+    this.cidrCount = source.cidrCount;
+  }
+
+  private resolveAddressSpace(ip: string): { v4: number | null; v6: bigint | null } {
+    const v4Direct = ipToUint32(ip);
+    if (v4Direct !== null) {
+      return { v4: v4Direct, v6: null };
+    }
+    const v6 = ipv6ToBigInt(ip);
+    if (v6 !== null) {
+      if (v6 >> 32n === 0xffffn) {
+        return { v4: Number(v6 & 0xffffffffn) >>> 0, v6: null };
+      }
+      return { v4: null, v6 };
+    }
+    return { v4: null, v6: null };
+  }
+
   public insert(cidrOrIp: string, category: ThreatCategory): boolean {
     let trimmed = cidrOrIp.trim();
     if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith(";")) {
@@ -51,7 +72,7 @@ export class CidrRadixTrie {
       explicitPrefix = Number(parts[1]);
     }
 
-    const ipNumV4 = ipToUint32(ipPart);
+    const { v4: ipNumV4, v6: ipNumV6 } = this.resolveAddressSpace(ipPart);
     if (ipNumV4 !== null) {
       const prefixLen = explicitPrefix ?? 32;
       if (!Number.isInteger(prefixLen) || prefixLen < 0 || prefixLen > 32) {
@@ -78,7 +99,6 @@ export class CidrRadixTrie {
       return true;
     }
 
-    const ipNumV6 = ipv6ToBigInt(ipPart);
     if (ipNumV6 !== null) {
       const prefixLen = explicitPrefix ?? 128;
       if (!Number.isInteger(prefixLen) || prefixLen < 0 || prefixLen > 128) {
@@ -110,7 +130,7 @@ export class CidrRadixTrie {
 
   public lookup(ip: string): Set<ThreatCategory> {
     const matched = new Set<ThreatCategory>();
-    const ipNumV4 = ipToUint32(ip);
+    const { v4: ipNumV4, v6: ipNumV6 } = this.resolveAddressSpace(ip);
     if (ipNumV4 !== null) {
       let node: TrieNode | null = this.rootV4;
       if (node.categories) {
@@ -127,7 +147,6 @@ export class CidrRadixTrie {
       return matched;
     }
 
-    const ipNumV6 = ipv6ToBigInt(ip);
     if (ipNumV6 !== null) {
       let node: TrieNode | null = this.rootV6;
       if (node.categories) {
@@ -247,6 +266,13 @@ const badAsnRegistry = new Map<number, string>();
 
 export function clearBadAsns(): void {
   badAsnRegistry.clear();
+}
+
+export function replaceBadAsns(entries: Map<number, string>): void {
+  badAsnRegistry.clear();
+  for (const [asn, entity] of entries) {
+    badAsnRegistry.set(asn, entity);
+  }
 }
 
 export function registerBadAsn(asnNumber: number, entityName: string): boolean {
