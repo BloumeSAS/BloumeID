@@ -653,5 +653,87 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     );
     expect(evalRes.action).toBe("allow");
   });
+
+  it("validates /api/v1/visitors/[visitorId]/visits query params with Zod and exposes action/browser on /api/v1/requests/[requestId]", async () => {
+    const {
+      createSiteRecord,
+      findSiteByPublicKey,
+      getReconciliationStore,
+      recordFingerprintEvent,
+    } = await import("../src/lib/engine/repository");
+    const { reconcileVisitorIdentity } = await import("../src/lib/engine/reconcile");
+    const { GET: visitsGET } = await import("../src/app/api/v1/visitors/[visitorId]/visits/route");
+    const { GET: reqVerifyGET } = await import("../src/app/api/v1/requests/[requestId]/route");
+
+    const siteDto = await createSiteRecord({ name: "Audit v1 API Site", domains: ["v1.example.com"] });
+    const siteInternal = await findSiteByPublicKey(siteDto.publicKey);
+    expect(siteInternal).not.toBeNull();
+    expect(siteDto.secretKeyPlain).toMatch(/^bid_sec_/);
+
+    const rec = await reconcileVisitorIdentity(getReconciliationStore(), {
+      siteInternalId: siteInternal!.id,
+      fullHash: "fh_v1_audit_cycle37",
+      hardwareHash: "hw_v1_audit_cycle37",
+      ipSubnet: "198.51.100.0/24",
+      dangerLevel: 2,
+      isSpoofed: false,
+    });
+
+    const reqId = "req_v1_audit_cycle37";
+    await recordFingerprintEvent({
+      publicId: reqId,
+      siteId: siteInternal!.id,
+      visitorId: rec.visitorInternalId,
+      fullHash: "fh_v1_audit_cycle37",
+      hardwareHash: "hw_v1_audit_cycle37",
+      ipAddress: "198.51.100.42",
+      ipSubnet: "198.51.100.0/24",
+      ja4Hash: null,
+      asnNumber: 64512,
+      asnOrg: "Test ISP",
+      country: "FR",
+      city: "Paris",
+      isVpn: false,
+      isProxy: false,
+      isTor: false,
+      isDatacenter: false,
+      isBot: false,
+      isSpoofed: false,
+      isIncognito: false,
+      crossBrowserMatched: false,
+      dangerLevel: 2,
+      confidence: 0.96,
+      ruleAction: "challenge",
+      browser: "Chrome",
+      os: "Windows",
+      device: "Desktop",
+      userAgent: "Mozilla/5.0",
+      origin: "https://v1.example.com",
+      components: {} as never,
+    });
+
+    const badVisitsRes = await visitsGET(
+      new Request(
+        `http://localhost:3000/api/v1/visitors/${rec.visitorPublicId}/visits?request_id=invalid_fmt`,
+        { headers: { Authorization: `Bearer ${siteDto.secretKeyPlain!}` } }
+      ),
+      { params: Promise.resolve({ visitorId: rec.visitorPublicId }) }
+    );
+    expect(badVisitsRes.status).toBe(400);
+
+    const verifyRes = await reqVerifyGET(
+      new Request(`http://localhost:3000/api/v1/requests/${reqId}`, {
+        headers: { Authorization: `Bearer ${siteDto.secretKeyPlain!}` },
+      }),
+      { params: Promise.resolve({ requestId: reqId }) }
+    );
+    expect(verifyRes.status).toBe(200);
+    const verifyBody = (await verifyRes.json()) as {
+      action: string;
+      browser: { name: string; os: string; device: string };
+    };
+    expect(verifyBody.action).toBe("challenge");
+    expect(verifyBody.browser.name).toBe("Chrome");
+  });
 });
 

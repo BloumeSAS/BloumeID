@@ -7,6 +7,12 @@ import { getVisitorByPublicId, verifySiteSecretKey } from "@/lib/engine/reposito
 
 const VisitorIdParamSchema = z.string().regex(/^vis_[0-9a-zA-Z_]+$/);
 
+const VisitsQuerySchema = z.object({
+  request_id: z.string().trim().regex(/^req_[0-9a-zA-Z_]+$/).max(128).optional(),
+  linked_id: z.string().trim().max(256).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 /**
  * Fingerprint.com Server API (`GET /api/v1/visitors/[visitorId]/visits`) compatible endpoint
  * with `request_id`, `linked_id`, and `limit` query filtering.
@@ -40,7 +46,7 @@ export async function GET(
     );
   }
 
-  const data = await getVisitorByPublicId(parsedId.data);
+  const data = await getVisitorByPublicId(parsedId.data, { includeEventComponents: false });
   if (!data || data.visitor.sitePublicId !== site.publicId) {
     return NextResponse.json(
       { error: "Visitor not found" },
@@ -49,12 +55,21 @@ export async function GET(
   }
 
   const url = new URL(request.url);
-  const requestIdFilter = url.searchParams.get("request_id");
-  const linkedIdFilter = url.searchParams.get("linked_id");
-  const rawLimit = Number(url.searchParams.get("limit") ?? 50);
-  const limit = Number.isFinite(rawLimit)
-    ? Math.min(100, Math.max(1, Math.floor(rawLimit)))
-    : 50;
+  const parsedQuery = VisitsQuerySchema.safeParse({
+    request_id: url.searchParams.get("request_id") ?? undefined,
+    linked_id: url.searchParams.get("linked_id") ?? undefined,
+    limit: url.searchParams.get("limit") ?? undefined,
+  });
+  if (!parsedQuery.success) {
+    return NextResponse.json(
+      { error: "Invalid query parameters" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
+  }
+
+  const requestIdFilter = parsedQuery.data.request_id;
+  const linkedIdFilter = parsedQuery.data.linked_id;
+  const limit = parsedQuery.data.limit ?? 50;
   const { page, pageSize, hasExplicitPage } = parsePaginationParams(url.searchParams, limit);
 
   const filteredVisits = data.events

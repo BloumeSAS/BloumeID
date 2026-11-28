@@ -34,7 +34,7 @@ export async function GET(
     );
   }
 
-  const data = await getVisitorByPublicId(parsedId.data);
+  const data = await getVisitorByPublicId(parsedId.data, { includeEventComponents: false });
   if (!data || data.visitor.sitePublicId !== site.publicId) {
     return NextResponse.json(
       { error: "Visitor not found" },
