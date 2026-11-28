@@ -542,6 +542,12 @@ export default function DashboardPage() {
 
           <CardContent className="max-h-[420px] flex-1 overflow-y-auto pr-2">
             {locationView === "list" ? (
+              (metrics?.topCountries ?? []).length === 0 ? (
+                <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+                  <Globe className="h-6 w-6 opacity-40" />
+                  <span>{dict.common.noDataPeriod}</span>
+                </div>
+              ) : (
               <div className="space-y-1.5">
                 {(metrics?.topCountries ?? []).map((c) => {
                   const widthPct = Math.max(8, Math.round((c.count / maxCountryCount) * 100));
@@ -571,6 +577,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
+              )
             ) : (
               /* Authentic Natural Earth 110m Choropleth World Map (TryCap style) */
               <InteractiveWorldMap countries={metrics?.topCountries ?? []} />
@@ -605,6 +612,12 @@ export default function DashboardPage() {
           </CardHeader>
 
           <CardContent className="max-h-[420px] flex-1 overflow-y-auto pr-2">
+            {filteredNetworks.length === 0 ? (
+              <div className="flex h-48 flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+                <Search className="h-6 w-6 opacity-40" />
+                <span>{dict.common.noDataPeriod}</span>
+              </div>
+            ) : (
             <div className="space-y-1.5">
               {filteredNetworks.map((net) => {
                 const widthPct = Math.max(8, Math.round((net.count / maxNetworkCount) * 100));
@@ -650,6 +663,7 @@ export default function DashboardPage() {
                 );
               })}
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -762,8 +776,14 @@ export default function DashboardPage() {
           </CardHeader>
 
           <CardContent className="space-y-1.5">
-            {osTab === "os"
-              ? (metrics?.osDistribution ?? []).map((os) => {
+            {osTab === "os" ? (
+              (metrics?.osDistribution ?? []).length === 0 ? (
+                <div className="flex h-40 flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+                  <Monitor className="h-6 w-6 opacity-40" />
+                  <span>{dict.common.noDataPeriod}</span>
+                </div>
+              ) : (
+                (metrics?.osDistribution ?? []).map((os) => {
                   const widthPct = Math.max(8, Math.round((os.count / maxOsCount) * 100));
                   return (
                     <div
@@ -789,31 +809,39 @@ export default function DashboardPage() {
                     </div>
                   );
                 })
-              : (metrics?.browserDistribution ?? []).map((b) => {
-                  const widthPct = Math.max(8, Math.round((b.count / maxBrowserCount) * 100));
-                  const share = Math.max(1, Math.round((b.count / totalBrowserCount) * 100));
-                  return (
+              )
+            ) : (metrics?.browserDistribution ?? []).length === 0 ? (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+                <Globe className="h-6 w-6 opacity-40" />
+                <span>{dict.common.noDataPeriod}</span>
+              </div>
+            ) : (
+              (metrics?.browserDistribution ?? []).map((b) => {
+                const widthPct = Math.max(8, Math.round((b.count / maxBrowserCount) * 100));
+                const share = Math.max(1, Math.round((b.count / totalBrowserCount) * 100));
+                return (
+                  <div
+                    key={b.name}
+                    className="group relative flex items-center justify-between overflow-hidden rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                  >
                     <div
-                      key={b.name}
-                      className="group relative flex items-center justify-between overflow-hidden rounded-lg px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
-                    >
-                      <div
-                        className="pointer-events-none absolute inset-y-0.5 left-0 rounded-lg bg-secondary/65 transition-all group-hover:bg-primary/15"
-                        style={{ width: `${widthPct}%` }}
-                      />
-                      <div className="relative z-10 flex items-center gap-2.5">
-                        <Globe className="h-4 w-4 text-sky-400" />
-                        <span className="font-medium text-foreground">{b.name}</span>
-                      </div>
-                      <div className="relative z-10 flex items-center gap-4 font-mono text-xs">
-                        <span className="font-semibold text-foreground">
-                          {formatCompactCount(b.count)}
-                        </span>
-                        <span className="w-9 text-right text-muted-foreground">{share}%</span>
-                      </div>
+                      className="pointer-events-none absolute inset-y-0.5 left-0 rounded-lg bg-secondary/65 transition-all group-hover:bg-primary/15"
+                      style={{ width: `${widthPct}%` }}
+                    />
+                    <div className="relative z-10 flex items-center gap-2.5">
+                      <Globe className="h-4 w-4 text-sky-400" />
+                      <span className="font-medium text-foreground">{b.name}</span>
                     </div>
-                  );
-                })}
+                    <div className="relative z-10 flex items-center gap-4 font-mono text-xs">
+                      <span className="font-semibold text-foreground">
+                        {formatCompactCount(b.count)}
+                      </span>
+                      <span className="w-9 text-right text-muted-foreground">{share}%</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </div>
@@ -840,6 +868,13 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {(metrics?.recentHighRiskEvents ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
+                      {dict.common.noDataPeriod}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
                 {(metrics?.recentHighRiskEvents ?? []).map((evt) => (
                   <TableRow
                     key={evt.publicId}

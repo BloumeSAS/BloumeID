@@ -345,6 +345,13 @@ export default function EventsAuditPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {filteredEvents.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="py-10 text-center text-xs text-muted-foreground">
+                        {dict.common.noDataPeriod}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                   {filteredEvents.map((evt) => {
                     const isSelected = selectedEvent?.publicId === evt.publicId;
                     return (
