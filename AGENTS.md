@@ -102,3 +102,9 @@ L'agent DOIT exécuter automatiquement le cycle Git complet sans attendre de dem
   - Le dépôt principal (`BloumeSAS/BloumeID`, racine) et le dépôt SDK (`BloumeSAS/bloumeid-sdk`, `packages/bloumeid/`) sont deux dépôts Git distincts imbriqués localement.
   - Sur `BloumeSAS/BloumeID`, `packages/bloumeid/` ne doit suivre **exclusivement que `packages/bloumeid/README.md`** (`packages/bloumeid/*` + `!packages/bloumeid/README.md` dans `.gitignore`). Toujours vérifier avec `git ls-files packages/bloumeid`.
   - À chaque modification touchant le SDK, exécuter d'abord le **Workflow Git Automatique Complet** (`checkout main` $\rightarrow$ `pull --rebase` $\rightarrow$ `checkout -b` $\rightarrow$ bump `--all` + build + tests $\rightarrow$ `commit` $\rightarrow$ `push` $\rightarrow$ `merge --no-ff` sur `main` $\rightarrow$ `push origin main` $\rightarrow$ suppression de branche) dans **`packages/bloumeid` (`BloumeSAS/bloumeid-sdk`)**, puis dans **`BloumeID` (`BloumeSAS/BloumeID`)**.
+
+---
+
+## 11. Sécurité Continue : GitHub Code Scanning & Pull Requests `dependabot[bot]`
+- **Vérification & Correction Obligatoire du Code Scanning** : Avant de clôturer toute tâche significative (ou après chaque push sur `main`), l'agent DOIT vérifier les alertes ouvertes sur `https://github.com/BloumeSAS/BloumeID/security/code-scanning` (`gh api repos/BloumeSAS/BloumeID/code-scanning/alerts?state=open`) et **corriger immédiatement** toute alerte légitime (CodeQL, Trivy, Gitleaks) dans le cycle Git en cours.
+- **Traitement Systématique des PRs `dependabot[bot]`** : L'agent DOIT également vérifier les Pull Requests ouvertes par `dependabot[bot]` (`gh pr list --author "app/dependabot" --state open`), auditer leur compatibilité (notamment Node.js LTS, Prisma, Next.js et Docker), réparer ou approuver/fusionner les mises à jour sûres, et fermer proprement avec explication toute PR incompatible (ex. version non-LTS).
