@@ -12,9 +12,10 @@ model Site {
   publicId          String             @unique
   name              String
   domains           String[]
-  publicKey         String             @unique
-  secretKeyHash     String             @unique
-  secretKeyHint     String             @default("bid_sec_***")
+  publicKey          String             @unique
+  secretKeyHash      String             @unique
+  secretKeyHint      String             @default("bid_sec_***")
+  encryptedSecretKey String?
   webhookUrl        String?
   webhookSecret     String?
   riskThreshold     Int                @default(3)

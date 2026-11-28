@@ -88,3 +88,88 @@ export function verifyHmacSha256(secret: string, payload: string, signatureHex: 
   return constantTimeEqual(expected, signatureHex);
 }
 
+function getMasterWrapKeyBytes(masterKey = process.env.ADMIN_MASTER_KEY ?? "bloumeid_dev_master_key_2026"): Buffer {
+  return crypto.createHash("sha256").update(`bloumeid-site-key-wrap-v1:${masterKey.trim()}`, "utf8").digest();
+}
+
+export function wrapSiteSecretKey(plainSecretKey: string, masterKey?: string): string {
+  const key = getMasterWrapKeyBytes(masterKey);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(plainSecretKey, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc.${iv.toString("base64url")}.${encrypted.toString("base64url")}.${tag.toString("base64url")}`;
+}
+
+export function unwrapSiteSecretKey(
+  wrapped: string | null | undefined,
+  masterKey?: string
+): string | null {
+  if (!wrapped || typeof wrapped !== "string") return null;
+  const parts = wrapped.split(".");
+  if (parts.length !== 4 || parts[0] !== "enc") return null;
+  const [, ivB64, cipherB64, tagB64] = parts;
+  if (!ivB64 || !cipherB64 || !tagB64) return null;
+  try {
+    const key = getMasterWrapKeyBytes(masterKey);
+    const iv = Buffer.from(ivB64, "base64url");
+    const ciphertext = Buffer.from(cipherB64, "base64url");
+    const authTag = Buffer.from(tagB64, "base64url");
+    if (iv.length !== 12 || authTag.length !== 16) return null;
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(authTag);
+    const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+    return plain.startsWith("bid_sec_") ? plain : null;
+  } catch {
+    return null;
+  }
+}
+
+export function sealVerificationResult(secretKey: string, payload: unknown): string {
+  const key = crypto
+    .createHash("sha256")
+    .update(`bloumeid-seal-v1:${secretKey}`, "utf8")
+    .digest();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8");
+  const ciphertext = Buffer.concat([cipher.update(encoded), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1.${iv.toString("base64url")}.${ciphertext.toString("base64url")}.${tag.toString("base64url")}`;
+}
+
+export function decryptTransportEnvelopeV2(params: {
+  publicKey: string;
+  ts: number;
+  nonce: string;
+  origin: string;
+  ivB64u: string;
+  ciphertextB64u: string;
+}): unknown | null {
+  try {
+    const iv = Buffer.from(params.ivB64u, "base64url");
+    const combined = Buffer.from(params.ciphertextB64u, "base64url");
+    if (iv.length !== 12 || combined.length <= 16) return null;
+
+    const authTag = combined.subarray(combined.length - 16);
+    const ciphertext = combined.subarray(0, combined.length - 16);
+    const key = crypto
+      .createHash("sha256")
+      .update(
+        `bloumeid-transport-v2:${params.publicKey}:${params.ts}:${params.nonce}:${params.origin}`,
+        "utf8"
+      )
+      .digest();
+
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAAD(
+      Buffer.from(`${params.publicKey}:${params.ts}:${params.nonce}:${params.origin}`, "utf8")
+    );
+    decipher.setAuthTag(authTag);
+    const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
+    return JSON.parse(plain) as unknown;
+  } catch {
+    return null;
+  }
+}
+

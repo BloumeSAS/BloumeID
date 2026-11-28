@@ -1,9 +1,65 @@
+import crypto from "node:crypto";
 import { isIP } from "node:net";
+import type { FingerprintComponents, UserAgentDataComponent } from "@bloume/id";
 
 export interface ParsedUserAgent {
   browser: string;
   os: string;
   device: string;
+}
+
+export interface DetailedParsedUserAgent extends ParsedUserAgent {
+  browserVersion: string;
+  osVersion: string;
+}
+
+export function ipv6ToBigInt(ip: string): bigint | null {
+  let clean = ip.trim();
+  if (clean.startsWith("[") && clean.endsWith("]")) {
+    clean = clean.slice(1, -1);
+  }
+  const zoneIdx = clean.indexOf("%");
+  if (zoneIdx !== -1) {
+    clean = clean.slice(0, zoneIdx);
+  }
+  if (isIP(clean) !== 6) {
+    return null;
+  }
+
+  // Convert trailing embedded IPv4 (e.g., 64:ff9b::192.0.2.1) into two hextets
+  const lastColon = clean.lastIndexOf(":");
+  const tail = clean.slice(lastColon + 1);
+  if (tail.includes(".")) {
+    const v4 = ipToUint32(tail);
+    if (v4 === null) return null;
+    const hi = ((v4 >>> 16) & 0xffff).toString(16);
+    const lo = (v4 & 0xffff).toString(16);
+    clean = `${clean.slice(0, lastColon + 1)}${hi}:${lo}`;
+  }
+
+  const dblParts = clean.split("::");
+  if (dblParts.length > 2) return null;
+
+  const left = dblParts[0] ? dblParts[0].split(":").filter(Boolean) : [];
+  const right = dblParts.length === 2 && dblParts[1] ? dblParts[1].split(":").filter(Boolean) : [];
+  const missing = 8 - (left.length + right.length);
+  if (dblParts.length === 1 && left.length !== 8) return null;
+  if (dblParts.length === 2 && missing < 0) return null;
+
+  const fullGroups = [
+    ...left,
+    ...Array.from({ length: Math.max(0, missing) }, () => "0"),
+    ...right,
+  ];
+  if (fullGroups.length !== 8) return null;
+
+  let value = 0n;
+  for (const grp of fullGroups) {
+    const num = Number.parseInt(grp, 16);
+    if (!Number.isInteger(num) || num < 0 || num > 0xffff) return null;
+    value = (value << 16n) | BigInt(num);
+  }
+  return value;
 }
 
 export function ipToUint32(ip: string): number | null {
@@ -172,5 +228,224 @@ export function parseUserAgentSummary(userAgent: string): ParsedUserAgent {
 
   const device = /Mobi|Android|iPhone|iPad/i.test(ua) ? "Mobile" : "Desktop";
   return { browser, os, device };
+}
+
+function normalizeBrowserVer(raw: string): string {
+  const parts = raw.split(".").filter((p) => /^\d+$/.test(p));
+  if (parts.length === 0) return "0.0";
+  if (parts.length === 1) return `${parts[0]}.0`;
+  return `${parts[0]}.${parts[1]}`;
+}
+
+export function parseDetailedUserAgent(
+  userAgent: string,
+  headers?: Headers,
+  uaData?: Partial<UserAgentDataComponent>
+): DetailedParsedUserAgent {
+  const base = parseUserAgentSummary(userAgent);
+  const ua = userAgent || "";
+  let browser = base.browser;
+  let browserVersion = "0.0";
+
+  const edg = ua.match(/Edg(?:A|iOS)?\/([\d.]+)/i);
+  const opr = ua.match(/(?:OPR|Opera)\/([\d.]+)/i);
+  const chr = ua.match(/(?:Chrome|CriOS)\/([\d.]+)/i);
+  const ff = ua.match(/(?:Firefox|FxiOS)\/([\d.]+)/i);
+  const saf = ua.match(/Version\/([\d.]+).*Safari/i);
+
+  if (edg) {
+    browser = "Edge";
+    browserVersion = normalizeBrowserVer(edg[1] ?? "0");
+  } else if (opr) {
+    browser = "Opera";
+    browserVersion = normalizeBrowserVer(opr[1] ?? "0");
+  } else if (chr) {
+    browser = "Chrome";
+    browserVersion = normalizeBrowserVer(chr[1] ?? "0");
+  } else if (ff) {
+    browser = "Firefox";
+    browserVersion = normalizeBrowserVer(ff[1] ?? "0");
+  } else if (saf) {
+    browser = "Safari";
+    browserVersion = normalizeBrowserVer(saf[1] ?? "0");
+  }
+
+  // Prefer high-entropy Client Hints when available
+  const secChUaHeader = headers?.get("sec-ch-ua") ?? "";
+  if (uaData?.brands && uaData.brands.length > 0) {
+    const primary =
+      uaData.brands.find(
+        (b) => !/Not[;._ -]?A[;._ -]?Brand/i.test(b.brand) && !/^Chromium$/i.test(b.brand)
+      ) ?? uaData.brands.find((b) => /Chromium/i.test(b.brand));
+    if (primary?.version) {
+      if (browserVersion.split(".")[0] !== primary.version.split(".")[0]) {
+        browserVersion = normalizeBrowserVer(primary.version);
+      }
+      if (/Edge/i.test(primary.brand)) browser = "Edge";
+      else if (/Opera/i.test(primary.brand)) browser = "Opera";
+      else if (/Chrome/i.test(primary.brand)) browser = "Chrome";
+    }
+  } else if (secChUaHeader) {
+    const brandMatches = Array.from(secChUaHeader.matchAll(/"([^"]+)";\s*v="([^"]+)"/g));
+    const primary = brandMatches.find(
+      (m) => m[1] && !/Not[;._ -]?A[;._ -]?Brand/i.test(m[1]) && !/^Chromium$/i.test(m[1])
+    );
+    if (primary?.[1] && primary?.[2]) {
+      if (browserVersion.split(".")[0] !== primary[2].split(".")[0]) {
+        browserVersion = normalizeBrowserVer(primary[2]);
+      }
+      if (/Edge/i.test(primary[1])) browser = "Edge";
+      else if (/Opera/i.test(primary[1])) browser = "Opera";
+      else if (/Chrome/i.test(primary[1])) browser = "Chrome";
+    }
+  }
+
+  let os = base.os;
+  let osVersion = "";
+  const headerPv = headers?.get("sec-ch-ua-platform-version")?.replace(/"/g, "").trim() ?? "";
+  const platformVersion = uaData?.platformVersion || headerPv;
+
+  if (os === "Windows" || /Windows/i.test(uaData?.platform ?? "")) {
+    os = "Windows";
+    const pvMajor = Number((platformVersion || "").split(".")[0] ?? "0");
+    if (Number.isFinite(pvMajor) && pvMajor >= 13) {
+      osVersion = "11";
+    } else if (Number.isFinite(pvMajor) && pvMajor >= 1) {
+      osVersion = "10";
+    } else {
+      const nt = ua.match(/Windows NT ([\d.]+)/i)?.[1] ?? "10.0";
+      if (nt === "10.0") osVersion = "10";
+      else if (nt === "6.3") osVersion = "8.1";
+      else if (nt === "6.2") osVersion = "8";
+      else if (nt === "6.1") osVersion = "7";
+      else osVersion = nt;
+    }
+  } else if (os === "macOS") {
+    const macVer = ua.match(/Mac OS X ([\d_]+)/i)?.[1]?.replace(/_/g, ".") ?? "";
+    osVersion = platformVersion || macVer;
+  } else if (os === "Android") {
+    const andrVer = ua.match(/Android ([\d.]+)/i)?.[1] ?? "";
+    osVersion = platformVersion || andrVer;
+  } else if (os === "iOS") {
+    const iosVer = ua.match(/(?:iPhone|CPU) OS ([\d_]+)/i)?.[1]?.replace(/_/g, ".") ?? "";
+    osVersion = iosVer;
+  }
+
+  return {
+    browser,
+    browserVersion,
+    os,
+    osVersion,
+    device: base.device,
+  };
+}
+
+/**
+ * Resolves upstream X-JA4-Fingerprint or computes a canonical deterministic TLS/HTTP JA4-style hash
+ * from request headers when TLS termination runs upstream (Cloudflare Tunnel / Traefik / Caddy).
+ */
+export function resolveOrSynthesizeJa4(headers: Headers): string {
+  const upstreamJa4 = headers.get("x-ja4-fingerprint")?.trim();
+  if (upstreamJa4 && upstreamJa4.length >= 8 && upstreamJa4.length <= 128) {
+    return upstreamJa4;
+  }
+
+  const canonicalFields = [
+    headers.get("sec-ch-ua") ?? "",
+    headers.get("sec-ch-ua-platform") ?? "",
+    headers.get("sec-ch-ua-mobile") ?? "",
+    headers.get("accept") ?? "",
+    headers.get("accept-encoding") ?? "",
+    headers.get("accept-language") ?? "",
+    headers.get("priority") ?? "",
+    headers.get("cf-visitor") ?? "",
+    headers.get("x-forwarded-proto") ?? "",
+    headers.get("user-agent") ?? "",
+  ];
+  const headerOrder = Array.from(headers.keys())
+    .map((k) => k.toLowerCase())
+    .filter((k) => k !== "x-bloumeid-key" && k !== "content-length")
+    .join(",");
+
+  const isH2OrHttps =
+    (headers.get("cf-visitor") ?? "").includes("https") ||
+    headers.get("x-forwarded-proto") === "https" ||
+    headers.has("sec-ch-ua") ||
+    headers.has("priority");
+
+  const headerHash12 = crypto
+    .createHash("sha256")
+    .update(`${headerOrder}|${canonicalFields.slice(3, 9).join("|")}`, "utf8")
+    .digest("hex")
+    .slice(0, 12);
+  const chHash12 = crypto
+    .createHash("sha256")
+    .update(`${canonicalFields.slice(0, 3).join("|")}|${canonicalFields[9]}`, "utf8")
+    .digest("hex")
+    .slice(0, 12);
+
+  return `t13d1516${isH2OrHttps ? "h2" : "h1"}_${headerHash12}_${chHash12}`;
+}
+
+export function detectTorBrowserFromComponents(
+  comp: Partial<FingerprintComponents> | undefined,
+  userAgent: string
+): {
+  isTor: boolean;
+  markerCount: number;
+  isSpoofedFallback: boolean;
+  reasons: string[];
+} {
+  if (!comp) {
+    return { isTor: false, markerCount: 0, isSpoofedFallback: false, reasons: [] };
+  }
+
+  let markerCount = 0;
+  const tz = comp.timezoneIntl?.timezone ?? "";
+  if (
+    tz === "Atlantic/Reykjavik" ||
+    (tz === "UTC" &&
+      comp.timezoneIntl?.timezoneOffsetMinutes === 0 &&
+      comp.languages?.language === "en-US")
+  ) {
+    markerCount += 1;
+  }
+
+  if (comp.webgl?.vendor === "Mozilla" && comp.webgl?.renderer === "Mozilla") {
+    markerCount += 1;
+  }
+
+  if (
+    comp.webrtc?.available === false &&
+    comp.speech?.voiceCount === 0 &&
+    (comp.mediaCodecs?.audioInputCount ?? 0) === 0
+  ) {
+    markerCount += 1;
+  }
+
+  if (comp.canvas?.doubleRenderConsistent === false) {
+    markerCount += 1;
+  }
+
+  if (comp.hardware?.globalPrivacyControl === true && comp.hardware?.deviceMemory === 0) {
+    markerCount += 1;
+  }
+
+  const mozillaWebGlWithNonFirefoxUa =
+    (comp.webgl?.vendor === "Mozilla" || comp.webgl?.renderer === "Mozilla") &&
+    userAgent.length > 0 &&
+    !/Firefox\//i.test(userAgent);
+  if (mozillaWebGlWithNonFirefoxUa) {
+    markerCount += 1;
+  }
+
+  const isTor = markerCount >= 3 || (Boolean(comp.antiSpoof?.isTorBrowser) && markerCount >= 2);
+  const reasons = isTor ? ["Tor Browser environment signature detected"] : [];
+  return {
+    isTor,
+    markerCount,
+    isSpoofedFallback: mozillaWebGlWithNonFirefoxUa || comp.canvas?.doubleRenderConsistent === false,
+    reasons,
+  };
 }
 

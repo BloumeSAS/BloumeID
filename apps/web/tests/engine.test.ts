@@ -1,6 +1,7 @@
 import zlib from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
-import { computeAntiReplaySignature } from "@bloume/id";
+import { computeAntiReplaySignature, encryptFingerprintEnvelope } from "@bloume/id";
+import { BloumeIDServer } from "@bloume/id/server";
 import { APP_VERSION } from "../src/lib/version";
 import {
   SnowflakeGenerator,
@@ -122,15 +123,21 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(ruleRes.matchedRuleId).toBe("rule_1");
   });
 
-  it("performs O(32) CIDR lookups in Patricia/Radix Trie and classifies Datacenter/VPN ASNs", () => {
+  it("performs O(32) IPv4 and O(128) IPv6 CIDR lookups in Patricia/Radix Trie and classifies Datacenter/VPN ASNs", () => {
     const trie = new CidrRadixTrie();
     expect(trie.insert("185.220.101.0/24", "tor")).toBe(true);
+    expect(trie.insert("2a0b:f4c2::/48", "tor")).toBe(true);
+    expect(trie.insert("2001:67c:289c:1::42", "tor")).toBe(true);
     expect(trie.insert("51.38.0.0/16", "datacenter")).toBe(true);
     expect(trie.insert("193.138.218.0/24", "vpn")).toBe(true);
     expect(trie.insert("# comment line", "vpn")).toBe(false);
 
-    expect(trie.size()).toBe(3);
+    expect(trie.size()).toBe(5);
     expect(trie.lookup("185.220.101.45").has("tor")).toBe(true);
+    expect(trie.lookup("::ffff:185.220.101.45").has("tor")).toBe(true);
+    expect(trie.lookup("2a0b:f4c2::cafe").has("tor")).toBe(true);
+    expect(trie.lookup("2001:67c:289c:1::42").has("tor")).toBe(true);
+    expect(trie.lookup("2001:4860:4860::8888").size).toBe(0);
     expect(trie.lookup("51.38.129.10").has("datacenter")).toBe(true);
     expect(trie.lookup("193.138.218.99").has("vpn")).toBe(true);
     expect(trie.lookup("8.8.8.8").size).toBe(0);
@@ -367,21 +374,32 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
       });
     };
 
-    // 1. First visit -> Level 3 (New Visitor, confidence 0.95)
+    // 1. First visit -> Level 3 (New Visitor, confidence 0.95) & minimal zero-leak public response + sealedResult
     const res1 = await fingerprintPOST(makeRequest("nonce_visit_0001", fullHashChrome));
     expect(res1.status).toBe(200);
-    const body1 = (await res1.json()) as {
+    const body1 = (await res1.json()) as Record<string, unknown> & {
       visitorId: string;
       requestId: string;
       visitorFound: boolean;
+      thumbmark: string;
       confidence: { score: number; revision: string };
-      info: { crossBrowserMatched: boolean };
+      sealedResult: string;
     };
     expect(body1.visitorId).toMatch(/^vis_/);
     expect(body1.visitorFound).toBe(false);
+    expect(body1.thumbmark).toBe(fullHashChrome);
     expect(body1.confidence.score).toBe(0.95);
     expect(body1.confidence.revision).toBe(APP_VERSION);
-    expect(body1.info.crossBrowserMatched).toBe(false);
+    expect(body1.sealedResult).toMatch(/^v1\./);
+    expect(body1.info).toBeUndefined();
+    expect(body1.components).toBeUndefined();
+    expect(body1.ip).toBeUndefined();
+    expect(body1.ipLocation).toBeUndefined();
+
+    const serverClient = new BloumeIDServer({ secretKey: testSecretKey });
+    const unsealed1 = serverClient.unsealResult(body1.sealedResult);
+    expect(unsealed1.flags.crossBrowserMatched).toBe(false);
+    expect(unsealed1.network.ja4Hash).toMatch(/^t13d1516/);
 
     // 2. Second visit via Fingerprint.com /api/v1/events endpoint -> Level 1 (Same visitor, confidence 0.99, visitorFound: true)
     const res2 = await eventsPOST(makeRequest("nonce_visit_0002", fullHashChrome, "http://localhost:3000/api/v1/events"));
@@ -395,7 +413,8 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     const body3 = (await res3.json()) as typeof body1;
     expect(body3.visitorId).toBe(body1.visitorId);
     expect(body3.confidence.score).toBe(0.88);
-    expect(body3.info.crossBrowserMatched).toBe(true);
+    const unsealed3 = serverClient.unsealResult(body3.sealedResult);
+    expect(unsealed3.flags.crossBrowserMatched).toBe(true);
 
     // 4. Replay with same nonce must fail with 409
     const replayRes = await fingerprintPOST(makeRequest("nonce_visit_0003", fullHashFirefox));
@@ -534,5 +553,118 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     expect(body.ipLocation.country.code).toBe("FR");
     expect(body.ipLocation.city.name).toBe("Paris");
     expect(body.ipLocation.asn.asn).toBe("AS212238");
+  });
+
+  it("handles v2 AES-256-GCM transport, ±60s replay protection, Tor Browser IPv6 signature, Chrome 158 parser & non-null JA4", async () => {
+    const testSite = await createSiteRecord({
+      name: "Encrypted v2 & Tor Test Site",
+      domains: ["localhost", "app.bloume.io"],
+    });
+    const serverClient = new BloumeIDServer({ secretKey: testSite.secretKeyPlain! });
+    const origin = "https://app.bloume.io";
+    const fullHash = "9a".repeat(32);
+    const hardwareHash = "8b".repeat(32);
+
+    const ts = Date.now();
+    const nonce = `nonce_v2_tor_${ts}`;
+    const envelope = await encryptFingerprintEnvelope({
+      publicKey: testSite.publicKey,
+      ts,
+      nonce,
+      origin,
+      payload: {
+        fullHash,
+        hardwareHash,
+        durationMs: 22,
+        components: {
+          webgl: { vendor: "Mozilla", renderer: "Mozilla" },
+          timezoneIntl: { timezone: "Atlantic/Reykjavik", timezoneOffsetMinutes: 0 },
+          webrtc: { available: false },
+          speech: { voiceCount: 0 },
+          mediaCodecs: { audioInputCount: 0 },
+          canvas: { doubleRenderConsistent: false },
+          hardware: { globalPrivacyControl: true, deviceMemory: 0, platform: "Win32" },
+          userAgentData: {
+            userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/158.0.0.0",
+            platform: "Windows",
+            platformVersion: "15.0.0",
+            brands: [{ brand: "Google Chrome", version: "158" }],
+          },
+          antiSpoof: { isBot: false, isSpoofed: true, isIncognito: true, isTorBrowser: true },
+        },
+      },
+    });
+    expect(envelope).not.toBeNull();
+
+    const torReq = new Request("http://localhost:3000/api/v1/fingerprint", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: origin,
+        "X-BloumeID-Key": testSite.publicKey,
+        "X-Real-IP": "2a0b:f4c2::99",
+        "Sec-CH-UA": '"Google Chrome";v="158"',
+        "Sec-CH-UA-Platform": '"Windows"',
+        "Sec-CH-UA-Platform-Version": '"15.0.0"',
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/158.0.0.0",
+      },
+      body: JSON.stringify(envelope),
+    });
+
+    const okRes = await fingerprintPOST(torReq);
+    expect(okRes.status).toBe(200);
+    const okJson = (await okRes.json()) as {
+      visitorId: string;
+      requestId: string;
+      thumbmark: string;
+      sealedResult: string;
+    };
+    expect(okJson.thumbmark).toBe(fullHash);
+    expect(okJson.sealedResult).toMatch(/^v1\./);
+
+    const verified = serverClient.unsealResult(okJson.sealedResult);
+    expect(verified.flags.isTor).toBe(true);
+    expect(verified.dangerLevel).toBe(5);
+    expect(verified.network.ja4Hash).toMatch(/^t13d1516h2_/);
+    expect(verified.browser?.name).toBe("Chrome");
+    expect(verified.browser?.version).toBe("158.0");
+    expect(verified.browser?.os).toBe("Windows");
+    expect(verified.browser?.osVersion).toBe("11");
+
+    // Replaying exact encrypted v2 payload must return 409 Conflict
+    const replayRes = await fingerprintPOST(
+      new Request("http://localhost:3000/api/v1/fingerprint", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          "X-BloumeID-Key": testSite.publicKey,
+        },
+        body: JSON.stringify(envelope),
+      })
+    );
+    expect(replayRes.status).toBe(409);
+
+    // Expired >60s v2 timestamp must return 400
+    const oldTs = Date.now() - 90 * 1000;
+    const oldEnv = await encryptFingerprintEnvelope({
+      publicKey: testSite.publicKey,
+      ts: oldTs,
+      nonce: `nonce_old_${oldTs}`,
+      origin,
+      payload: { fullHash, hardwareHash, components: {} },
+    });
+    const expiredRes = await fingerprintPOST(
+      new Request("http://localhost:3000/api/v1/fingerprint", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          "X-BloumeID-Key": testSite.publicKey,
+        },
+        body: JSON.stringify(oldEnv),
+      })
+    );
+    expect(expiredRes.status).toBe(400);
   });
 });
