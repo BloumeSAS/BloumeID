@@ -29,17 +29,26 @@ function loadUmdBundle(): { content: string; etag: string } {
   return { content: fallback, etag };
 }
 
+function matchesEtag(ifNoneMatch: string | null, etag: string): boolean {
+  if (!ifNoneMatch) return false;
+  if (ifNoneMatch.trim() === "*") return true;
+  return ifNoneMatch
+    .split(",")
+    .some((part) => part.trim().replace(/^W\//i, "") === etag);
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   const { content, etag } = loadUmdBundle();
   const ifNoneMatch = request.headers.get("if-none-match");
 
-  if (ifNoneMatch && ifNoneMatch === etag) {
+  if (matchesEtag(ifNoneMatch, etag)) {
     return new NextResponse(null, {
       status: 304,
       headers: {
         ETag: etag,
         "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
         "Access-Control-Allow-Origin": "*",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   }
@@ -51,6 +60,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       ETag: etag,
       "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
       "Access-Control-Allow-Origin": "*",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }
