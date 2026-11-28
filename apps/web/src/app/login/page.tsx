@@ -34,7 +34,7 @@ export default function LoginPage() {
       if (res.ok) {
         const params = new URLSearchParams(window.location.search);
         const target = sanitizeInternalRedirect(
-          params.get("redirect") ?? params.get("callbackUrl")
+          params.get("next") ?? params.get("redirect") ?? params.get("callbackUrl")
         );
         router.push(target);
         router.refresh();

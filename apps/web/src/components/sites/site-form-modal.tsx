@@ -66,6 +66,16 @@ export function SiteFormModal({ open, onOpenChange, onCreated }: SiteFormModalPr
       .map((d) => d.trim())
       .filter(Boolean);
 
+    if (domains.length === 0) {
+      setErrorMsg(dict.sites.allowedDomains);
+      setSubmitting(false);
+      return;
+    }
+
+    const safeThreshold = Number.isFinite(riskThreshold)
+      ? Math.max(0, Math.min(5, Math.round(riskThreshold)))
+      : 3;
+
     try {
       const res = await fetch("/api/admin/sites", {
         method: "POST",
@@ -74,7 +84,7 @@ export function SiteFormModal({ open, onOpenChange, onCreated }: SiteFormModalPr
           name: name.trim(),
           domains,
           webhookUrl: webhookUrl.trim() ? webhookUrl.trim() : null,
-          riskThreshold,
+          riskThreshold: safeThreshold,
           config,
         }),
       });
@@ -173,14 +183,17 @@ export function SiteFormModal({ open, onOpenChange, onCreated }: SiteFormModalPr
             <TabsContent value="security" className="space-y-3 pt-3">
               <div className="space-y-1.5">
                 <Label htmlFor="shared-site-threshold">{dict.sites.riskThreshold}</Label>
-                <Input
-                  id="shared-site-threshold"
-                  type="number"
-                  min={0}
-                  max={5}
-                  value={riskThreshold}
-                  onChange={(e) => setRiskThreshold(Number(e.target.value))}
-                />
+                  <Input
+                    id="shared-site-threshold"
+                    type="number"
+                    min={0}
+                    max={5}
+                    value={riskThreshold}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setRiskThreshold(Number.isFinite(val) ? Math.max(0, Math.min(5, Math.round(val))) : 3);
+                    }}
+                  />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="shared-site-webhook">{dict.sites.webhookUrl}</Label>

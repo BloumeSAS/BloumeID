@@ -153,14 +153,23 @@ export default function SitesPage() {
       .split(",")
       .map((d) => d.trim())
       .filter(Boolean);
-    await handlePatchSite(configModalSite.publicId, {
+    if (domains.length === 0) {
+      setToast(dict.sites.allowedDomains);
+      return;
+    }
+    const safeThreshold = Number.isFinite(editThreshold)
+      ? Math.max(0, Math.min(5, Math.round(editThreshold)))
+      : 3;
+    const updated = await handlePatchSite(configModalSite.publicId, {
       name: editName.trim(),
       domains,
       webhookUrl: editWebhook.trim() ? editWebhook.trim() : null,
-      riskThreshold: editThreshold,
+      riskThreshold: safeThreshold,
       isActive: editIsActive,
     });
-    closeConfigModal();
+    if (updated) {
+      closeConfigModal();
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -645,7 +654,10 @@ if (verified.dangerLevel >= ${sdkModalSite.riskThreshold} || verified.flags.isBo
                   min={0}
                   max={5}
                   value={editThreshold}
-                  onChange={(e) => setEditThreshold(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setEditThreshold(Number.isFinite(val) ? Math.max(0, Math.min(5, Math.round(val))) : 3);
+                  }}
                 />
               </div>
             </div>
