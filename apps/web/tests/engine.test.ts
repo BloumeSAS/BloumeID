@@ -44,13 +44,18 @@ import {
 import { dispatchSignedWebhook, shouldTriggerWebhook } from "../src/lib/engine/webhooks";
 import { reconcileVisitorIdentity } from "../src/lib/engine/reconcile";
 import {
+  createSecurityRule,
   createSiteRecord,
   findSiteByPublicKey,
   getDashboardMetrics,
   getReconciliationStore,
+  listFingerprintEvents,
   listFingerprintEventsPaginated,
+  listSecurityRules,
   listSites,
+  listVisitors,
   listVisitorsPaginated,
+  recordFingerprintEvent,
 } from "../src/lib/engine/repository";
 import { POST as fingerprintPOST } from "../src/app/api/v1/fingerprint/route";
 import { POST as eventsPOST } from "../src/app/api/v1/events/route";
@@ -890,5 +895,124 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     });
     expect(second.visitorPublicId).toBe(first.visitorPublicId);
     expect(second.matchType).toBe("exact_full_hash");
+  });
+
+  it("filters events, visitors and security rules accurately per site and threat vector", async () => {
+    const siteA = await createSiteRecord({ name: "Audit Site A", domains: ["audit-a.example.com"] });
+    const siteB = await createSiteRecord({ name: "Audit Site B", domains: ["audit-b.example.com"] });
+    const internalSiteA = await findSiteByPublicKey(siteA.publicKey);
+    const internalSiteB = await findSiteByPublicKey(siteB.publicKey);
+    expect(internalSiteA).not.toBeNull();
+    expect(internalSiteB).not.toBeNull();
+
+    await recordFingerprintEvent({
+      publicId: "req_audit_bot_1",
+      siteId: internalSiteA!.id,
+      visitorId: 910001,
+      fullHash: "fh_audit_bot_1",
+      hardwareHash: "hw_audit_bot_1",
+      ipAddress: "203.0.113.10",
+      ipSubnet: "203.0.113.0/24",
+      ja4Hash: null,
+      asnNumber: 64500,
+      asnOrg: "Audit Bot Net",
+      country: "FR",
+      city: "Paris",
+      latitude: 48.85,
+      longitude: 2.35,
+      isVpn: false,
+      isProxy: false,
+      isTor: false,
+      isDatacenter: true,
+      isBot: true,
+      isSpoofed: false,
+      isIncognito: false,
+      crossBrowserMatched: false,
+      dangerLevel: 4,
+      confidence: 0.92,
+      durationMs: 12,
+      ruleAction: "block",
+      matchedRuleId: null,
+      linkedId: "usr_audit_bot",
+      tag: null,
+      browser: "Chrome",
+      os: "Linux",
+      device: "Desktop",
+      userAgent: "HeadlessChrome/130.0",
+      origin: "https://audit-a.example.com",
+      components: {} as never,
+    });
+
+    await recordFingerprintEvent({
+      publicId: "req_audit_clean_2",
+      siteId: internalSiteB!.id,
+      visitorId: 910002,
+      fullHash: "fh_audit_clean_2",
+      hardwareHash: "hw_audit_clean_2",
+      ipAddress: "203.0.113.20",
+      ipSubnet: "203.0.113.0/24",
+      ja4Hash: null,
+      asnNumber: 64501,
+      asnOrg: "Residential ISP",
+      country: "FR",
+      city: "Lyon",
+      latitude: 45.75,
+      longitude: 4.85,
+      isVpn: false,
+      isProxy: false,
+      isTor: false,
+      isDatacenter: false,
+      isBot: false,
+      isSpoofed: false,
+      isIncognito: false,
+      crossBrowserMatched: false,
+      dangerLevel: 0,
+      confidence: 0.99,
+      durationMs: 5,
+      ruleAction: "allow",
+      matchedRuleId: null,
+      linkedId: "usr_audit_clean",
+      tag: null,
+      browser: "Firefox",
+      os: "Windows",
+      device: "Desktop",
+      userAgent: "Mozilla/5.0",
+      origin: "https://audit-b.example.com",
+      components: {} as never,
+    });
+
+    const botEvents = await listFingerprintEvents({
+      sitePublicId: siteA.publicId,
+      vector: "bot",
+      minDanger: 3,
+      linkedId: "usr_audit_bot",
+    });
+    expect(botEvents.length).toBeGreaterThanOrEqual(1);
+    expect(botEvents.every((e) => e.sitePublicId === siteA.publicId && e.isBot && e.dangerLevel >= 3)).toBe(true);
+
+    const ruleA = await createSecurityRule({
+      sitePublicId: siteA.publicId,
+      name: "Site A Block Rule",
+      action: "block",
+      conditions: [{ field: "isBot", operator: "eq", value: true }],
+    });
+    const ruleGlobal = await createSecurityRule({
+      sitePublicId: null,
+      name: "Global Challenge Rule",
+      action: "challenge",
+      conditions: [{ field: "isTor", operator: "eq", value: true }],
+    });
+    const rulesForB = await listSecurityRules(siteB.publicId);
+    expect(rulesForB.some((r) => r.publicId === ruleGlobal.publicId)).toBe(true);
+    expect(rulesForB.some((r) => r.publicId === ruleA.publicId)).toBe(false);
+
+    const highRiskVisitors = await listVisitors({
+      onlyHighRisk: true,
+    });
+    expect(highRiskVisitors.every((v) => v.maxDangerLevel >= 3)).toBe(true);
+    const visitorsForEmptySite = await listVisitors({
+      sitePublicId: siteB.publicId,
+    });
+    expect(visitorsForEmptySite).toEqual([]);
   });
 });
