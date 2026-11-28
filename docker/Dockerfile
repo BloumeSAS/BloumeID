@@ -6,6 +6,8 @@
 FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_FUND=false
 RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 RUN apk add --no-cache libc6-compat openssl curl
 
@@ -41,6 +43,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_FUND=false
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 

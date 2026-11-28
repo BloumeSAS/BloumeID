@@ -71,7 +71,7 @@ const PROTECTED_PATHS = [
   "/guides",
 ];
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   if (
@@ -128,6 +128,6 @@ export const config = {
     "/security/:path*",
     "/usage/:path*",
     "/migrate/:path*",
+    "/guides/:path*",
   ],
 };
-
