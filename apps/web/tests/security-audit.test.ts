@@ -520,5 +520,18 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(badRule.status).toBe(400);
     expect(badRule.headers.get("Cache-Control")).toBe("no-store");
   });
+
+  it("enforces Cache-Control: no-store on POST /api/v1/preview", async () => {
+    const { POST: previewPOST } = await import("../src/app/api/v1/preview/route");
+    const badRes = await previewPOST(
+      new Request("http://localhost:3000/api/v1/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullHash: "short" }),
+      })
+    );
+    expect(badRes.status).toBe(400);
+    expect(badRes.headers.get("Cache-Control")).toBe("no-store");
+  });
 });
 

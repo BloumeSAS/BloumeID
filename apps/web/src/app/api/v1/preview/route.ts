@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { FingerprintComponents } from "@bloume/id";
 import { APP_VERSION, APP_VERSION_TAG } from "@/lib/version";
-import { parseSafeJsonBody } from "@/lib/security";
+import { NO_STORE_HEADERS, parseSafeJsonBody } from "@/lib/security";
 import { generateSnowflakeId } from "@/lib/engine/snowflake";
 import {
   detectTorBrowserFromComponents,
@@ -38,17 +38,26 @@ export async function POST(request: Request): Promise<NextResponse> {
     maxRequests: 60,
   });
   if (!ipLimit.allowed) {
-    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      { status: 429, headers: NO_STORE_HEADERS }
+    );
   }
 
   const bodyResult = await parseSafeJsonBody(request);
   if (!bodyResult.ok) {
-    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+    return NextResponse.json(
+      { error: bodyResult.error },
+      { status: bodyResult.status, headers: NO_STORE_HEADERS }
+    );
   }
 
   const parsed = PreviewPayloadSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Validation failed" },
+      { status: 400, headers: NO_STORE_HEADERS }
+    );
   }
 
   const payload = parsed.data;
@@ -154,6 +163,6 @@ export async function POST(request: Request): Promise<NextResponse> {
         collectorCount: 104,
       },
     },
-    { status: 200 }
+    { status: 200, headers: NO_STORE_HEADERS }
   );
 }

@@ -13,12 +13,16 @@ export function CollapsibleJsonViewer({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(defaultExpanded);
-  const formatted = React.useMemo(() => JSON.stringify(data, null, 2), [data]);
+  const formatted = React.useMemo(
+    () => (expanded ? JSON.stringify(data ?? null, null, 2) : ""),
+    [data, expanded]
+  );
 
   return (
     <div className="rounded-lg border border-border bg-secondary/30">
       <button
         type="button"
+        aria-expanded={expanded}
         onClick={() => setExpanded((prev) => !prev)}
         className="flex w-full items-center justify-between px-4 py-2.5 text-left text-xs font-semibold text-foreground hover:bg-secondary/50"
       >
