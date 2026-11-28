@@ -1,19 +1,10 @@
 import dns from "node:dns/promises";
 import { isIP } from "node:net";
+import { ipv6ToBigInt } from "./network";
 import { signHmacSha256 } from "./snowflake";
 
-function parseIpv4MappedHex(cleanIpv6: string): string | null {
-  if (!cleanIpv6.startsWith("::ffff:")) return null;
-  const suffix = cleanIpv6.slice(7);
-  if (isIP(suffix) === 4) return suffix;
-  const hexParts = suffix.split(":");
-  if (hexParts.length !== 2) return null;
-  const hi = Number.parseInt(hexParts[0] ?? "", 16);
-  const lo = Number.parseInt(hexParts[1] ?? "", 16);
-  if (!Number.isFinite(hi) || !Number.isFinite(lo) || hi < 0 || hi > 0xffff || lo < 0 || lo > 0xffff) {
-    return null;
-  }
-  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+function uint32ToIpv4String(ipNum: number): string {
+  return `${(ipNum >>> 24) & 0xff}.${(ipNum >>> 16) & 0xff}.${(ipNum >>> 8) & 0xff}.${ipNum & 0xff}`;
 }
 
 function isPrivateOrReservedIp(host: string): boolean {
@@ -43,12 +34,22 @@ function isPrivateOrReservedIp(host: string): boolean {
     return false;
   }
   if (ipVersion === 6) {
-    if (clean === "::1" || clean === "::" || /^(0+:)+0*[01]$/.test(clean)) return true;
-    if (/^fe[89ab]/.test(clean) || clean.startsWith("fc") || clean.startsWith("fd")) return true;
-    if (clean.startsWith("ff") || clean.startsWith("2001:db8:")) return true;
-    const mappedV4 = parseIpv4MappedHex(clean);
-    if (mappedV4) {
-      return isPrivateOrReservedIp(mappedV4);
+    const v6 = ipv6ToBigInt(clean);
+    if (v6 === null) return true;
+    if (v6 === 0n || v6 === 1n) return true; // :: and ::1
+    if ((v6 >> 121n) === 0x7en) return true; // fc00::/7 ULA
+    if ((v6 >> 118n) === 0x3fan) return true; // fe80::/10 link-local
+    if ((v6 >> 120n) === 0xffn) return true; // ff00::/8 multicast
+    if ((v6 >> 96n) === 0x20010db8n) return true; // 2001:db8::/32 documentation
+
+    // IPv4-mapped (::ffff:0:0/96), IPv4-compatible (::/96), and NAT64 (64:ff9b::/96)
+    const upper96 = v6 >> 32n;
+    const isEmbeddedV4 =
+      upper96 === 0xffffn ||
+      upper96 === 0n ||
+      ((v6 >> 96n) === 0x0064ff9bn && ((v6 >> 32n) & 0xffffffffffffffffn) === 0n);
+    if (isEmbeddedV4) {
+      return isPrivateOrReservedIp(uint32ToIpv4String(Number(v6 & 0xffffffffn) >>> 0));
     }
     return false;
   }
@@ -147,7 +148,7 @@ export async function dispatchSignedWebhook(params: {
   if (!params.fetchImpl && isIP(check.url.hostname) === 0) {
     try {
       const resolved = await dns.lookup(check.url.hostname, { all: true });
-      if (resolved.some((entry) => isPrivateOrReservedIp(entry.address))) {
+      if (resolved.length === 0 || resolved.some((entry) => isPrivateOrReservedIp(entry.address))) {
         return { delivered: false, attempts: 0 };
       }
     } catch {
@@ -187,7 +188,9 @@ export async function dispatchSignedWebhook(params: {
       if (res.ok) {
         return { delivered: true, attempts: attempt, statusCode: res.status };
       }
-      if (res.status >= 300 && res.status < 400) {
+      if (
+        (res.status >= 300 && res.status < 500 && res.status !== 408 && res.status !== 429)
+      ) {
         return { delivered: false, attempts: attempt, statusCode: res.status };
       }
     } catch {

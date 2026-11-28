@@ -45,6 +45,7 @@ class MemoryFallbackCache {
         if (active.length === 0) this.zsets.delete(k);
         else this.zsets.set(k, active);
       }
+      if (this.zsets.size > 10_000) this.zsets.clear();
     }
     const list = (this.zsets.get(key) ?? []).filter((item) => item.score > minScore);
     list.push({ score: now, member: `${now}-${crypto.randomUUID()}` });
@@ -61,6 +62,7 @@ class MemoryFallbackCache {
       for (const [k, v] of this.sets) {
         if (v.expiresAt <= now) this.sets.delete(k);
       }
+      if (this.sets.size > 10_000) this.sets.clear();
     }
     let entry = this.sets.get(key);
     if (!entry || entry.expiresAt <= now) {
