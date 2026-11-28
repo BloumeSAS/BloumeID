@@ -105,13 +105,15 @@ export function extractIpSubnet(ip: string): string {
 
 export function extractRealClientIp(
   headers: Headers,
-  trustedProxiesEnv = process.env.TRUSTED_PROXIES ?? "true"
+  trustedProxiesEnv = process.env.TRUSTED_PROXIES ?? process.env.TRUSTED_PROXY_HEADERS ?? "true"
 ): string {
+  const normalized = trustedProxiesEnv.trim().toLowerCase();
   const trustProxy =
-    trustedProxiesEnv === "true" ||
-    trustedProxiesEnv === "1" ||
-    trustedProxiesEnv === "*" ||
-    trustedProxiesEnv.length > 0;
+    normalized.length > 0 &&
+    normalized !== "false" &&
+    normalized !== "0" &&
+    normalized !== "no" &&
+    normalized !== "off";
 
   if (trustProxy) {
     const cfIp = headers.get("cf-connecting-ip")?.trim();
@@ -140,6 +142,9 @@ export function isOriginAllowedForSite(originHeader: string | null, allowedDomai
     // Allow same-origin / non-browser requests only if localhost is permitted
     return allowedDomains.some((d) => d === "localhost" || d === "127.0.0.1");
   }
+  if (originHeader.trim().toLowerCase() === "null") {
+    return false;
+  }
 
   let hostname = "";
   try {
@@ -158,6 +163,7 @@ export function isOriginAllowedForSite(originHeader: string | null, allowedDomai
     if (pattern === hostname) return true;
     if (pattern.startsWith("*.")) {
       const suffix = pattern.slice(2);
+      if (!suffix) continue;
       if (hostname === suffix || hostname.endsWith(`.${suffix}`)) {
         return true;
       }
