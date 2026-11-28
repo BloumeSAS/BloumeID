@@ -23,7 +23,12 @@ class MemoryFallbackCache {
       for (const [k, v] of this.kv) {
         if (v.expiresAt <= now) this.kv.delete(k);
       }
-      if (this.kv.size > 10_000) this.kv.clear();
+      if (this.kv.size > 10_000) {
+        for (const k of this.kv.keys()) {
+          this.kv.delete(k);
+          if (this.kv.size <= 9_000) break;
+        }
+      }
     }
     const existing = this.kv.get(key);
     if (existing && existing.expiresAt > now) {
@@ -69,7 +74,9 @@ class MemoryFallbackCache {
       entry = { members: new Set<string>(), expiresAt: now + ttlSeconds * 1000 };
       this.sets.set(key, entry);
     }
-    entry.members.add(member);
+    if (entry.members.size < 5_000) {
+      entry.members.add(member);
+    }
     return entry.members.size;
   }
 
@@ -142,7 +149,11 @@ export async function checkSlidingWindowRateLimit(params: {
       multi.zcard(redisKey);
       multi.expire(redisKey, params.windowSeconds + 5);
       const res = await multi.exec();
-      const count = Number(res?.[2]?.[1] ?? 1);
+      const cardTuple = res?.[2];
+      if (!res || !cardTuple || cardTuple[0] || typeof cardTuple[1] !== "number") {
+        throw new Error("Redis rate-limit exec failure");
+      }
+      const count = cardTuple[1];
       return {
         allowed: count <= params.maxRequests,
         currentCount: count,
@@ -216,9 +227,17 @@ export async function recordAndCheckVelocity(params: {
       }
 
       const results = await pipeline.exec();
-      visitorsPerIp10m = Number(results?.[2]?.[1] ?? 1);
+      const ipTuple = results?.[2];
+      if (!results || !ipTuple || ipTuple[0] || typeof ipTuple[1] !== "number") {
+        throw new Error("Redis velocity exec failure");
+      }
+      visitorsPerIp10m = ipTuple[1];
       if (params.country) {
-        countriesPerVisitor1h = Number(results?.[5]?.[1] ?? 1);
+        const geoTuple = results[5];
+        if (!geoTuple || geoTuple[0] || typeof geoTuple[1] !== "number") {
+          throw new Error("Redis geo velocity exec failure");
+        }
+        countriesPerVisitor1h = geoTuple[1];
       }
       return {
         visitorsPerIp10m,
