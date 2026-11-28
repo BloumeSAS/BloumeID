@@ -1659,36 +1659,37 @@ export async function updateSecurityRule(
   ensureFeedsInitialized();
   if (await isDatabaseConnected()) {
     try {
-      const existing = await prisma.securityRule.findUnique({
+      const data: {
+        isEnabled?: boolean;
+        action?: SecurityRuleAction;
+        priority?: number;
+        hitCount?: { increment: number };
+      } = {};
+      if (input.isEnabled !== undefined) data.isEnabled = input.isEnabled;
+      if (input.action !== undefined) data.action = input.action;
+      if (input.priority !== undefined) data.priority = input.priority;
+      if (input.incrementHit) data.hitCount = { increment: 1 };
+
+      const updated = await prisma.securityRule.update({
         where: { publicId: rulePublicId },
+        data,
+        include: { site: true },
       });
-      if (existing) {
-        const updated = await prisma.securityRule.update({
-          where: { publicId: rulePublicId },
-          data: {
-            isEnabled: input.isEnabled ?? existing.isEnabled,
-            action: input.action ?? existing.action,
-            priority: input.priority ?? existing.priority,
-            ...(input.incrementHit ? { hitCount: { increment: 1 } } : {}),
-          },
-          include: { site: true },
-        });
-        return {
-          publicId: updated.publicId,
-          sitePublicId: updated.site?.publicId ?? null,
-          name: updated.name,
-          description: updated.description,
-          action: (updated.action as SecurityRuleAction) ?? "block",
-          conditions: (updated.conditions as unknown as SecurityRuleCondition[]) ?? [],
-          priority: updated.priority,
-          isEnabled: updated.isEnabled,
-          hitCount: updated.hitCount,
-          createdAt: updated.createdAt.toISOString(),
-          updatedAt: updated.updatedAt.toISOString(),
-        };
-      }
+      return {
+        publicId: updated.publicId,
+        sitePublicId: updated.site?.publicId ?? null,
+        name: updated.name,
+        description: updated.description,
+        action: (updated.action as SecurityRuleAction) ?? "block",
+        conditions: (updated.conditions as unknown as SecurityRuleCondition[]) ?? [],
+        priority: updated.priority,
+        isEnabled: updated.isEnabled,
+        hitCount: updated.hitCount,
+        createdAt: updated.createdAt.toISOString(),
+        updatedAt: updated.updatedAt.toISOString(),
+      };
     } catch {
-      // Fallback
+      return null;
     }
   }
 
@@ -1805,6 +1806,9 @@ export async function recordWebhookDelivery(input: {
     createdAt: new Date(),
   };
   memWebhookDeliveries.unshift(item);
+  if (memWebhookDeliveries.length > 500) {
+    memWebhookDeliveries.length = 500;
+  }
   return {
     publicId: item.publicId,
     sitePublicId: site?.publicId ?? input.sitePublicId,
@@ -1909,30 +1913,18 @@ export async function getDashboardMetrics(
   ]);
 
   const totalEvents = eventsList.length;
-  const uniqueVisitors = new Set(eventsList.map((e) => e.visitorPublicId)).size;
-  const highRiskDetections = eventsList.filter((e) => e.dangerLevel >= 3).length;
-  const botOrSpoofCount = eventsList.filter((e) => e.isBot || e.isSpoofed).length;
-  const botSpoofRate = totalEvents > 0 ? Math.round((botOrSpoofCount / totalEvents) * 100) : 0;
-  const crossBrowserMatches = eventsList.filter((e) => e.crossBrowserMatched).length;
-  const vpnTorCount = eventsList.filter((e) => e.isVpn || e.isTor || e.isProxy).length;
-  const vpnSharePercent = totalEvents > 0 ? Math.round((vpnTorCount / totalEvents) * 100) : 0;
-  const returnRatePercent =
-    totalEvents > uniqueVisitors && totalEvents > 0
-      ? Math.round(((totalEvents - uniqueVisitors) / totalEvents) * 100)
-      : 0;
-
   const prevTotalEvents = prevEventsList.length;
-  const prevUniqueVisitors = new Set(prevEventsList.map((e) => e.visitorPublicId)).size;
-  const prevHighRisk = prevEventsList.filter((e) => e.dangerLevel >= 3).length;
+  const prevVisitorIds = new Set<string>();
+  let prevHighRisk = 0;
+  let prevBotOrSpoof = 0;
+  for (const evt of prevEventsList) {
+    prevVisitorIds.add(evt.visitorPublicId);
+    if (evt.dangerLevel >= 3) prevHighRisk += 1;
+    if (evt.isBot || evt.isSpoofed) prevBotOrSpoof += 1;
+  }
+  const prevUniqueVisitors = prevVisitorIds.size;
   const prevBotRate =
-    prevTotalEvents > 0
-      ? Math.round((prevEventsList.filter((e) => e.isBot || e.isSpoofed).length / prevTotalEvents) * 100)
-      : 0;
-
-  const totalEventsDelta = computePercentDelta(totalEvents, prevTotalEvents);
-  const uniqueVisitorsDelta = computePercentDelta(uniqueVisitors, prevUniqueVisitors);
-  const highRiskDelta = computePercentDelta(highRiskDetections, prevHighRisk);
-  const botSpoofDelta = computePercentDelta(botSpoofRate, prevBotRate);
+    prevTotalEvents > 0 ? Math.round((prevBotOrSpoof / prevTotalEvents) * 100) : 0;
 
   const nowMs = Date.now();
   const bucketCount = bucketUnit === "minute" ? 12 : bucketUnit === "hour" ? 6 : normalizedPeriod === "7d" ? 7 : 10;
@@ -1962,7 +1954,12 @@ export async function getDashboardMetrics(
   const platformCounts = new Map<string, number>();
   const countryMap = new Map<string, { code: string; asn: string; count: number }>();
   const asnMap = new Map<number, { asnNumber: number; asnOrg: string; count: number; isRisk: boolean }>();
+  const visitorIds = new Set<string>();
 
+  let highRiskDetections = 0;
+  let botOrSpoofCount = 0;
+  let crossBrowserMatches = 0;
+  let vpnTorCount = 0;
   let botCount = 0;
   let spoofCount = 0;
   let vpnProxyCount = 0;
@@ -1974,6 +1971,12 @@ export async function getDashboardMetrics(
   const sinceMs = since.getTime();
 
   for (const evt of eventsList) {
+    visitorIds.add(evt.visitorPublicId);
+    if (evt.dangerLevel >= 3) highRiskDetections += 1;
+    if (evt.isBot || evt.isSpoofed) botOrSpoofCount += 1;
+    if (evt.crossBrowserMatched) crossBrowserMatches += 1;
+    if (evt.isVpn || evt.isTor || evt.isProxy) vpnTorCount += 1;
+
     const evtMs = new Date(evt.createdAt).getTime();
     const rawIdx = Math.floor((evtMs - sinceMs) / bucketMs);
     const bucketIdx = Math.max(0, Math.min(bucketCount - 1, rawIdx));
@@ -2035,6 +2038,19 @@ export async function getDashboardMetrics(
       }
     }
   }
+
+  const uniqueVisitors = visitorIds.size;
+  const botSpoofRate = totalEvents > 0 ? Math.round((botOrSpoofCount / totalEvents) * 100) : 0;
+  const vpnSharePercent = totalEvents > 0 ? Math.round((vpnTorCount / totalEvents) * 100) : 0;
+  const returnRatePercent =
+    totalEvents > uniqueVisitors && totalEvents > 0
+      ? Math.round(((totalEvents - uniqueVisitors) / totalEvents) * 100)
+      : 0;
+
+  const totalEventsDelta = computePercentDelta(totalEvents, prevTotalEvents);
+  const uniqueVisitorsDelta = computePercentDelta(uniqueVisitors, prevUniqueVisitors);
+  const highRiskDelta = computePercentDelta(highRiskDetections, prevHighRisk);
+  const botSpoofDelta = computePercentDelta(botSpoofRate, prevBotRate);
 
   const vectorDistribution = [
     { vector: "Bot / CDP", count: botCount },
@@ -2146,13 +2162,13 @@ export async function listThreatFeedStatuses(): Promise<PublicThreatFeedDTO[]> {
     }
   }
 
-  return THREAT_FEEDS.map((feed) => {
+  return THREAT_FEEDS.map((feed, idx) => {
     const dbEntry = dbRowsByFeed.get(feed.feedName);
     if (dbEntry) return dbEntry;
     const memEntry = memFeeds.get(feed.feedName);
     if (memEntry) return memEntry;
     return {
-      publicId: generateSnowflakeId("feed"),
+      publicId: `feed_${idx + 1}`,
       feedName: feed.feedName,
       recordCount: feed.fallbackCidrs.length + (feed.fallbackAsns?.length ?? 0),
       lastSyncedAt: null,
