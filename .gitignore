@@ -58,3 +58,10 @@ Thumbs.db
 .history/
 HISTORY.md
 
+# Studio Motion Graphics local & rendus vidéo/audio (ne jamais pousser sur GitHub)
+motion-graphics/
+renders/
+**/*.mp4
+**/*.wav
+**/*.mp3
+
