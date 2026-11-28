@@ -923,6 +923,7 @@ export async function listFingerprintEventsPaginated(filters?: {
         crossBrowserMatched: evt.crossBrowserMatched,
         dangerLevel: evt.dangerLevel,
         confidence: evt.confidence,
+        durationMs: evt.durationMs ?? 0,
         ruleAction: (evt.ruleAction as SecurityRuleAction) ?? "allow",
         matchedRuleId: evt.matchedRuleId ?? null,
         linkedId: evt.linkedId ?? null,
@@ -936,9 +937,7 @@ export async function listFingerprintEventsPaginated(filters?: {
         createdAt: evt.createdAt.toISOString(),
       }));
 
-      if (items.length > 0) {
-        return { items, pagination: computePaginationMeta(page, pageSize, Math.max(totalItems, items.length)) };
-      }
+      return { items, pagination: computePaginationMeta(page, pageSize, Math.max(totalItems, items.length)) };
     } catch {
       // Fallback to memory
     }
@@ -1398,9 +1397,7 @@ export async function listVisitorsPaginated(filters?: {
         notes: v.notes,
       }));
 
-      if (items.length > 0) {
-        return { items, pagination: computePaginationMeta(page, pageSize, Math.max(totalItems, items.length)) };
-      }
+      return { items, pagination: computePaginationMeta(page, pageSize, Math.max(totalItems, items.length)) };
     } catch {
       // Fallback
     }
