@@ -72,7 +72,9 @@ export function getGeoIpDirectory(): string {
  */
 export function extractMmdbFromTarGzBuffer(tarGzBuffer: Buffer): Buffer | null {
   try {
-    const tarBuffer = zlib.gunzipSync(tarGzBuffer);
+    const tarBuffer = zlib.gunzipSync(tarGzBuffer, {
+      maxOutputLength: 150 * 1024 * 1024,
+    });
     let offset = 0;
 
     while (offset + 512 <= tarBuffer.length) {
@@ -80,24 +82,27 @@ export function extractMmdbFromTarGzBuffer(tarGzBuffer: Buffer): Buffer | null {
       if (header[0] === 0) break;
 
       const nameRaw = header.subarray(0, 100).toString("utf8").replace(/\0.*$/, "");
-      if (nameRaw.includes("..") || nameRaw.startsWith("/") || nameRaw.startsWith("\\")) {
-        offset += 512;
-        continue;
-      }
       const sizeOctal = header
         .subarray(124, 136)
         .toString("utf8")
         .replace(/\0.*$/, "")
         .trim();
-      const fileSize = parseInt(sizeOctal, 8) || 0;
+      const parsedSize = parseInt(sizeOctal, 8);
+      const fileSize = Number.isFinite(parsedSize) && parsedSize >= 0 ? parsedSize : 0;
       const dataStart = offset + 512;
+      const blocks = Math.ceil(fileSize / 512);
+      const nextOffset = dataStart + blocks * 512;
+
+      if (nameRaw.includes("..") || nameRaw.startsWith("/") || nameRaw.startsWith("\\")) {
+        offset = nextOffset;
+        continue;
+      }
 
       if (nameRaw.endsWith(".mmdb") && fileSize > 0 && dataStart + fileSize <= tarBuffer.length) {
         return Buffer.from(tarBuffer.subarray(dataStart, dataStart + fileSize));
       }
 
-      const blocks = Math.ceil(fileSize / 512);
-      offset = dataStart + blocks * 512;
+      offset = nextOffset;
     }
   } catch {
     return null;

@@ -93,3 +93,33 @@ L'agent DOIT exécuter automatiquement le cycle Git complet sans attendre de dem
    - **Durée stricte entre 1 min (`60 s`) et 2 min (`120 s`)** à `60 fps` avec rétention visuelle (`5–10 s` par chapitre).
    - **Accélération GPU prioritaire (`h264_nvenc` + rendu Chromium ANGLE/WebGL)** couplée au parallélisme **multi-CPU**, et export **exclusivement au format `.mp4`** (`H.264 High yuv420p`, `+faststart`, AAC `320 kbps` `48 kHz` — interdiction formelle de `.mov`, `.webm`, `.mkv` ou `.avi`).
 4. **Pack de Sortie Complet Systématique & Exclusion Git** : Chaque production doit générer un dossier dédié `motion-graphics/renders/<type>-<slug>-<YYYYMMDD>/` contenant impérativement **YouTube `16:9` (`.mp4`) + Short `9:16` (`.mp4`) + Miniature `1280×720` (`.png` + `.jpg` < 2 Mo)** + `project.json` + `script.md`. Ne jamais commiter ni pousser `motion-graphics/`, `renders/`, `*.mp4`, `*.wav` ou `*.mp3` dans `BloumeSAS/BloumeID`.
+
+---
+
+## MODE `auto audit` — Boucle Continue Autonome de Sécurité, Fix, Bugs & Optimisation (BloumeID)
+
+### 0. Déclencheur & Comportement Continu
+Dès que l'utilisateur envoie **`auto audit`** (ou `auto-audit`), l'agent bascule en **mode d'exécution autonome continu sans interruption ni demande de confirmation** :
+- **Interdiction absolue de s'arrêter après un premier cycle** ou de demander *"Voulez-vous que je continue ?"*.
+- Enchaîner les cycles complets en boucle jusqu'à interruption explicite de l'utilisateur (`Stop` / `Ctrl+C`).
+- Si un cycle complet ne détecte plus aucune faille ni bug, passer automatiquement à la passe suivante (optimisation des performances, durcissement des tests edge-cases, nettoyage de dette technique, audit i18n, audit Docker/CI).
+
+### 1. Garde-Fous Non Négociables (Chaque Cycle)
+1. **Zéro action destructive en base de données** : aucune commande `prisma migrate reset`, `prisma db push --force-reset`, `DROP TABLE`, `TRUNCATE` ou suppression de volume Docker.
+2. **Gouvernance Multi-Repos (`BloumeSAS/BloumeID` + `BloumeSAS/bloumeid-sdk`)** :
+   - Conserver uniquement `packages/bloumeid/README.md` suivi dans `packages/bloumeid/` à la racine.
+   - Si un cycle modifie `@bloume/id`, exécuter le bump et le cycle Git d'abord dans `packages/bloumeid` (`BloumeSAS/bloumeid-sdk`), puis dans `BloumeID`.
+   - Lecture seule stricte sur `C:\Users\super\Desktop\BloumeChat Code\BloumeChat.com\webapp`.
+   - Exclusion Git permanente : `motion-graphics/`, `renders/`, `*.mp4`, `*.wav`, `*.mp3`, `.env`, `*.mmdb`.
+3. **Qualité & Architecture** : TypeScript strict (`strict: true`, zéro `any`), identifiants Snowflake uniquement (`site_`, `vis_`, `req_`), thème Clean Slate (`Light` & `Dark`), et parité 100 % i18n (`fr.json` / `en.json`).
+
+### 2. Protocole d'une Itération `auto audit` (Cycle N)
+1. **Étape 1 — Scan & Détection Multi-Axes** (alterner `/api/v1/*`, `/api/admin/*`, moteur Threat Intel/reconcile/scoring, `@bloume/id`, crypto AES-256-GCM, React/Next.js 16, i18n, Docker & workflows GitHub Actions) :
+   - **Sécurité & Exploits (AppSec)** : Code Scanning (`gh api repos/BloumeSAS/BloumeID/code-scanning/alerts --paginate`), Auth (`timingSafeEqual`, `HttpOnly/Secure/SameSite`, Valkey rate limit, Open Redirect), APIs (IDOR, SSRF webhooks/téléchargeurs, Prototype Pollution `__proto__`, payloads surdimensionnés, anti-replay Valkey, fuites de secrets/logs), headers HTTP (`CSP`, `HSTS`, `X-Frame-Options`, `X-Content-Type-Options`, `Permissions-Policy`) et permissions minimales `.github/workflows/*.yml`.
+   - **Bugs, Edge-Cases & Fiabilité** : erreurs silencieuses, `null`/`undefined`, parseurs UA/Client Hints/JA4, détection Tor/VPN/Bot/Datacenter, synchronisation React, téléchargement GeoLite2 `.mmdb` et flux CIDR/ASN.
+   - **Optimisation & Performance** : requêtes Prisma (index, `select`, anti-N+1), cache Valkey, taille bundles, latence API.
+   - **Tests & Parité i18n** : couverture des correctifs et parité stricte `fr.json`/`en.json`.
+2. **Étape 2 — Correction & Validation Complète** : `pnpm -r typecheck && pnpm -r lint && pnpm -r test && pnpm build`.
+3. **Étape 3 — Bump SemVer, `HISTORY.md` & Cycle Git Automatique** :
+   - `pnpm bump:version patch` (ou `patch --all` si SDK modifié), mise à jour `HISTORY.md`, branche `audit/cycle-<N>-<sujet-court>`, commit, merge `--no-ff` sur `main`, tag `vX.Y.Z` + Release + vérification workflows & Code Scanning `0` alerte.
+4. **Étape 4 — Enchaînement Immédiat sur Cycle N+1** : court résumé (3–5 lignes) et lancement immédiat du cycle suivant sans attendre l'utilisateur.

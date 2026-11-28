@@ -3,7 +3,22 @@ import { NextResponse, type NextRequest } from "next/server";
 const ADMIN_SESSION_COOKIE = "bloumeid_admin_session";
 
 function getConfiguredMasterKey(): string {
-  return process.env.ADMIN_MASTER_KEY ?? "bloumeid_dev_master_key_2026";
+  return (process.env.ADMIN_MASTER_KEY ?? "bloumeid_dev_master_key_2026").trim();
+}
+
+async function sha256HexWebCrypto(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  const bytes = new Uint8Array(digest);
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) {
+    hex += (bytes[i] ?? 0).toString(16).padStart(2, "0");
+  }
+  return hex;
+}
+
+async function constantTimeSecretEqual(a: string, b: string): Promise<boolean> {
+  const [hashA, hashB] = await Promise.all([sha256HexWebCrypto(a), sha256HexWebCrypto(b)]);
+  return constantTimeHexEqual(hashA, hashB);
 }
 
 async function hmacSha256WebCrypto(secret: string, payload: string): Promise<string> {
@@ -83,7 +98,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const validCookie = await verifySessionTokenEdge(token);
     const headerKey = request.headers.get("x-admin-master-key")?.trim();
     const validHeader =
-      Boolean(headerKey) && constantTimeHexEqual(headerKey ?? "", getConfiguredMasterKey().trim());
+      Boolean(headerKey) && (await constantTimeSecretEqual(headerKey ?? "", getConfiguredMasterKey()));
 
     if (!validCookie && !validHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

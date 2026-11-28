@@ -6,13 +6,13 @@ export const ADMIN_SESSION_COOKIE = "bloumeid_admin_session";
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export function getConfiguredMasterKey(): string {
-  return process.env.ADMIN_MASTER_KEY ?? "bloumeid_dev_master_key_2026";
+  return (process.env.ADMIN_MASTER_KEY ?? "bloumeid_dev_master_key_2026").trim();
 }
 
 export function verifyMasterKey(candidateKey: string): boolean {
   const masterKey = getConfiguredMasterKey();
   if (!candidateKey || !masterKey) return false;
-  return constantTimeEqual(candidateKey.trim(), masterKey.trim());
+  return constantTimeEqual(candidateKey.trim(), masterKey);
 }
 
 export function createSignedAdminSessionToken(nowMs = Date.now()): string {

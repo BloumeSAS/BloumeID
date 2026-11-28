@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
+import { parseSafeJsonBody } from "@/lib/security";
 import {
   deleteSiteRecord,
   listSites,
@@ -60,13 +61,11 @@ export async function PATCH(
   if (!parsedId.success) {
     return NextResponse.json({ error: "Invalid site publicId" }, { status: 400 });
   }
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
-  const parsed = PatchSiteByIdSchema.safeParse(raw);
+  const parsed = PatchSiteByIdSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }

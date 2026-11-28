@@ -5,6 +5,7 @@ import {
   createSignedAdminSessionToken,
   verifyMasterKey,
 } from "@/lib/auth";
+import { parseSafeJsonBody } from "@/lib/security";
 import { extractRealClientIp } from "@/lib/engine/network";
 import { checkSlidingWindowRateLimit } from "@/lib/engine/redis";
 
@@ -29,14 +30,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request, 8 * 1024);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: "invalid_json" }, { status: bodyResult.status });
   }
 
-  const parsed = LoginSchema.safeParse(body);
+  const parsed = LoginSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json({ error: "validation_error" }, { status: 400 });
   }
