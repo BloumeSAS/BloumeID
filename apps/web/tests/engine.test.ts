@@ -48,6 +48,7 @@ import {
   createSiteRecord,
   findSiteByPublicKey,
   getDashboardMetrics,
+  getEventByPublicId,
   getReconciliationStore,
   listFingerprintEvents,
   listFingerprintEventsPaginated,
@@ -55,6 +56,7 @@ import {
   listSites,
   listVisitors,
   listVisitorsPaginated,
+  listWebhookDeliveries,
   recordFingerprintEvent,
 } from "../src/lib/engine/repository";
 import { POST as fingerprintPOST } from "../src/app/api/v1/fingerprint/route";
@@ -1014,5 +1016,13 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
       sitePublicId: siteB.publicId,
     });
     expect(visitorsForEmptySite).toEqual([]);
+
+    const foundEvent = await getEventByPublicId("req_audit_bot_1");
+    expect(foundEvent?.publicId).toBe("req_audit_bot_1");
+    expect(foundEvent?.sitePublicId).toBe(siteA.publicId);
+    expect(await getEventByPublicId("req_missing_cycle27")).toBeNull();
+
+    const deliveriesForA = await listWebhookDeliveries(siteA.publicId);
+    expect(deliveriesForA.every((d) => d.sitePublicId === siteA.publicId)).toBe(true);
   });
 });

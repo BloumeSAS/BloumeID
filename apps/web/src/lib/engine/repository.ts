@@ -631,7 +631,10 @@ export async function getEventByPublicId(
     try {
       const evt = await prisma.fingerprintEvent.findUnique({
         where: { publicId: requestId },
-        include: { site: true, visitor: true },
+        include: {
+          site: { select: { publicId: true } },
+          visitor: { select: { publicId: true } },
+        },
       });
       if (evt) {
         return {
@@ -1923,7 +1926,7 @@ export async function listWebhookDeliveries(
             : undefined,
         orderBy: { createdAt: "desc" },
         take: 25,
-        include: { site: true },
+        include: { site: { select: { publicId: true } } },
       });
       if (dbRows.length > 0 || memWebhookDeliveries.length === 0) {
         return dbRows.map((d) => ({
