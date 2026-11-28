@@ -204,14 +204,25 @@ function toPublicSiteDTO(
   plainSecret?: string,
   countsOverride?: { requests24h: number; requests30d: number }
 ): PublicSiteDTO {
-  const nowMs = Date.now();
-  const siteEvents = memEvents.filter((e) => e.siteId === site.id);
-  const requests24h =
-    countsOverride?.requests24h ??
-    siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 86400000).length;
-  const requests30d =
-    countsOverride?.requests30d ??
-    siteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 30 * 86400000).length;
+  let requests24h = countsOverride?.requests24h;
+  let requests30d = countsOverride?.requests30d;
+  if (requests24h === undefined || requests30d === undefined) {
+    const nowMs = Date.now();
+    let count24h = 0;
+    let count30d = 0;
+    for (const e of memEvents) {
+      if (e.siteId !== site.id) continue;
+      const ageMs = nowMs - e.createdAt.getTime();
+      if (ageMs <= 30 * 86400000) {
+        count30d += 1;
+        if (ageMs <= 86400000) {
+          count24h += 1;
+        }
+      }
+    }
+    requests24h = requests24h ?? count24h;
+    requests30d = requests30d ?? count30d;
+  }
   return {
     publicId: site.publicId,
     name: site.name,
@@ -1086,19 +1097,28 @@ export async function listSites(): Promise<PublicSiteDTO[]> {
       const map24h = new Map<number, number>(grouped24h.map((g) => [g.siteId, g._count._all]));
       const map30d = new Map<number, number>(grouped30d.map((g) => [g.siteId, g._count._all]));
 
-      return sites.map((s) => {
-        const memSiteEvents = memEvents.filter((e) => e.siteId === s.id);
-        const r24 = (map24h.get(s.id) ?? 0) + memSiteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 86400000).length;
-        const r30 = (map30d.get(s.id) ?? 0) + memSiteEvents.filter((e) => nowMs - e.createdAt.getTime() <= 30 * 86400000).length;
-        return toPublicSiteDTO(
+      if (memEvents.length > 0) {
+        for (const e of memEvents) {
+          const ageMs = nowMs - e.createdAt.getTime();
+          if (ageMs <= 30 * 86400000) {
+            map30d.set(e.siteId, (map30d.get(e.siteId) ?? 0) + 1);
+            if (ageMs <= 86400000) {
+              map24h.set(e.siteId, (map24h.get(e.siteId) ?? 0) + 1);
+            }
+          }
+        }
+      }
+
+      return sites.map((s) =>
+        toPublicSiteDTO(
           {
             ...s,
             config: (s.config as unknown as SiteCollectorsConfig) ?? DEFAULT_COLLECTORS,
           },
           undefined,
-          { requests24h: r24, requests30d: r30 }
-        );
-      });
+          { requests24h: map24h.get(s.id) ?? 0, requests30d: map30d.get(s.id) ?? 0 }
+        )
+      );
     }
   }
   return memSites.map((s) => toPublicSiteDTO(s));
