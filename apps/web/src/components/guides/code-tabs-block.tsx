@@ -27,6 +27,15 @@ export function CodeTabsBlock({
 }: CodeTabsBlockProps) {
   const [activeId, setActiveId] = React.useState<string>(tabs[0]?.id ?? "");
   const [copied, setCopied] = React.useState(false);
+  const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   const activeTab = React.useMemo(
     () => tabs.find((t) => t.id === activeId) ?? tabs[0],
@@ -43,7 +52,13 @@ export function CodeTabsBlock({
     try {
       await navigator.clipboard.writeText(activeTab.code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = setTimeout(() => {
+        copyTimerRef.current = null;
+        setCopied(false);
+      }, 1800);
     } catch {
       // Clipboard API unavailable in restricted contexts
     }
