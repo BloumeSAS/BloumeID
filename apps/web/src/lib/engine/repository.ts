@@ -1064,6 +1064,25 @@ export async function listFingerprintEventsPaginated(filters?: {
   return paginateArray(actionFiltered, page, pageSize);
 }
 
+export async function getVisitorTrustStatus(visitorPublicId: string): Promise<VisitorTrustStatus> {
+  ensureFeedsInitialized();
+  if (await isDatabaseConnected()) {
+    try {
+      const vis = await prisma.visitor.findUnique({
+        where: { publicId: visitorPublicId },
+        select: { trustStatus: true },
+      });
+      if (vis) {
+        return (vis.trustStatus as VisitorTrustStatus) ?? "neutral";
+      }
+    } catch {
+      // Fallback to memory
+    }
+  }
+  const memVis = memVisitors.find((v) => v.publicId === visitorPublicId);
+  return memVis?.trustStatus ?? "neutral";
+}
+
 export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
   visitor: PublicVisitorDTO;
   events: PublicFingerprintEventDTO[];
