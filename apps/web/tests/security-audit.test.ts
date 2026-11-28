@@ -588,5 +588,21 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(res.attempts).toBe(1);
     expect(callCount).toBe(1);
   });
+
+  it("ignores proxy IP headers when TRUSTED_PROXIES=false and rejects Origin: null / empty wildcard suffixes", async () => {
+    const { extractRealClientIp, isOriginAllowedForSite } = await import("../src/lib/engine/network");
+
+    const spoofHeaders = new Headers({
+      "cf-connecting-ip": "198.51.100.44",
+      "x-forwarded-for": "203.0.113.99",
+    });
+    expect(extractRealClientIp(spoofHeaders, "false")).toBe("127.0.0.1");
+    expect(extractRealClientIp(spoofHeaders, "0")).toBe("127.0.0.1");
+    expect(extractRealClientIp(spoofHeaders, "off")).toBe("127.0.0.1");
+    expect(extractRealClientIp(spoofHeaders, "true")).toBe("198.51.100.44");
+
+    expect(isOriginAllowedForSite("null", ["localhost", "null.example.com"])).toBe(false);
+    expect(isOriginAllowedForSite("https://sub.example.com.", ["*."])).toBe(false);
+  });
 });
 
