@@ -1038,5 +1038,11 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     const emptySync = await syncAllThreatFeeds(async () => new Response("{}", { status: 200 }));
     expect(emptySync.totalCidrs).toBeGreaterThan(0);
     expect(emptySync.feeds.every((f) => f.status === "fallback")).toBe(true);
+
+    const { lookupGeoIp } = await import("../src/lib/engine/geoip");
+    const public172 = await lookupGeoIp("172.64.155.12");
+    expect(public172.asnOrg).toBeNull();
+    const docker172 = await lookupGeoIp("172.18.0.5");
+    expect(docker172.country).toBe("FR");
   });
 });

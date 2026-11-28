@@ -50,6 +50,16 @@ let asnReader: Reader<AsnResponse> | null = null;
 let loadedFiles: string[] = [];
 let initialized = false;
 let lastSyncStatus = "ready";
+let activeGeoDownloadPromise: Promise<GeoSyncResult> | null = null;
+
+interface GeoSyncResult {
+  updated: boolean;
+  mode: "official_maxmind" | "open_mirror";
+  cityUpdated: boolean;
+  asnUpdated: boolean;
+  errors: string[];
+  status: GeoIpStatusInfo;
+}
 
 export function isValidMmdbBuffer(buf: Buffer, minBytes = DEFAULT_MIN_MMDB_BYTES): boolean {
   if (buf.length < minBytes) return false;
@@ -115,14 +125,28 @@ export async function downloadAndUpdateGeoLite2(options?: {
   licenseKey?: string;
   fetchImpl?: typeof fetch;
   minBytes?: number;
-}): Promise<{
-  updated: boolean;
-  mode: "official_maxmind" | "open_mirror";
-  cityUpdated: boolean;
-  asnUpdated: boolean;
-  errors: string[];
-  status: GeoIpStatusInfo;
-}> {
+}): Promise<GeoSyncResult> {
+  const isDefaultSync = !options?.fetchImpl && !options?.customDir;
+  if (isDefaultSync && activeGeoDownloadPromise) {
+    return activeGeoDownloadPromise;
+  }
+
+  const task = runDownloadAndUpdateGeoLite2(options);
+  if (isDefaultSync) {
+    activeGeoDownloadPromise = task.finally(() => {
+      activeGeoDownloadPromise = null;
+    });
+    return activeGeoDownloadPromise;
+  }
+  return task;
+}
+
+async function runDownloadAndUpdateGeoLite2(options?: {
+  customDir?: string;
+  licenseKey?: string;
+  fetchImpl?: typeof fetch;
+  minBytes?: number;
+}): Promise<GeoSyncResult> {
   const dir = options?.customDir ?? getGeoIpDirectory();
   const licenseKey = (options?.licenseKey ?? process.env.MAXMIND_LICENSE_KEY ?? "").trim();
   const fetchFn = options?.fetchImpl ?? fetch;
@@ -148,7 +172,7 @@ export async function downloadAndUpdateGeoLite2(options?: {
     mirrorUrls: string[]
   ): Promise<boolean> => {
     const targetPath = path.join(dir, `${edition}.mmdb`);
-    const tempPath = path.join(dir, `${edition}.mmdb.tmp`);
+    const tempPath = path.join(dir, `${edition}.mmdb.tmp.${process.pid}.${Date.now()}`);
 
     if (mode === "official_maxmind") {
       const controller = new AbortController();
@@ -272,7 +296,7 @@ export async function ensureGeoLite2Fresh(customDir?: string): Promise<GeoIpStat
   }
 
   if (needsDownload && process.env.NODE_ENV !== "test") {
-    void downloadAndUpdateGeoLite2({ customDir: dir });
+    void downloadAndUpdateGeoLite2({ customDir: dir }).catch(() => undefined);
   }
 
   return initGeoIpReaders(dir);
@@ -341,9 +365,18 @@ export function getGeoIpStatus(customDir?: string): GeoIpStatusInfo {
   };
 }
 
+function isRfc1918ClassB(ipAddress: string): boolean {
+  if (!ipAddress.startsWith("172.")) return false;
+  const parts = ipAddress.split(".");
+  if (parts.length !== 4) return false;
+  const second = Number(parts[1]);
+  return Number.isInteger(second) && second >= 16 && second <= 31;
+}
+
 // Built-in deterministic fallback ASN & Geo intelligence for well-known subnets when MMDB isn't downloaded yet
 const BUILTIN_GEO_HINTS: ReadonlyArray<{
-  prefix: string;
+  prefix?: string;
+  matchIp?: (ip: string) => boolean;
   asnNumber: number;
   asnOrg: string;
   country: string;
@@ -393,7 +426,7 @@ const BUILTIN_GEO_HINTS: ReadonlyArray<{
     lon: -74.006,
   },
   {
-    prefix: "172.",
+    matchIp: isRfc1918ClassB,
     asnNumber: 3215,
     asnOrg: "Orange S.A. / Local Docker Bridge",
     country: "FR",
@@ -460,7 +493,9 @@ export async function lookupGeoIp(ipAddress: string): Promise<GeoIpLookupResult>
   }
 
   if (!country && !asnNumber) {
-    const hint = BUILTIN_GEO_HINTS.find((h) => ipAddress.startsWith(h.prefix));
+    const hint = BUILTIN_GEO_HINTS.find((h) =>
+      h.matchIp ? h.matchIp(ipAddress) : Boolean(h.prefix && ipAddress.startsWith(h.prefix))
+    );
     if (hint) {
       asnNumber = hint.asnNumber;
       asnOrg = hint.asnOrg;
