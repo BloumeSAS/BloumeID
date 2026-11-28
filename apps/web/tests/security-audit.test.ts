@@ -546,5 +546,47 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     const gen = new SnowflakeGenerator(Number.NaN);
     expect(gen.nextId("req")).toMatch(/^req_\d+$/);
   });
+
+  it("blocks canonical expanded IPv6/NAT64 SSRF webhook targets and stops retrying on 404", async () => {
+    const { dispatchSignedWebhook, validateWebhookUrl } = await import("../src/lib/engine/webhooks");
+    expect(validateWebhookUrl("https://[0:0:0:0:0:ffff:7f00:1]/hook").valid).toBe(false);
+    expect(validateWebhookUrl("https://[64:ff9b::169.254.169.254]/latest").valid).toBe(false);
+    expect(validateWebhookUrl("https://[::7f00:1]/hook").valid).toBe(false);
+
+    let callCount = 0;
+    const res = await dispatchSignedWebhook({
+      webhookUrl: "https://hooks.bloume.fr/missing",
+      webhookSecret: "whsec_test",
+      payload: {
+        event: "webhook.test",
+        timestamp: new Date().toISOString(),
+        siteId: "site_1",
+        requestId: "req_1",
+        visitorId: "vis_1",
+        thumbmark: "a".repeat(64),
+        hardwareHash: "b".repeat(64),
+        dangerLevel: 0,
+        confidence: 0.99,
+        flags: {
+          isBot: false,
+          isSpoofed: false,
+          isVpn: false,
+          isTor: false,
+          isDatacenter: false,
+          isProxy: false,
+          isIncognito: false,
+          crossBrowserMatched: false,
+        },
+        network: { ipAddress: "1.1.1.1", asnNumber: null, asnOrg: null, country: null },
+      },
+      fetchImpl: async () => {
+        callCount += 1;
+        return new Response("Not found", { status: 404 });
+      },
+    });
+    expect(res.delivered).toBe(false);
+    expect(res.attempts).toBe(1);
+    expect(callCount).toBe(1);
+  });
 });
 

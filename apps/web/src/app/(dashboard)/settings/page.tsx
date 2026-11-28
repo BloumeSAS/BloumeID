@@ -51,7 +51,7 @@ interface IpLookupPreviewResult {
 }
 
 export default function SettingsPage() {
-  const { dict } = useI18n();
+  const { dict, refreshTick } = useI18n();
   const [state, setState] = React.useState<SettingsApiResponse | null>(null);
   const [syncing, setSyncing] = React.useState(false);
   const [downloadingGeo, setDownloadingGeo] = React.useState(false);
@@ -60,18 +60,24 @@ export default function SettingsPage() {
   const [testIp, setTestIp] = React.useState("185.220.101.33");
   const [ipResult, setIpResult] = React.useState<IpLookupPreviewResult | null>(null);
 
-  const loadSettings = React.useCallback(async () => {
-    const res = await fetch("/api/admin/settings");
-    if (res.ok) {
-      const data = (await res.json()) as SettingsApiResponse;
-      setState(data);
-      setRetentionDays(data.retentionDaysDefault);
+  const loadSettings = React.useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/api/admin/settings", { signal });
+      if (res.ok && !signal?.aborted) {
+        const data = (await res.json()) as SettingsApiResponse;
+        setState(data);
+        setRetentionDays(data.retentionDaysDefault);
+      }
+    } catch {
+      // Ignore abort or transient fetch errors
     }
   }, []);
 
   React.useEffect(() => {
-    void loadSettings();
-  }, [loadSettings]);
+    const controller = new AbortController();
+    void loadSettings(controller.signal);
+    return () => controller.abort();
+  }, [loadSettings, refreshTick]);
 
   const handleSyncFeeds = async () => {
     setSyncing(true);
