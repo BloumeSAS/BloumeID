@@ -50,8 +50,44 @@ export default function LandingPage() {
   const [deployCopied, setDeployCopied] = React.useState(false);
   const [deployTab, setDeployTab] = React.useState<"coolify" | "docker" | "sdk">("coolify");
   const scannerRef = React.useRef<HTMLElement | null>(null);
+  const scanAbortRef = React.useRef<AbortController | null>(null);
+  const copyTimersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  React.useEffect(() => {
+    const timers = copyTimersRef.current;
+    return () => {
+      for (const timer of Object.values(timers)) {
+        clearTimeout(timer);
+      }
+    };
+  }, []);
+
+  const copySnippet = React.useCallback(
+    async (text: string, kind: "cmd" | "json" | "deploy") => {
+      const setCopiedFlag =
+        kind === "cmd" ? setCmdCopied : kind === "json" ? setJsonCopied : setDeployCopied;
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopiedFlag(true);
+        const existing = copyTimersRef.current[kind];
+        if (existing !== undefined) {
+          clearTimeout(existing);
+        }
+        copyTimersRef.current[kind] = setTimeout(() => {
+          delete copyTimersRef.current[kind];
+          setCopiedFlag(false);
+        }, 2000);
+      } catch {
+        // Clipboard API unavailable in restricted/non-HTTPS contexts
+      }
+    },
+    []
+  );
 
   const runLiveScan = React.useCallback(async () => {
+    scanAbortRef.current?.abort();
+    const controller = new AbortController();
+    scanAbortRef.current = controller;
     setLoading(true);
     const t0 = performance.now();
     try {
@@ -61,10 +97,12 @@ export default function LandingPage() {
         options: { timeout: 4000 },
       });
       const localRes = await client.get({ tag: "landing_live_inspector" });
+      if (controller.signal.aborted) return;
       try {
         const previewRes = await fetch("/api/v1/preview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             fullHash: localRes.thumbmark,
             hardwareHash: localRes.hardwareHash,
@@ -78,25 +116,29 @@ export default function LandingPage() {
             components: localRes.components,
           }),
         });
+        if (controller.signal.aborted) return;
         if (previewRes.ok) {
           const enriched = (await previewRes.json()) as BloumeIDResult;
-          setResult(enriched);
+          if (!controller.signal.aborted) setResult(enriched);
         } else {
           setResult(localRes);
         }
       } catch {
-        setResult(localRes);
+        if (!controller.signal.aborted) setResult(localRes);
       }
     } catch {
       // Fallback gracefully if offline
     } finally {
-      setElapsedMs(Math.round(performance.now() - t0));
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setElapsedMs(Math.round(performance.now() - t0));
+        setLoading(false);
+      }
     }
   }, []);
 
   React.useEffect(() => {
     void runLiveScan();
+    return () => scanAbortRef.current?.abort();
   }, [runLiveScan]);
 
   const scrollToScanner = () => {
@@ -326,11 +368,7 @@ const res = await client.get({ tag: "checkout" });`;
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  void navigator.clipboard.writeText("pnpm add @bloume/id");
-                  setCmdCopied(true);
-                  setTimeout(() => setCmdCopied(false), 2000);
-                }}
+                onClick={() => void copySnippet("pnpm add @bloume/id", "cmd")}
                 className="inline-flex items-center gap-2 rounded-lg border border-border bg-card/80 px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
               >
                 <span className="text-primary">$</span>
@@ -636,11 +674,7 @@ const res = await client.get({ tag: "checkout" });`;
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(formattedJson);
-                    setJsonCopied(true);
-                    setTimeout(() => setJsonCopied(false), 2000);
-                  }}
+                  onClick={() => void copySnippet(formattedJson, "json")}
                 >
                   {jsonCopied ? (
                     <Check className="h-3.5 w-3.5 text-emerald-500" />
@@ -889,11 +923,7 @@ const res = await client.get({ tag: "checkout" });`;
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(deploySnippet);
-                    setDeployCopied(true);
-                    setTimeout(() => setDeployCopied(false), 2000);
-                  }}
+                  onClick={() => void copySnippet(deploySnippet, "deploy")}
                 >
                   {deployCopied ? (
                     <Check className="h-3.5 w-3.5 text-emerald-500" />
