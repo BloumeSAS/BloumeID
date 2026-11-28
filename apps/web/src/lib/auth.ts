@@ -52,7 +52,14 @@ export function isAdminAuthenticatedFromRequest(request: Request): boolean {
     .split(";")
     .map((c) => c.trim())
     .find((c) => c.startsWith(`${ADMIN_SESSION_COOKIE}=`));
-  const token = match ? decodeURIComponent(match.slice(ADMIN_SESSION_COOKIE.length + 1)) : null;
+  let token: string | null = null;
+  if (match) {
+    try {
+      token = decodeURIComponent(match.slice(ADMIN_SESSION_COOKIE.length + 1));
+    } catch {
+      return false;
+    }
+  }
   if (verifySignedAdminSessionToken(token)) return true;
 
   // Also support X-Admin-Master-Key header for automated CLI / API admin operations

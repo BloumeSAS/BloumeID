@@ -69,10 +69,8 @@ export default function VisitorsPage() {
         setVisitors(data.visitors);
         if (data.pagination) setPagination(data.pagination);
       }
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
-        throw err;
-      }
+    } catch {
+      // Transient abort or network outage preserves existing list until next poll
     } finally {
       if (abortRef.current === controller) {
         setIsLoading(false);

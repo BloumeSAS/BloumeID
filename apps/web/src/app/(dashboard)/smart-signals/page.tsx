@@ -20,13 +20,15 @@ export default function SmartSignalsPage() {
   });
 
   React.useEffect(() => {
+    const controller = new AbortController();
     const params = new URLSearchParams({ period: timeRange, siteId: selectedSiteId });
-    fetch(`/api/admin/dashboard?${params.toString()}`)
+    fetch(`/api/admin/dashboard?${params.toString()}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: DashboardMetricsDTO | null) => {
-        if (data) setMetrics(data);
+        if (data && !controller.signal.aborted) setMetrics(data);
       })
       .catch(() => undefined);
+    return () => controller.abort();
   }, [timeRange, selectedSiteId, refreshTick]);
 
   const datacenterCount =

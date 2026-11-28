@@ -533,5 +533,18 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(badRes.status).toBe(400);
     expect(badRes.headers.get("Cache-Control")).toBe("no-store");
   });
+
+  it("handles malformed percent-encoded session cookies and non-finite Snowflake workerId safely", async () => {
+    const { isAdminAuthenticatedFromRequest } = await import("../src/lib/auth");
+    const { SnowflakeGenerator } = await import("../src/lib/engine/snowflake");
+
+    const malformedReq = new Request("http://localhost:3000/api/admin/me", {
+      headers: { Cookie: "bloumeid_admin_session=%E0%A4%A" },
+    });
+    expect(isAdminAuthenticatedFromRequest(malformedReq)).toBe(false);
+
+    const gen = new SnowflakeGenerator(Number.NaN);
+    expect(gen.nextId("req")).toMatch(/^req_\d+$/);
+  });
 });
 
