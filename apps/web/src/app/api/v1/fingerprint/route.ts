@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { APP_VERSION } from "@/lib/version";
-import { parseSafeJsonBody, isJsonPayloadSafe } from "@/lib/security";
+import { NO_STORE_HEADERS, parseSafeJsonBody, isJsonPayloadSafe } from "@/lib/security";
 import { computeAntiReplaySignature, type FingerprintComponents } from "@bloume/id";
 import {
   constantTimeEqual,
@@ -69,9 +69,16 @@ const LegacyFingerprintPayloadSchema = z.object({
   components: z.record(z.unknown()),
 });
 
+const REJECTED_CORS_HEADERS: Record<string, string> = {
+  ...NO_STORE_HEADERS,
+  Vary: "Origin",
+};
+
 function buildCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin = origin && origin !== "null" ? origin : "*";
   return {
-    "Access-Control-Allow-Origin": origin ?? "*",
+    ...NO_STORE_HEADERS,
+    "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, X-BloumeID-Key",
     "Access-Control-Max-Age": "86400",
@@ -81,6 +88,12 @@ function buildCorsHeaders(origin: string | null): Record<string, string> {
 
 export async function OPTIONS(request: Request): Promise<NextResponse> {
   const origin = request.headers.get("origin");
+  if (origin === "null") {
+    return new NextResponse(null, {
+      status: 204,
+      headers: REJECTED_CORS_HEADERS,
+    });
+  }
   return new NextResponse(null, {
     status: 204,
     headers: buildCorsHeaders(origin),
@@ -89,7 +102,6 @@ export async function OPTIONS(request: Request): Promise<NextResponse> {
 
 export async function POST(request: Request): Promise<NextResponse> {
   const origin = request.headers.get("origin");
-  const corsHeaders = buildCorsHeaders(origin);
 
   const apiKey =
     request.headers.get("x-bloumeid-key") ??
@@ -99,7 +111,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!apiKey || !apiKey.startsWith("bid_pub_")) {
     return NextResponse.json(
       { error: "Missing or invalid public key (must start with bid_pub_)" },
-      { status: 401, headers: corsHeaders }
+      { status: 401, headers: REJECTED_CORS_HEADERS }
     );
   }
 
@@ -107,16 +119,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!site || !site.isActive) {
     return NextResponse.json(
       { error: "Unknown or inactive site public key" },
-      { status: 401, headers: corsHeaders }
+      { status: 401, headers: REJECTED_CORS_HEADERS }
     );
   }
 
   if (!isOriginAllowedForSite(origin, site.domains)) {
     return NextResponse.json(
       { error: `Origin '${origin ?? "none"}' is not allowed for site ${site.publicId}` },
-      { status: 403, headers: corsHeaders }
+      { status: 403, headers: REJECTED_CORS_HEADERS }
     );
   }
+
+  const corsHeaders = buildCorsHeaders(origin);
 
   const ipAddress = extractRealClientIp(request.headers);
 
@@ -248,7 +262,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     comp.hardware?.platform ?? comp.userAgentData?.platform
   );
 
-  const netIntel = await evaluateIpThreatIntel(ipAddress);
+  const [netIntel, siteRules] = await Promise.all([
+    evaluateIpThreatIntel(ipAddress),
+    listSecurityRules(site.publicId),
+  ]);
 
   const isBotClient = Boolean(comp.antiSpoof?.isBot);
   const isTorDetected = netIntel.isTor || torBrowserSignal.isTor;
@@ -303,7 +320,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Evaluate Custom Security Rules Engine
   const visitorProfile = await getVisitorByPublicId(reconciled.visitorPublicId);
-  const siteRules = await listSecurityRules(site.publicId);
   const ruleVerdict = evaluateSecurityRules(siteRules, {
     sitePublicId: site.publicId,
     visitorPublicId: reconciled.visitorPublicId,

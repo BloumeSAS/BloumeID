@@ -422,5 +422,34 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(sanitizeInternalRedirect("/\\evil.com")).toBe("/dashboard");
     expect(sanitizeInternalRedirect(null)).toBe("/dashboard");
   });
+
+  it("withholds Access-Control-Allow-Origin on rejected CORS/auth /api/v1/fingerprint and enforces no-store on Server API", async () => {
+    const corsSite = await createSiteRecord({
+      name: "CORS Audit Site",
+      domains: ["allowed.example.com"],
+    });
+    const blockedRes = await fingerprintPOST(
+      new Request("http://localhost:3000/api/v1/fingerprint", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://evil-attacker.test",
+          "X-BloumeID-Key": corsSite.publicKey,
+        },
+        body: JSON.stringify({}),
+      })
+    );
+    expect(blockedRes.status).toBe(403);
+    expect(blockedRes.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(blockedRes.headers.get("Cache-Control")).toBe("no-store");
+
+    const { GET: eventGET } = await import("../src/app/api/v1/events/[requestId]/route");
+    const serverRes = await eventGET(
+      new Request("http://localhost:3000/api/v1/events/req_1"),
+      { params: Promise.resolve({ requestId: "req_1" }) }
+    );
+    expect(serverRes.status).toBe(401);
+    expect(serverRes.headers.get("Cache-Control")).toBe("no-store");
+  });
 });
 

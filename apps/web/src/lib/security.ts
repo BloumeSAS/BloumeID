@@ -97,3 +97,31 @@ export function sanitizeInternalRedirect(target?: string | null): string {
   }
   return "/dashboard";
 }
+
+export const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store",
+} as const;
+
+/**
+ * Extracts `bid_sec_` credentials from Authorization Bearer, X-BloumeID-Secret,
+ * or Fingerprint.com-compatible headers/query parameters.
+ */
+export function extractServerApiSecretKey(
+  request: Request,
+  allowLegacyApiKeyParam = false
+): string {
+  const auth = request.headers.get("authorization");
+  if (auth?.startsWith("Bearer ")) {
+    return auth.slice(7).trim();
+  }
+  const headerKey =
+    request.headers.get("x-bloumeid-secret") ??
+    (allowLegacyApiKeyParam ? request.headers.get("auth-api-key") : null);
+  if (headerKey) {
+    return headerKey.trim();
+  }
+  if (allowLegacyApiKeyParam) {
+    return (new URL(request.url).searchParams.get("api_key") ?? "").trim();
+  }
+  return "";
+}
