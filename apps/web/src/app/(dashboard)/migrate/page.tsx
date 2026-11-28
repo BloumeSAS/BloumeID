@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { PublicSiteDTO } from "@/types";
 
 export default function MigratePage() {
-  const { dict } = useI18n();
+  const { dict, selectedSiteId: globalSiteId, refreshTick } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [selectedSiteId, setSelectedSiteId] = React.useState("");
   const [sourceTool, setSourceTool] = React.useState("ThumbmarkJS (OSS / Pro)");
@@ -23,16 +23,24 @@ export default function MigratePage() {
   const [copied, setCopied] = React.useState(false);
 
   React.useEffect(() => {
-    fetch("/api/admin/sites")
+    const controller = new AbortController();
+    fetch("/api/admin/sites?all=true", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sites?: PublicSiteDTO[] } | null) => {
-        if (data?.sites && data.sites.length > 0) {
+        if (data?.sites && data.sites.length > 0 && !controller.signal.aborted) {
           setSites(data.sites);
-          setSelectedSiteId(data.sites[0]!.publicId);
+          setSelectedSiteId((prev) =>
+            globalSiteId !== "all"
+              ? globalSiteId
+              : prev && data.sites?.some((s) => s.publicId === prev)
+                ? prev
+                : data.sites![0]!.publicId
+          );
         }
       })
       .catch(() => undefined);
-  }, []);
+    return () => controller.abort();
+  }, [globalSiteId, refreshTick]);
 
   const activeSite = sites.find((s) => s.publicId === selectedSiteId) ?? sites[0];
   const pubKey = activeSite?.publicKey ?? "bid_pub_demo_cosmic_night_2026";

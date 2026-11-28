@@ -20,26 +20,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PublicSiteDTO } from "@/types";
 
 export default function GetStartedPage() {
-  const { dict } = useI18n();
+  const { dict, selectedSiteId, refreshTick } = useI18n();
   const [sites, setSites] = React.useState<PublicSiteDTO[]>([]);
   const [testResult, setTestResult] = React.useState<BloumeIDResult | null>(null);
+  const [testError, setTestError] = React.useState<string | null>(null);
   const [testing, setTesting] = React.useState(false);
 
   React.useEffect(() => {
-    fetch("/api/admin/sites")
+    const controller = new AbortController();
+    fetch("/api/admin/sites?all=true", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { sites?: PublicSiteDTO[] } | null) => {
-        if (data?.sites) setSites(data.sites);
+        if (data?.sites && !controller.signal.aborted) setSites(data.sites);
       })
       .catch(() => undefined);
-  }, []);
+    return () => controller.abort();
+  }, [refreshTick]);
 
-  const primarySite = sites[0];
+  const primarySite =
+    (selectedSiteId !== "all" ? sites.find((s) => s.publicId === selectedSiteId) : undefined) ??
+    sites[0];
   const pubKey = primarySite?.publicKey ?? "bid_pub_demo_cosmic_night_2026";
   const secKey = primarySite?.secretKeyPlain ?? primarySite?.secretKeyHint ?? "bid_sec_...";
 
   const handleRunTest = async () => {
     setTesting(true);
+    setTestError(null);
     try {
       const sdk = new BloumeID({
         apiKey: pubKey,
@@ -47,6 +53,8 @@ export default function GetStartedPage() {
       });
       const res = await sdk.get();
       setTestResult(res);
+    } catch (err) {
+      setTestError(err instanceof Error ? err.message : String(err));
     } finally {
       setTesting(false);
     }
@@ -74,7 +82,7 @@ export default function GetStartedPage() {
               <span>{dict.getStarted.manageKeysBtn}</span>
             </Button>
           </Link>
-          <Link href="/playground">
+          <Link href="/guides">
             <Button type="button" size="sm">
               <TerminalSquare className="h-3.5 w-3.5" />
               <span>{dict.getStarted.openPlaygroundBtn}</span>
@@ -216,6 +224,12 @@ if (verified.dangerLevel >= 3 || verified.flags.isBot) {
               <Play className="h-4 w-4" />
               <span>{testing ? dict.playground.running : dict.getStarted.sendTestBtn}</span>
             </Button>
+
+            {testError ? (
+              <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+                {testError}
+              </div>
+            ) : null}
 
             {testResult ? (
               <div className="space-y-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
