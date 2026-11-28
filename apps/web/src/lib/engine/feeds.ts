@@ -216,6 +216,9 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
               }
             }
           }
+          if (count === 0) {
+            throw new Error("Empty feed response");
+          }
           for (const cidr of feed.fallbackCidrs) {
             if (stagingTrie.insert(cidr, feed.category)) {
               count += 1;
@@ -269,6 +272,9 @@ export async function syncAllThreatFeeds(fetchImpl: typeof fetch = fetch): Promi
               count += 1;
             }
           }
+        }
+        if (count === 0) {
+          throw new Error("Empty feed response");
         }
       } catch (err) {
         status = "fallback";

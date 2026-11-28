@@ -50,6 +50,7 @@ import {
   getDashboardMetrics,
   getEventByPublicId,
   getReconciliationStore,
+  getVisitorTrustStatus,
   listFingerprintEvents,
   listFingerprintEventsPaginated,
   listSecurityRules,
@@ -1031,5 +1032,11 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     });
     expect(lightweightEvents.length).toBeGreaterThanOrEqual(1);
     expect(lightweightEvents.every((e) => Object.keys(e.components).length === 0)).toBe(true);
+
+    expect(await getVisitorTrustStatus("vis_nonexistent_cycle36")).toBe("neutral");
+
+    const emptySync = await syncAllThreatFeeds(async () => new Response("{}", { status: 200 }));
+    expect(emptySync.totalCidrs).toBeGreaterThan(0);
+    expect(emptySync.feeds.every((f) => f.status === "fallback")).toBe(true);
   });
 });

@@ -32,7 +32,7 @@ import { evaluateSecurityRules } from "@/lib/engine/rules";
 import {
   findSiteByPublicKey,
   getReconciliationStore,
-  getVisitorByPublicId,
+  getVisitorTrustStatus,
   listSecurityRules,
   recordFingerprintEvent,
   recordWebhookDelivery,
@@ -299,11 +299,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     isSpoofed: isSpoofedClient,
   });
 
-  const velocity = await recordAndCheckVelocity({
-    ipAddress,
-    visitorPublicId: reconciled.visitorPublicId,
-    country: netIntel.country,
-  });
+  const [velocity, visitorTrustStatus] = await Promise.all([
+    recordAndCheckVelocity({
+      ipAddress,
+      visitorPublicId: reconciled.visitorPublicId,
+      country: netIntel.country,
+    }),
+    getVisitorTrustStatus(reconciled.visitorPublicId),
+  ]);
 
   const finalScoring = computeDangerScore({
     isBot: isBotClient,
@@ -319,11 +322,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
 
   // Evaluate Custom Security Rules Engine
-  const visitorProfile = await getVisitorByPublicId(reconciled.visitorPublicId);
   const ruleVerdict = evaluateSecurityRules(siteRules, {
     sitePublicId: site.publicId,
     visitorPublicId: reconciled.visitorPublicId,
-    visitorTrustStatus: visitorProfile?.visitor.trustStatus ?? "neutral",
+    visitorTrustStatus,
     isTor: isTorDetected,
     isVpn: netIntel.isVpn,
     isDatacenter: netIntel.isDatacenter,
@@ -437,7 +439,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           attempts: res.attempts,
           payload: whPayload as unknown as Record<string, unknown>,
         })
-      );
+      ).catch(() => undefined);
     }, 0);
   }
 
