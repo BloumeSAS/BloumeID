@@ -19,8 +19,8 @@ test.describe("BloumeID Admin Panel & Live SDK Playground E2E", () => {
     await page.getByTestId("login-submit").click();
     await expect(page).toHaveURL(/\/dashboard/);
 
-    // Verify Snowflake IDs are displayed on dashboard
-    await expect(page.getByText(/req_73000000000000501/)).toBeVisible();
+    // Verify fresh dashboard starts clean with empty-state notice (zero pre-seeded demo data)
+    await expect(page.getByText(/Aucune donnée|No data recorded/i).first()).toBeVisible();
 
     // Switch language via 8-locale selector
     await page.getByTestId("locale-switcher").click();
