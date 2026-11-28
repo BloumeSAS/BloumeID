@@ -48,7 +48,9 @@ import {
   findSiteByPublicKey,
   getDashboardMetrics,
   getReconciliationStore,
+  listFingerprintEventsPaginated,
   listSites,
+  listVisitorsPaginated,
 } from "../src/lib/engine/repository";
 import { POST as fingerprintPOST } from "../src/app/api/v1/fingerprint/route";
 import { POST as eventsPOST } from "../src/app/api/v1/events/route";
@@ -768,5 +770,23 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
       "cf-ray": "abc123-CDG",
     });
     expect(resolveOrSynthesizeJa4(h1)).toBe(resolveOrSynthesizeJa4(h2));
+  });
+
+  it("returns empty paginated results cleanly without injecting stale fallback records", async () => {
+    const emptyEvents = await listFingerprintEventsPaginated({
+      query: "__nonexistent_bloume_query_xyz__",
+      page: 1,
+      pageSize: 25,
+    });
+    expect(emptyEvents.items).toEqual([]);
+    expect(emptyEvents.pagination.totalItems).toBe(0);
+
+    const emptyVisitors = await listVisitorsPaginated({
+      query: "__nonexistent_bloume_query_xyz__",
+      page: 1,
+      pageSize: 25,
+    });
+    expect(emptyVisitors.items).toEqual([]);
+    expect(emptyVisitors.pagination.totalItems).toBe(0);
   });
 });

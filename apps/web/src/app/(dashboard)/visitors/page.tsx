@@ -41,7 +41,12 @@ export default function VisitorsPage() {
     hasPreviousPage: false,
   });
 
+  const abortRef = React.useRef<AbortController | null>(null);
+
   const loadVisitors = React.useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
@@ -53,8 +58,10 @@ export default function VisitorsPage() {
       });
       if (query) params.set("q", query);
       if (onlyHighRisk) params.set("highRisk", "true");
-      const res = await fetch(`/api/admin/visitors?${params.toString()}`);
-      if (res.ok) {
+      const res = await fetch(`/api/admin/visitors?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      if (res.ok && !controller.signal.aborted) {
         const data = (await res.json()) as {
           visitors: PublicVisitorDTO[];
           pagination?: PaginationMeta;
@@ -62,8 +69,14 @@ export default function VisitorsPage() {
         setVisitors(data.visitors);
         if (data.pagination) setPagination(data.pagination);
       }
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        throw err;
+      }
     } finally {
-      setIsLoading(false);
+      if (abortRef.current === controller) {
+        setIsLoading(false);
+      }
     }
   }, [selectedSiteId, timeRange, policyFilter, query, onlyHighRisk, page, pageSize]);
 
@@ -73,6 +86,7 @@ export default function VisitorsPage() {
 
   React.useEffect(() => {
     void loadVisitors();
+    return () => abortRef.current?.abort();
   }, [loadVisitors, refreshTick]);
 
   const handleQuickTrust = async (publicId: string, trustStatus: VisitorTrustStatus) => {

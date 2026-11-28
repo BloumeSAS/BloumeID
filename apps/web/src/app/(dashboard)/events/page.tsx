@@ -67,7 +67,12 @@ export default function EventsAuditPage() {
     danger: true,
   });
 
+  const abortRef = React.useRef<AbortController | null>(null);
+
   const loadEvents = React.useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
@@ -80,8 +85,10 @@ export default function EventsAuditPage() {
         page: String(page),
         pageSize: String(pageSize),
       });
-      const res = await fetch(`/api/admin/events?${params.toString()}`);
-      if (res.ok) {
+      const res = await fetch(`/api/admin/events?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      if (res.ok && !controller.signal.aborted) {
         const data = (await res.json()) as {
           events: PublicFingerprintEventDTO[];
           pagination?: PaginationMeta;
@@ -89,8 +96,14 @@ export default function EventsAuditPage() {
         setEvents(data.events);
         if (data.pagination) setPagination(data.pagination);
       }
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        throw err;
+      }
     } finally {
-      setIsLoading(false);
+      if (abortRef.current === controller) {
+        setIsLoading(false);
+      }
     }
   }, [selectedSiteId, timeRange, query, minDanger, vector, actionFilter, page, pageSize]);
 
@@ -100,6 +113,7 @@ export default function EventsAuditPage() {
 
   React.useEffect(() => {
     void loadEvents();
+    return () => abortRef.current?.abort();
   }, [loadEvents, refreshTick]);
 
   React.useEffect(() => {
