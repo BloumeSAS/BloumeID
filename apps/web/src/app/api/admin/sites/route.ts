@@ -26,7 +26,7 @@ const CollectorsSchema = z
 const CreateSiteSchema = z.object({
   name: z.string().min(1).max(120),
   domains: z.array(z.string().min(1)).min(1),
-  webhookUrl: z.string().url().nullable().optional(),
+  webhookUrl: z.string().nullable().optional(),
   riskThreshold: z.number().int().min(0).max(5).optional(),
   config: CollectorsSchema,
 });
@@ -94,13 +94,20 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 400 }
     );
   }
-  if (parsed.data.webhookUrl) {
-    const check = validateWebhookUrl(parsed.data.webhookUrl);
+  const normalizedWebhook =
+    parsed.data.webhookUrl && parsed.data.webhookUrl.trim().length > 0
+      ? parsed.data.webhookUrl.trim()
+      : null;
+  if (normalizedWebhook) {
+    const check = validateWebhookUrl(normalizedWebhook);
     if (!check.valid) {
       return NextResponse.json({ error: check.reason ?? "Invalid webhookUrl" }, { status: 400 });
     }
   }
-  const created = await createSiteRecord(parsed.data);
+  const created = await createSiteRecord({
+    ...parsed.data,
+    webhookUrl: normalizedWebhook,
+  });
   return NextResponse.json({ site: created }, { status: 201 });
 }
 
