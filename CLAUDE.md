@@ -79,3 +79,15 @@ L'agent DOIT exécuter automatiquement le cycle Git complet sans attendre de dem
 ## 11. Sécurité Continue : GitHub Code Scanning & Pull Requests `dependabot[bot]`
 - **Vérification & Correction Obligatoire du Code Scanning** : Avant de clôturer toute tâche significative (ou après chaque push sur `main`), l'agent DOIT vérifier les alertes ouvertes sur `https://github.com/BloumeSAS/BloumeID/security/code-scanning` (`gh api repos/BloumeSAS/BloumeID/code-scanning/alerts?state=open`) et **corriger immédiatement** toute alerte légitime (CodeQL, Trivy, Gitleaks) dans le cycle Git en cours.
 - **Traitement Systématique des PRs `dependabot[bot]`** : L'agent DOIT également vérifier les Pull Requests ouvertes par `dependabot[bot]` (`gh pr list --author "app/dependabot" --state open`), auditer leur compatibilité (notamment Node.js LTS, Prisma, Next.js et Docker), réparer ou approuver/fusionner les mises à jour sûres, et fermer proprement avec explication toute PR incompatible (ex. version non-LTS).
+
+---
+
+## Studio Vidéo & Motion Graphics Obligatoire (BloumeID)
+1. **Utilisation obligatoire du studio `motion-graphics/`** : Dès qu'une création ou mise à jour de vidéo est demandée pour **BloumeID**, tout agent ou développeur DOIT utiliser le studio local `motion-graphics/` et ses skills (`bloumeid-studio`, `explainer-default`, `explainer-high-energy`, `explainer-engaging`, `motion-broll`, `object-separation`, `sound-effects`).
+2. **Charte, Durée, Audio & Accélération Matérielle strictes** :
+   - **Logo officiel sans fond** (`motion-graphics/public/brand/logo-transparent.png`) obligatoire en intro, filigrane HUD, miniature et outro.
+   - **Thème Clean Slate** (`#090D16` / `#0F172A`, `#111827`, accents `#6366F1` / `#06B6D4` / `#10B981`, polices `Inter` + `JetBrains Mono`).
+   - **Durée stricte entre 1 min (`60 s`) et 2 min (`120 s`)** à `60 fps` avec musique énergique auto-duckée (`-18 dB`) et SFX synchronisés.
+   - **Accélération GPU prioritaire (`h264_nvenc` + rendu Chromium ANGLE/WebGL)** couplée au parallélisme **multi-CPU**, et export **exclusivement au format `.mp4`** (`H.264 High yuv420p`, `+faststart`, AAC `320 kbps` `48 kHz` — interdiction formelle de `.mov`, `.webm`, `.mkv` ou `.avi`).
+3. **Pack de Sortie Complet Systématique** : Chaque production doit générer un dossier dédié `motion-graphics/renders/<type>-<slug>-<YYYYMMDD>/` contenant impérativement **YouTube `16:9` (`.mp4`) + Short `9:16` (`.mp4`) + Miniature `1280×720` (`.png` + `.jpg` < 2 Mo)** + `project.json` + `script.md`.
+4. **Exclusion Git Non Négociable** : Ne jamais commiter ni pousser `motion-graphics/`, `renders/`, `*.mp4`, `*.wav` ou `*.mp3` dans le dépôt GitHub `BloumeSAS/BloumeID` (strictement ignorés dans `.gitignore`).
