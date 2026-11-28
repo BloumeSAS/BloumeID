@@ -451,5 +451,16 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(serverRes.status).toBe(401);
     expect(serverRes.headers.get("Cache-Control")).toBe("no-store");
   });
+
+  it("serves /api/health with Cache-Control: no-store and dynamic APP_VERSION", async () => {
+    const { GET: healthGET } = await import("../src/app/api/health/route");
+    const { APP_VERSION } = await import("../src/lib/version");
+    const res = await healthGET();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    const body = (await res.json()) as { status: string; version: string };
+    expect(body.status).toBe("ok");
+    expect(body.version).toBe(APP_VERSION);
+  });
 });
 

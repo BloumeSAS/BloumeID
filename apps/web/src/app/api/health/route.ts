@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { APP_VERSION } from "@/lib/version";
+import { NO_STORE_HEADERS } from "@/lib/security";
 import { badAsnCount, globalThreatTrie } from "@/lib/engine/cidr-trie";
 import { ensureDefaultTrieSeeded } from "@/lib/engine/feeds";
 import { getGeoIpStatus } from "@/lib/engine/geoip";
@@ -40,6 +41,6 @@ export async function GET(): Promise<NextResponse> {
       geoipMode: geoip.mode,
       timestamp: new Date().toISOString(),
     },
-    { status: 200 }
+    { status: 200, headers: NO_STORE_HEADERS }
   );
 }

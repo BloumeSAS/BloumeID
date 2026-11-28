@@ -72,8 +72,13 @@ export function I18nProvider({
       const savedLocale = window.localStorage.getItem("bloumeid_locale");
       if (isSupportedLocale(savedLocale)) {
         setLocaleState(savedLocale);
+        document.documentElement.lang = savedLocale;
       } else if (typeof navigator !== "undefined" && navigator.language) {
-        setLocaleState(detectBrowserLocale(navigator.language));
+        const detected = detectBrowserLocale(navigator.language);
+        setLocaleState(detected);
+        document.documentElement.lang = detected;
+      } else {
+        document.documentElement.lang = initialLocale;
       }
       const savedTheme = window.localStorage.getItem("bloumeid_theme") as ThemeMode | null;
       if (savedTheme === "light" || savedTheme === "dark") {
@@ -99,7 +104,7 @@ export function I18nProvider({
     } catch {
       // Ignore storage error
     }
-  }, []);
+  }, [initialLocale]);
 
   React.useEffect(() => {
     if (autoRefreshSec <= 0) return;
@@ -111,6 +116,9 @@ export function I18nProvider({
 
   const setLocale = React.useCallback((next: Locale) => {
     setLocaleState(next);
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = next;
+    }
     try {
       window.localStorage.setItem("bloumeid_locale", next);
     } catch {
@@ -120,9 +128,11 @@ export function I18nProvider({
 
   const setTheme = React.useCallback((next: ThemeMode) => {
     setThemeState(next);
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", next === "dark");
+    }
     try {
       window.localStorage.setItem("bloumeid_theme", next);
-      document.documentElement.classList.toggle("dark", next === "dark");
     } catch {
       // Ignore storage error
     }
