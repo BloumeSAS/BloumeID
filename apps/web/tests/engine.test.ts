@@ -805,4 +805,14 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     });
     expect(sizeDuringFetch).toBeGreaterThan(0);
   });
+
+  it("rejects empty or /0 wildcard CIDR prefixes without poisoning benign IPs", () => {
+    const trie = new CidrRadixTrie();
+    expect(trie.insert("198.51.100.1/", "tor")).toBe(false);
+    expect(trie.insert("0.0.0.0/0", "vpn")).toBe(false);
+    expect(trie.insert("2001:db8::/", "datacenter")).toBe(false);
+    expect(trie.insert("198.51.100.0/24/extra", "proxy")).toBe(false);
+    expect(trie.size()).toBe(0);
+    expect(trie.lookup("8.8.8.8").size).toBe(0);
+  });
 });

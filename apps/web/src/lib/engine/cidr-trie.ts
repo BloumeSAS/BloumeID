@@ -68,14 +68,19 @@ export class CidrRadixTrie {
 
     if (trimmed.includes("/")) {
       const parts = trimmed.split("/");
+      if (parts.length !== 2) return false;
       ipPart = parts[0]?.trim() ?? "";
-      explicitPrefix = Number(parts[1]);
+      const rawPrefix = parts[1]?.trim() ?? "";
+      if (!rawPrefix || !/^\d+$/.test(rawPrefix)) {
+        return false;
+      }
+      explicitPrefix = Number(rawPrefix);
     }
 
     const { v4: ipNumV4, v6: ipNumV6 } = this.resolveAddressSpace(ipPart);
     if (ipNumV4 !== null) {
       const prefixLen = explicitPrefix ?? 32;
-      if (!Number.isInteger(prefixLen) || prefixLen < 0 || prefixLen > 32) {
+      if (!Number.isInteger(prefixLen) || prefixLen < 1 || prefixLen > 32) {
         return false;
       }
 
@@ -101,7 +106,7 @@ export class CidrRadixTrie {
 
     if (ipNumV6 !== null) {
       const prefixLen = explicitPrefix ?? 128;
-      if (!Number.isInteger(prefixLen) || prefixLen < 0 || prefixLen > 128) {
+      if (!Number.isInteger(prefixLen) || prefixLen < 1 || prefixLen > 128) {
         return false;
       }
 
