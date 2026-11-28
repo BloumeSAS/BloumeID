@@ -3,9 +3,9 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 
-let cachedBundle: { content: string; etag: string } | null = null;
+let cachedBundle: { content: string; etag: string; found: boolean } | null = null;
 
-function loadUmdBundle(): { content: string; etag: string } {
+function loadUmdBundle(): { content: string; etag: string; found: boolean } {
   if (cachedBundle && process.env.NODE_ENV === "production") {
     return cachedBundle;
   }
@@ -19,14 +19,14 @@ function loadUmdBundle(): { content: string; etag: string } {
     if (fs.existsSync(/*turbopackIgnore: true*/ p)) {
       const content = fs.readFileSync(/*turbopackIgnore: true*/ p, "utf8");
       const etag = `"${crypto.createHash("sha256").update(content).digest("hex").slice(0, 32)}"`;
-      cachedBundle = { content, etag };
+      cachedBundle = { content, etag, found: true };
       return cachedBundle;
     }
   }
 
   const fallback = "/* BloumeID SDK UMD bundle not built yet */";
   const etag = `"${crypto.createHash("sha256").update(fallback).digest("hex").slice(0, 32)}"`;
-  return { content: fallback, etag };
+  return { content: fallback, etag, found: false };
 }
 
 function matchesEtag(ifNoneMatch: string | null, etag: string): boolean {
@@ -37,8 +37,32 @@ function matchesEtag(ifNoneMatch: string | null, etag: string): boolean {
     .some((part) => part.trim().replace(/^W\//i, "") === etag);
 }
 
+export async function OPTIONS(): Promise<NextResponse> {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "If-None-Match, Content-Type",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
-  const { content, etag } = loadUmdBundle();
+  const { content, etag, found } = loadUmdBundle();
+  if (!found) {
+    return new NextResponse(content, {
+      status: 503,
+      headers: {
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
   const ifNoneMatch = request.headers.get("if-none-match");
 
   if (matchesEtag(ifNoneMatch, etag)) {

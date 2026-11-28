@@ -49,20 +49,20 @@ curl -fsS https://id.bloume.fr/api/health`,
 };
 
 export const THUMBMARK_SNIPPETS: SnippetGroup = {
-  tsNext: `import { getFingerprint, getFingerprintData } from "@bloume/id";
+  tsNext: `import { BloumeID } from "@bloume/id";
 
-// 1. Drop-in deterministic hash (compatible with @thumbmarkjs/thumbmarkjs)
-const hash = await getFingerprint({
-  exclude: ["audio"], // Optional signal exclusion
-});
-
-// 2. Full telemetry + optional server persistence
-const details = await getFingerprintData({
+const client = await BloumeID.load({
   apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY,
   endpoint: "https://id.bloume.fr",
-  timeout: 2500,
+  options: { exclude: ["audio"], timeout: 2500 },
 });
-console.log(details.thumbmark, details.requestId, details.visitorId);`,
+
+// 1. Drop-in deterministic hash (compatible with @thumbmarkjs/thumbmarkjs)
+const hash = await client.getFingerprint();
+
+// 2. Full telemetry + server requestId & visitorId
+const result = await client.get({ tag: "thumbmark_mode" });
+console.log(result.thumbmark, result.requestId, result.visitorId);`,
   nodeExpress: `import { BloumeIDServer } from "@bloume/id/server";
 
 const bloume = new BloumeIDServer({
@@ -70,22 +70,24 @@ const bloume = new BloumeIDServer({
   endpoint: "https://id.bloume.fr",
 });
 
-// Verify the requestId produced by getFingerprintData({ apiKey, endpoint })
+// Verify the requestId produced by client.get()
 const verification = await bloume.verifyRequest(req.body.requestId);`,
   htmlCdn: `<script src="https://id.bloume.fr/sdk/v1/bloumeid.js"></script>
 <script>
   (async () => {
-    const data = await window.BloumeID.getFingerprintData({
+    const client = await window.BloumeID.load({
       apiKey: "bid_pub_your_site_key",
       endpoint: "https://id.bloume.fr",
-      exclude: ["fonts"],
+      options: { exclude: ["fonts"] },
     });
-    console.log("Thumbmark:", data.thumbmark, "Req:", data.requestId);
+    const res = await client.get();
+    console.log("Thumbmark:", res.thumbmark, "Req:", res.requestId);
   })();
 </script>`,
   curl: `# ThumbmarkJS drop-in collects browser signals client-side and posts to /api/v1/fingerprint
 curl -X POST https://id.bloume.fr/api/v1/fingerprint \\
   -H "Content-Type: application/json" \\
+  -H "X-BloumeID-Key: bid_pub_your_site_key" \\
   -H "Origin: https://app.example.com" \\
   -d '{"apiKey":"bid_pub_your_site_key","tag":"thumbmark_mode","components":{}}'`,
 };
@@ -113,7 +115,7 @@ export async function runIdentification(userId?: string) {
 app.post("/api/auth/login", async (req, res) => {
   const { requestId } = req.body;
   const event = await bloumeServer.verifyRequest(requestId);
-  if (event.ruleAction === "BLOCK" || event.smartSignals.bot) {
+  if (event.action === "block" || event.flags.isBot) {
     return res.status(403).json({ error: "Automated request blocked" });
   }
   return res.json({ ok: true, visitorId: event.visitorId });
@@ -140,19 +142,20 @@ import { BloumeIDServer } from "@bloume/id/server";
 const bloume = new BloumeIDServer({
   secretKey: process.env.BLOUMEID_SECRET_KEY!, // bid_sec_...
   endpoint: process.env.BLOUMEID_ENDPOINT || "https://id.bloume.fr",
+  timeoutMs: 2500,
 });
 
 export async function POST(req: Request) {
   const { requestId } = (await req.json()) as { requestId: string };
 
-  const verified = await bloume.verifyRequest(requestId, { timeoutMs: 2500 });
-  if (verified.ruleAction === "BLOCK" || verified.smartSignals.tampering) {
+  const verified = await bloume.verifyRequest(requestId);
+  if (verified.action === "block" || verified.flags.isSpoofed) {
     return NextResponse.json({ error: "Security policy denied" }, { status: 403 });
   }
 
   // Optional: query full cross-browser visitor history
   const profile = await bloume.getVisitor(verified.visitorId);
-  return NextResponse.json({ visitorId: profile.visitorId, riskScore: verified.riskScore });
+  return NextResponse.json({ visitorId: profile.visitorId, dangerLevel: verified.dangerLevel });
 }`,
   nodeExpress: `import express from "express";
 import { BloumeIDServer } from "@bloume/id/server";
@@ -163,14 +166,15 @@ app.use(express.json());
 const bloume = new BloumeIDServer({
   secretKey: process.env.BLOUMEID_SECRET_KEY!,
   endpoint: "https://id.bloume.fr",
+  timeoutMs: 2500,
 });
 
 app.post("/api/checkout", async (req, res) => {
   const verified = await bloume.verifyRequest(String(req.body.requestId || ""));
-  if (verified.ruleAction === "BLOCK") {
+  if (verified.action === "block") {
     return res.status(403).json({ error: "Blocked by BloumeID rule engine" });
   }
-  return res.json({ visitorId: verified.visitorId, smartSignals: verified.smartSignals });
+  return res.json({ visitorId: verified.visitorId, flags: verified.flags });
 });`,
   htmlCdn: `// IMPORTANT: Never embed bid_sec_ keys in HTML or browser JavaScript!
 // Send ONLY the opaque requestId from the browser to your own backend:
@@ -251,7 +255,7 @@ export async function safeGetRequestId(): Promise<string | null> {
     const client = await BloumeID.load({
       apiKey: process.env.NEXT_PUBLIC_BLOUMEID_PUBLIC_KEY!,
       endpoint: "https://id.bloume.fr",
-      timeout: 2500,
+      options: { timeout: 2500 },
     });
     const res = await client.get({ tag: "safe_login" });
     return res.requestId;
@@ -262,20 +266,23 @@ export async function safeGetRequestId(): Promise<string | null> {
   }
 }`,
   nodeExpress: `export async function verifyOrStepUp(bloume: BloumeIDServer, requestId: string | null) {
-  if (!requestId) return { status: "STEP_UP_CHALLENGE" as const };
+  if (!requestId) return { status: "step_up_challenge" as const };
   try {
-    const res = await bloume.verifyRequest(requestId, { timeoutMs: 2500 });
-    return { status: res.ruleAction, visitorId: res.visitorId };
+    const res = await bloume.verifyRequest(requestId);
+    return { status: res.action ?? "allow", visitorId: res.visitorId };
   } catch {
     // Never deadlock checkout during temporary upstream latency
-    return { status: "STEP_UP_CHALLENGE" as const };
+    return { status: "step_up_challenge" as const };
   }
 }`,
   htmlCdn: `<script>
   async function submitFormSafely(form) {
     let requestId = "";
     try {
-      const fp = await window.BloumeID.load({ apiKey: "bid_pub_key", timeout: 2500 });
+      const fp = await window.BloumeID.load({
+        apiKey: "bid_pub_key",
+        options: { timeout: 2500 },
+      });
       requestId = (await fp.get()).requestId;
     } catch (_) {
       requestId = ""; // Fail-open / server step-up fallback

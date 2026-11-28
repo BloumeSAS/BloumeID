@@ -7,6 +7,7 @@ import {
   paginateArray,
   parsePaginationParams,
 } from "../src/lib/pagination";
+import { GET as sdkBundleGET, OPTIONS as sdkBundleOPTIONS } from "../src/app/sdk/v1/bloumeid.js/route";
 
 describe("Cosmic Night UI primitives", () => {
   it("merges class names cleanly with cn()", () => {
@@ -37,5 +38,27 @@ describe("Cosmic Night UI primitives", () => {
     expect(meta.page).toBe(1);
     expect(meta.pageSize).toBe(1);
     expect(meta.totalItems).toBe(0);
+  });
+
+  it("serves the UMD SDK bundle with ETag 304 revalidation and CORS preflight", async () => {
+    const preflight = await sdkBundleOPTIONS();
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("*");
+
+    const res = await sdkBundleGET(new Request("http://localhost:3000/sdk/v1/bloumeid.js"));
+    expect([200, 503]).toContain(res.status);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    if (res.status === 200) {
+      const etag = res.headers.get("etag");
+      expect(etag).toBeTruthy();
+      const revalidated = await sdkBundleGET(
+        new Request("http://localhost:3000/sdk/v1/bloumeid.js", {
+          headers: { "If-None-Match": etag! },
+        })
+      );
+      expect(revalidated.status).toBe(304);
+    } else {
+      expect(res.headers.get("cache-control")).toBe("no-store");
+    }
   });
 });
