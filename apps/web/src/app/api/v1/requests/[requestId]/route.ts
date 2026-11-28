@@ -51,6 +51,8 @@ export async function GET(
       thumbmark: event.fullHash,
       hardwareHash: event.hardwareHash,
       dangerLevel: event.dangerLevel,
+      action: event.ruleAction,
+      matchedRuleId: event.matchedRuleId,
       confidence: event.confidence,
       flags: {
         isBot: event.isBot,
@@ -70,6 +72,13 @@ export async function GET(
         asnOrg: event.asnOrg,
         country: event.country,
         city: event.city,
+      },
+      browser: {
+        name: event.browser ?? "Unknown",
+        version: "0.0",
+        os: event.os ?? "Unknown",
+        osVersion: "",
+        device: event.device ?? "Desktop",
       },
       createdAt: event.createdAt,
       components: event.components,

@@ -1083,18 +1083,61 @@ export async function getVisitorTrustStatus(visitorPublicId: string): Promise<Vi
   return memVis?.trustStatus ?? "neutral";
 }
 
-export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
+export async function getVisitorByPublicId(
+  visitorPublicId: string,
+  options?: { includeEventComponents?: boolean }
+): Promise<{
   visitor: PublicVisitorDTO;
   events: PublicFingerprintEventDTO[];
 } | null> {
   ensureFeedsInitialized();
+  const includeComponents = options?.includeEventComponents !== false;
   if (await isDatabaseConnected()) {
     try {
       const vis = await prisma.visitor.findUnique({
         where: { publicId: visitorPublicId },
         include: {
           site: { select: { publicId: true } },
-          events: { orderBy: { createdAt: "desc" }, take: 50 },
+          events: {
+            orderBy: { createdAt: "desc" },
+            take: 50,
+            select: {
+              publicId: true,
+              fullHash: true,
+              hardwareHash: true,
+              ipAddress: true,
+              ipSubnet: true,
+              ja4Hash: true,
+              asnNumber: true,
+              asnOrg: true,
+              country: true,
+              city: true,
+              latitude: true,
+              longitude: true,
+              isVpn: true,
+              isProxy: true,
+              isTor: true,
+              isDatacenter: true,
+              isBot: true,
+              isSpoofed: true,
+              isIncognito: true,
+              crossBrowserMatched: true,
+              dangerLevel: true,
+              confidence: true,
+              durationMs: true,
+              ruleAction: true,
+              matchedRuleId: true,
+              linkedId: true,
+              tag: true,
+              browser: true,
+              os: true,
+              device: true,
+              userAgent: true,
+              origin: true,
+              components: includeComponents,
+              createdAt: true,
+            },
+          },
         },
       });
       if (vis) {
@@ -1137,6 +1180,7 @@ export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
             crossBrowserMatched: e.crossBrowserMatched,
             dangerLevel: e.dangerLevel,
             confidence: e.confidence,
+            durationMs: e.durationMs ?? 0,
             ruleAction: (e.ruleAction as SecurityRuleAction) ?? "allow",
             matchedRuleId: e.matchedRuleId ?? null,
             linkedId: e.linkedId ?? null,
@@ -1146,7 +1190,9 @@ export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
             device: e.device,
             userAgent: e.userAgent,
             origin: e.origin,
-            components: e.components as unknown as FingerprintComponents,
+            components: includeComponents
+              ? (e.components as unknown as FingerprintComponents)
+              : ({} as unknown as FingerprintComponents),
             createdAt: e.createdAt.toISOString(),
           })),
         };
@@ -1163,7 +1209,13 @@ export async function getVisitorByPublicId(visitorPublicId: string): Promise<{
   const events = memEvents
     .filter((e) => e.visitorId === memVis.id)
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .map((e) => mapInternalEventToDTO(e, sitePubId, memVis.publicId));
+    .map((e) => {
+      const dto = mapInternalEventToDTO(e, sitePubId, memVis.publicId);
+      if (!includeComponents) {
+        dto.components = {} as unknown as FingerprintComponents;
+      }
+      return dto;
+    });
 
   return {
     visitor: {
