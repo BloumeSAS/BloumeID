@@ -735,5 +735,32 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(verifyBody.action).toBe("challenge");
     expect(verifyBody.browser.name).toBe("Chrome");
   });
+
+  it("blocks __proto__ / oversized tags on /api/v1/preview and normalizes /api/health workerId", async () => {
+    const { POST: previewPOST } = await import("../src/app/api/v1/preview/route");
+    const { GET: healthGET } = await import("../src/app/api/health/route");
+
+    const protoRes = await previewPOST(
+      new Request("http://localhost:3000/api/v1/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-real-ip": "198.51.100.77" },
+        body: '{"fullHash":"1234567890abcdef123456","hardwareHash":"1234567890abcdef123456","components":{"__proto__":{"polluted":true}}}',
+      })
+    );
+    expect(protoRes.status).toBe(400);
+
+    const prevWorkerId = process.env.WORKER_ID;
+    process.env.WORKER_ID = "invalid_worker";
+    try {
+      const hRes = await healthGET();
+      expect(hRes.status).toBe(200);
+      const hBody = (await hRes.json()) as { workerId: number; status: string };
+      expect(hBody.status).toBe("ok");
+      expect(hBody.workerId).toBe(1);
+    } finally {
+      if (prevWorkerId === undefined) delete process.env.WORKER_ID;
+      else process.env.WORKER_ID = prevWorkerId;
+    }
+  });
 });
 

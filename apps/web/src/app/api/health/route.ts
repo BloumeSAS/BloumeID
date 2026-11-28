@@ -7,7 +7,12 @@ import { badAsnCount, globalThreatTrie } from "@/lib/engine/cidr-trie";
 import { ensureDefaultTrieSeeded } from "@/lib/engine/feeds";
 import { getGeoIpStatus } from "@/lib/engine/geoip";
 
+let cachedSdkBundleSizeKb: number | null = null;
+
 function resolveSdkBundleSizeKb(): number {
+  if (cachedSdkBundleSizeKb !== null && process.env.NODE_ENV === "production") {
+    return cachedSdkBundleSizeKb;
+  }
   const candidates = [
     path.join(process.cwd(), "public", "sdk", "v1", "bloumeid.js"),
     path.join(process.cwd(), "apps", "web", "public", "sdk", "v1", "bloumeid.js"),
@@ -15,7 +20,9 @@ function resolveSdkBundleSizeKb(): number {
   for (const p of candidates) {
     try {
       if (fs.existsSync(/*turbopackIgnore: true*/ p)) {
-        return Math.round(fs.statSync(/*turbopackIgnore: true*/ p).size / 1024);
+        const sizeKb = Math.round(fs.statSync(/*turbopackIgnore: true*/ p).size / 1024);
+        cachedSdkBundleSizeKb = sizeKb;
+        return sizeKb;
       }
     } catch {
       // Ignore stat error
@@ -27,13 +34,18 @@ function resolveSdkBundleSizeKb(): number {
 export async function GET(): Promise<NextResponse> {
   ensureDefaultTrieSeeded();
   const geoip = getGeoIpStatus();
+  const rawWorkerId = Number(process.env.WORKER_ID ?? 1);
+  const workerId =
+    Number.isFinite(rawWorkerId) && rawWorkerId >= 0
+      ? Math.min(1023, Math.trunc(rawWorkerId))
+      : 1;
 
   return NextResponse.json(
     {
       status: "ok",
       service: "bloumeid-web",
       version: APP_VERSION,
-      workerId: Number(process.env.WORKER_ID ?? 1),
+      workerId,
       threatTrieCidrs: globalThreatTrie.size(),
       badAsnCount: badAsnCount(),
       sdkBundleSizeKb: resolveSdkBundleSizeKb(),
