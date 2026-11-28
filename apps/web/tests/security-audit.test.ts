@@ -144,7 +144,45 @@ describe("Phase 8 — Final Security Audit, Zero-'any' Check & UMD Bundle Execut
     expect(validateWebhookUrl("http://192.168.1.10/admin").valid).toBe(false);
     expect(validateWebhookUrl("http://localhost:3000/api").valid).toBe(false);
     expect(validateWebhookUrl("https://[::1]/hook").valid).toBe(false);
+    expect(validateWebhookUrl("https://[::ffff:127.0.0.1]/hook").valid).toBe(false);
+    expect(validateWebhookUrl("https://[::ffff:169.254.169.254]/latest/meta-data/").valid).toBe(false);
+    expect(validateWebhookUrl("https://[fe80::1]/hook").valid).toBe(false);
+    expect(validateWebhookUrl("https://224.0.0.1/hook").valid).toBe(false);
     expect(validateWebhookUrl("https://hooks.bloume.fr/webhook").valid).toBe(true);
+  });
+
+  it("neutralizes CSV formula injection and skips path-traversal tar entries safely", async () => {
+    const { sanitizeCsvCell } = await import("../src/lib/security");
+    const { extractMmdbFromTarGzBuffer } = await import("../src/lib/engine/geoip");
+    const zlib = await import("node:zlib");
+
+    expect(sanitizeCsvCell("=CMD|' /C calc'!A0")).toBe("'=CMD|' /C calc'!A0");
+    expect(sanitizeCsvCell("+1+2")).toBe("'+1+2");
+    expect(sanitizeCsvCell('@SUM(1,2)')).toBe(`"'@SUM(1,2)"`);
+    expect(sanitizeCsvCell('Paris, FR')).toBe('"Paris, FR"');
+
+    // Build tar archive with traversal payload first, valid .mmdb entry second
+    const makeHeader = (name: string, size: number): Buffer => {
+      const h = Buffer.alloc(512, 0);
+      h.write(name, 0, "utf8");
+      h.write(size.toString(8).padStart(11, "0"), 124, "utf8");
+      return h;
+    };
+    const badPayload = Buffer.from("EVIL", "utf8");
+    const badDataBlock = Buffer.concat([badPayload, Buffer.alloc(512 - badPayload.length, 0)]);
+    const goodPayload = Buffer.from("MMDB_OK", "utf8");
+    const goodDataBlock = Buffer.concat([goodPayload, Buffer.alloc(512 - goodPayload.length, 0)]);
+
+    const tarBuf = Buffer.concat([
+      makeHeader("../evil.mmdb", badPayload.length),
+      badDataBlock,
+      makeHeader("GeoLite2/GeoLite2-City.mmdb", goodPayload.length),
+      goodDataBlock,
+      Buffer.alloc(1024, 0),
+    ]);
+    const gz = zlib.gzipSync(tarBuf);
+    const extracted = extractMmdbFromTarGzBuffer(gz);
+    expect(extracted?.toString("utf8")).toBe("MMDB_OK");
   });
 
   it("rejects oversized (> 64 KB) JSON payloads on POST /api/v1/fingerprint with 413", async () => {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticatedFromRequest } from "@/lib/auth";
+import { parseSafeJsonBody, sanitizeCsvCell } from "@/lib/security";
 import { globalThreatTrie } from "@/lib/engine/cidr-trie";
 import {
   ensureDefaultTrieSeeded,
@@ -78,7 +79,9 @@ export async function GET(request: Request): Promise<NextResponse> {
         e.isVpn,
         e.isTor,
         e.createdAt,
-      ].join(",")
+      ]
+        .map(sanitizeCsvCell)
+        .join(",")
     );
 
     return new NextResponse([csvHeader, ...csvRows].join("\n"), {
@@ -109,14 +112,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let raw: unknown;
-  try {
-    raw = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const bodyResult = await parseSafeJsonBody(request);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
 
-  const parsed = ActionSchema.safeParse(raw);
+  const parsed = ActionSchema.safeParse(bodyResult.data);
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }

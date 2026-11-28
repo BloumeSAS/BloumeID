@@ -72,6 +72,18 @@ export async function parseSafeJsonBody(
 }
 
 /**
+ * Neutralizes spreadsheet formula injection prefixes and applies RFC-4180 CSV quoting.
+ */
+export function sanitizeCsvCell(value: unknown): string {
+  const raw = value === null || value === undefined ? "" : String(value);
+  const formulaSafe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  if (/[",\n\r]/.test(formulaSafe)) {
+    return `"${formulaSafe.replaceAll('"', '""')}"`;
+  }
+  return formulaSafe;
+}
+
+/**
  * Prevents Open Redirects by accepting only strict relative internal paths.
  */
 export function sanitizeInternalRedirect(target?: string | null): string {
