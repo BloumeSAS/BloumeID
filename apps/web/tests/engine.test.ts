@@ -40,6 +40,7 @@ import { dispatchSignedWebhook, shouldTriggerWebhook } from "../src/lib/engine/w
 import { reconcileVisitorIdentity } from "../src/lib/engine/reconcile";
 import {
   createSiteRecord,
+  findSiteByPublicKey,
   getDashboardMetrics,
   getReconciliationStore,
   listSites,
@@ -444,8 +445,10 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
 
     // Direct unit check on reconcileVisitorIdentity
     const store = getReconciliationStore();
+    const internalSite = await findSiteByPublicKey(testPublicKey);
+    expect(internalSite).not.toBeNull();
     const rec = await reconcileVisitorIdentity(store, {
-      siteInternalId: 1,
+      siteInternalId: internalSite!.id,
       fullHash: fullHashChrome,
       hardwareHash: sharedHardwareHash,
       ipSubnet: "198.51.100.0/24",
