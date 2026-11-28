@@ -56,16 +56,22 @@ export default function SitesPage() {
   const [deleteModalSite, setDeleteModalSite] = React.useState<PublicSiteDTO | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
-  const loadSites = React.useCallback(async () => {
-    const res = await fetch("/api/admin/sites?all=true");
-    if (res.ok) {
-      const data = (await res.json()) as { sites: PublicSiteDTO[] };
-      setSites(data.sites);
+  const loadSites = React.useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/api/admin/sites?all=true", { signal });
+      if (res.ok && !signal?.aborted) {
+        const data = (await res.json()) as { sites: PublicSiteDTO[] };
+        setSites(data.sites);
+      }
+    } catch {
+      // Ignore abort or transient fetch errors
     }
   }, []);
 
   React.useEffect(() => {
-    void loadSites();
+    const controller = new AbortController();
+    void loadSites(controller.signal);
+    return () => controller.abort();
   }, [loadSites, refreshTick]);
 
   const filteredSites = React.useMemo(() => {

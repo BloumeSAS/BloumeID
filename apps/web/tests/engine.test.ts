@@ -825,5 +825,12 @@ describe("Backend Engine v1.0.0 — Snowflake, CIDR Trie, GeoLite2 Extractor, Ru
     const metrics = await getDashboardMetrics("24h");
     expect(metrics.totalEvents).toBeGreaterThanOrEqual(0);
     expect(metrics.uniqueVisitors).toBeLessThanOrEqual(metrics.totalEvents);
+
+    const { listSites } = await import("../src/lib/engine/repository");
+    const sites = await listSites();
+    for (const s of sites) {
+      expect(s.requests24h ?? 0).toBeGreaterThanOrEqual(0);
+      expect(s.requests30d ?? 0).toBeGreaterThanOrEqual(s.requests24h ?? 0);
+    }
   });
 });

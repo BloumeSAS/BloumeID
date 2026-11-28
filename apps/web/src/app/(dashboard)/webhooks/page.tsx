@@ -49,25 +49,35 @@ export default function WebhooksPage() {
     [filteredDeliveries, deliveriesPage],
   );
 
-  const loadData = React.useCallback(async () => {
-    const res = await fetch("/api/admin/sites?all=true");
-    if (res.ok) {
-      const data = (await res.json()) as {
-        sites: PublicSiteDTO[];
-        webhookDeliveries?: PublicWebhookDeliveryDTO[];
-      };
-      setSites(data.sites);
-      if (data.webhookDeliveries) {
-        setDeliveries(data.webhookDeliveries);
+  const loadData = React.useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/api/admin/sites?all=true", { signal });
+      if (res.ok && !signal?.aborted) {
+        const data = (await res.json()) as {
+          sites: PublicSiteDTO[];
+          webhookDeliveries?: PublicWebhookDeliveryDTO[];
+        };
+        setSites(data.sites);
+        if (data.webhookDeliveries) {
+          setDeliveries(data.webhookDeliveries);
+        }
+        setUrlDrafts((prev) => {
+          const next: Record<string, string> = {};
+          for (const s of data.sites) {
+            next[s.publicId] = prev[s.publicId] ?? (s.webhookUrl ?? "");
+          }
+          return next;
+        });
+        setThresholdDrafts((prev) => {
+          const next: Record<string, number> = {};
+          for (const s of data.sites) {
+            next[s.publicId] = prev[s.publicId] ?? s.riskThreshold;
+          }
+          return next;
+        });
       }
-      const urls: Record<string, string> = {};
-      const thresholds: Record<string, number> = {};
-      for (const s of data.sites) {
-        urls[s.publicId] = s.webhookUrl ?? "";
-        thresholds[s.publicId] = s.riskThreshold;
-      }
-      setUrlDrafts(urls);
-      setThresholdDrafts(thresholds);
+    } catch {
+      // Ignore abort or transient fetch errors
     }
   }, []);
 
@@ -76,7 +86,9 @@ export default function WebhooksPage() {
   }, [selectedSiteId]);
 
   React.useEffect(() => {
-    void loadData();
+    const controller = new AbortController();
+    void loadData(controller.signal);
+    return () => controller.abort();
   }, [loadData, refreshTick]);
 
   const handleSaveWebhook = async (publicId: string, clearUrl = false) => {
