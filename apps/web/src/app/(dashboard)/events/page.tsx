@@ -96,10 +96,8 @@ export default function EventsAuditPage() {
         setEvents(data.events);
         if (data.pagination) setPagination(data.pagination);
       }
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
-        throw err;
-      }
+    } catch {
+      // Transient network abort or outage keeps existing list until next poll
     } finally {
       if (abortRef.current === controller) {
         setIsLoading(false);

@@ -12,7 +12,7 @@ chown -R nextjs:nodejs /app/data /app/apps/web/data 2>/dev/null || true
 
 # 1. Wait for PostgreSQL availability when DATABASE_URL is configured
 if [ -n "$DATABASE_URL" ]; then
-  CLEAN_DB_URL=$(echo "$DATABASE_URL" | sed 's/?schema=.*//')
+  CLEAN_DB_URL=$(printf '%s' "$DATABASE_URL" | sed -E 's/([?&])schema=[^&]*(&|$)/\1/; s/[?&]$//')
   echo "[BloumeID] Waiting for PostgreSQL database..."
   MAX_RETRIES=30
   COUNT=0
@@ -27,6 +27,8 @@ if [ -n "$DATABASE_URL" ]; then
   PRISMA_SCHEMA="/app/apps/web/prisma/schema.prisma"
   if [ -x "/app/node_modules/.bin/prisma" ]; then
     /app/node_modules/.bin/prisma migrate deploy --schema="$PRISMA_SCHEMA" || echo "[BloumeID] Warning: prisma migrate deploy skipped or handled externally"
+  elif [ -x "/app/apps/web/node_modules/.bin/prisma" ]; then
+    /app/apps/web/node_modules/.bin/prisma migrate deploy --schema="$PRISMA_SCHEMA" || echo "[BloumeID] Warning: prisma migrate deploy skipped or handled externally"
   else
     npm_config_update_notifier=false npm_config_fund=false npx --yes prisma@6.19.3 migrate deploy --schema="$PRISMA_SCHEMA" || echo "[BloumeID] Warning: prisma migrate deploy skipped or handled externally"
   fi

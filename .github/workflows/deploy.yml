@@ -39,7 +39,7 @@ jobs:
             if ! curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
               echo "Healthcheck failed on staging! Rolling back..."
               if [ -n "$PREV_DIGEST" ]; then
-                docker tag "$PREV_DIGEST" ghcr.io/bloume-sas/bloumeid:latest
+                docker tag "$PREV_DIGEST" ghcr.io/bloumesas/bloumeid:latest
                 docker compose up -d bloumeid-web
               fi
               exit 1
@@ -67,15 +67,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh -o StrictHostKeyChecking=accept-new "${SSH_USER}@${SSH_HOST}" << EOF
+          ssh -o StrictHostKeyChecking=accept-new "${SSH_USER}@${SSH_HOST}" RELEASE_TAG="${RELEASE_TAG}" 'bash -s' << 'EOF'
             set -e
             cd /opt/bloumeid
             mkdir -p backups
-            TIMESTAMP=\$(date +%Y%m%d_%H%M%S)
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             echo "[1/5] Running pre-migration pg_dump backup..."
-            docker exec bloumeid-db pg_dump -U bloumeid bloumeid | gzip > "backups/bloumeid_\${TIMESTAMP}.sql.gz"
+            docker exec bloumeid-db pg_dump -U bloumeid bloumeid | gzip > "backups/bloumeid_${TIMESTAMP}.sql.gz"
 
-            PREV_IMAGE=\$(docker inspect --format='{{.Config.Image}}' bloumeid-web 2>/dev/null || echo "")
+            PREV_IMAGE=$(docker inspect --format='{{.Config.Image}}' bloumeid-web 2>/dev/null || echo "")
 
             echo "[2/5] Pulling release image ${RELEASE_TAG}..."
             docker compose pull
@@ -89,9 +89,9 @@ jobs:
             echo "[5/5] Verifying healthcheck & smoke tests..."
             sleep 12
             if ! curl -fsS http://127.0.0.1:3000/api/health >/dev/null || ! curl -fsS http://127.0.0.1:3000/sdk/v1/bloumeid.js >/dev/null; then
-              echo "CRITICAL: Production healthcheck failed! Rolling back to \${PREV_IMAGE}..."
-              if [ -n "\$PREV_IMAGE" ]; then
-                docker tag "\$PREV_IMAGE" ghcr.io/bloume-sas/bloumeid:latest
+              echo "CRITICAL: Production healthcheck failed! Rolling back to ${PREV_IMAGE}..."
+              if [ -n "$PREV_IMAGE" ]; then
+                docker tag "$PREV_IMAGE" ghcr.io/bloumesas/bloumeid:latest
                 docker compose up -d bloumeid-web
               fi
               exit 1
