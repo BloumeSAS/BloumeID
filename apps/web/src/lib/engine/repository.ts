@@ -381,14 +381,22 @@ export function getReconciliationStore(): ReconciliationStore {
     }) {
       if (await isDatabaseConnected()) {
         if (existingVisitorId) {
-          const current = await prisma.visitor.findUnique({ where: { id: existingVisitorId } });
+          let nextMaxDanger: number | undefined;
+          if (dangerLevel > 0) {
+            const current = await prisma.visitor.findUnique({
+              where: { id: existingVisitorId },
+              select: { maxDangerLevel: true },
+            });
+            nextMaxDanger = Math.max(current?.maxDangerLevel ?? 0, dangerLevel);
+          }
           const updated = await prisma.visitor.update({
             where: { id: existingVisitorId },
             data: {
               lastSeenAt: new Date(),
               visitCount: { increment: 1 },
-              maxDangerLevel: Math.max(current?.maxDangerLevel ?? 0, dangerLevel),
+              ...(nextMaxDanger !== undefined ? { maxDangerLevel: nextMaxDanger } : {}),
             },
+            select: { id: true, publicId: true },
           });
           return { id: updated.id, publicId: updated.publicId };
         }
@@ -400,6 +408,7 @@ export function getReconciliationStore(): ReconciliationStore {
             maxDangerLevel: dangerLevel,
             tags: [],
           },
+          select: { id: true, publicId: true },
         });
         return { id: created.id, publicId: created.publicId };
       }
@@ -1948,9 +1957,25 @@ export async function getDashboardMetrics(
     };
   });
 
+  const browserCounts = new Map<string, number>();
+  const osCounts = new Map<string, number>();
+  const platformCounts = new Map<string, number>();
+  const countryMap = new Map<string, { code: string; asn: string; count: number }>();
+  const asnMap = new Map<number, { asnNumber: number; asnOrg: string; count: number; isRisk: boolean }>();
+
+  let botCount = 0;
+  let spoofCount = 0;
+  let vpnProxyCount = 0;
+  let torCount = 0;
+  let datacenterCount = 0;
+  let incognitoCount = 0;
+  let durationSum = 0;
+  let durationCount = 0;
+  const sinceMs = since.getTime();
+
   for (const evt of eventsList) {
     const evtMs = new Date(evt.createdAt).getTime();
-    const rawIdx = Math.floor((evtMs - since.getTime()) / bucketMs);
+    const rawIdx = Math.floor((evtMs - sinceMs) / bucketMs);
     const bucketIdx = Math.max(0, Math.min(bucketCount - 1, rawIdx));
     const slot = trendSeries[bucketIdx];
     if (slot) {
@@ -1960,24 +1985,18 @@ export async function getDashboardMetrics(
       else if (evt.crossBrowserMatched || evt.dangerLevel >= 2) slot.suspicious += 1;
       else slot.clean += 1;
     }
-  }
 
-  const vectorDistribution = [
-    { vector: "Bot / CDP", count: eventsList.filter((e) => e.isBot).length },
-    { vector: "Anti-Spoof", count: eventsList.filter((e) => e.isSpoofed).length },
-    { vector: "VPN / Proxy", count: eventsList.filter((e) => e.isVpn || e.isProxy).length },
-    { vector: "Tor Exit", count: eventsList.filter((e) => e.isTor).length },
-    { vector: "Datacenter ASN", count: eventsList.filter((e) => e.isDatacenter).length },
-    { vector: "Incognito", count: eventsList.filter((e) => e.isIncognito).length },
-  ];
+    if (evt.isBot) botCount += 1;
+    if (evt.isSpoofed) spoofCount += 1;
+    if (evt.isVpn || evt.isProxy) vpnProxyCount += 1;
+    if (evt.isTor) torCount += 1;
+    if (evt.isDatacenter) datacenterCount += 1;
+    if (evt.isIncognito) incognitoCount += 1;
+    if ((evt.durationMs ?? 0) > 0) {
+      durationSum += evt.durationMs ?? 0;
+      durationCount += 1;
+    }
 
-  const browserCounts = new Map<string, number>();
-  const osCounts = new Map<string, number>();
-  const platformCounts = new Map<string, number>();
-  const countryMap = new Map<string, { code: string; asn: string; count: number }>();
-  const asnMap = new Map<number, { asnNumber: number; asnOrg: string; count: number; isRisk: boolean }>();
-
-  for (const evt of eventsList) {
     const browserName = evt.browser?.trim() || "Unknown";
     browserCounts.set(browserName, (browserCounts.get(browserName) ?? 0) + 1);
 
@@ -2016,6 +2035,15 @@ export async function getDashboardMetrics(
       }
     }
   }
+
+  const vectorDistribution = [
+    { vector: "Bot / CDP", count: botCount },
+    { vector: "Anti-Spoof", count: spoofCount },
+    { vector: "VPN / Proxy", count: vpnProxyCount },
+    { vector: "Tor Exit", count: torCount },
+    { vector: "Datacenter ASN", count: datacenterCount },
+    { vector: "Incognito", count: incognitoCount },
+  ];
 
   const browserDistribution = Array.from(browserCounts.entries())
     .sort((a, b) => b[1] - a[1])
@@ -2067,13 +2095,7 @@ export async function getDashboardMetrics(
       isRisk: a.isRisk,
     }));
 
-  const durationSamples = eventsList
-    .map((e) => e.durationMs ?? 0)
-    .filter((ms) => ms > 0);
-  const avgCollectionMs =
-    durationSamples.length > 0
-      ? Math.round(durationSamples.reduce((a, b) => a + b, 0) / durationSamples.length)
-      : 0;
+  const avgCollectionMs = durationCount > 0 ? Math.round(durationSum / durationCount) : 0;
 
   return {
     period: normalizedPeriod,
