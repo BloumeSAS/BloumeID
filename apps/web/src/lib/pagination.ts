@@ -1,5 +1,7 @@
 import type { PaginationMeta } from "@/types";
 
+const MAX_PAGINATION_PAGE = 100_000;
+
 export function parsePaginationParams(
   searchParams: URLSearchParams,
   defaultPageSize = 25,
@@ -9,7 +11,10 @@ export function parsePaginationParams(
   const rawPage = Number(searchParams.get("page") ?? "1");
   const rawPageSize = Number(searchParams.get("pageSize") ?? String(defaultPageSize));
 
-  const page = Number.isFinite(rawPage) && rawPage >= 1 ? Math.floor(rawPage) : 1;
+  const page =
+    Number.isFinite(rawPage) && rawPage >= 1
+      ? Math.min(MAX_PAGINATION_PAGE, Math.floor(rawPage))
+      : 1;
   const pageSize =
     Number.isFinite(rawPageSize) && rawPageSize >= 1
       ? Math.min(maxPageSize, Math.floor(rawPageSize))
