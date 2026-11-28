@@ -30,6 +30,7 @@ export default function VisitorDetailPage() {
   const [mergeSourceId, setMergeSourceId] = React.useState("");
   const [mergeStatus, setMergeStatus] = React.useState<string | null>(null);
   const [mergeError, setMergeError] = React.useState<string | null>(null);
+  const [savingAction, setSavingAction] = React.useState(false);
   const [loadFailed, setLoadFailed] = React.useState(false);
 
   const loadProfile = React.useCallback(async (signal?: AbortSignal) => {
@@ -62,6 +63,7 @@ export default function VisitorDetailPage() {
   }, [visitorId]);
 
   React.useEffect(() => {
+    setTimelinePage(1);
     const controller = new AbortController();
     void loadProfile(controller.signal);
     return () => controller.abort();
@@ -69,64 +71,85 @@ export default function VisitorDetailPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!visitor) return;
-    const tags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    const res = await fetch("/api/admin/visitors", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        publicId: visitor.publicId,
-        tags,
-        notes: notesInput.trim() || null,
-      }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { visitor: PublicVisitorDTO };
-      setVisitor(data.visitor);
+    if (!visitor || savingAction) return;
+    setSavingAction(true);
+    try {
+      const tags = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const res = await fetch("/api/admin/visitors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicId: visitor.publicId,
+          tags,
+          notes: notesInput.trim() || null,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { visitor: PublicVisitorDTO };
+        setVisitor(data.visitor);
+      }
+    } catch {
+      // Preserve form inputs if transient network error occurs
+    } finally {
+      setSavingAction(false);
     }
   };
 
   const handleTrustChange = async (trustStatus: VisitorTrustStatus) => {
-    if (!visitor) return;
-    const res = await fetch("/api/admin/visitors", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        publicId: visitor.publicId,
-        trustStatus,
-      }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { visitor: PublicVisitorDTO };
-      setVisitor(data.visitor);
+    if (!visitor || savingAction) return;
+    setSavingAction(true);
+    try {
+      const res = await fetch("/api/admin/visitors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicId: visitor.publicId,
+          trustStatus,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { visitor: PublicVisitorDTO };
+        setVisitor(data.visitor);
+      }
+    } catch {
+      // Ignore transient network errors cleanly
+    } finally {
+      setSavingAction(false);
     }
   };
 
   const handleMerge = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!visitor || !mergeSourceId.trim()) return;
+    if (!visitor || !mergeSourceId.trim() || savingAction) return;
     setMergeError(null);
     setMergeStatus(null);
-    const res = await fetch("/api/admin/visitors", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        publicId: visitor.publicId,
-        mergeSourceVisitorId: mergeSourceId.trim(),
-      }),
-    });
-    if (res.ok) {
-      setMergeSourceId("");
-      setMergeStatus(dict.visitors.mergedSuccess);
-      await loadProfile();
-    } else {
-      const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
-        error?: string;
-      };
-      setMergeError(err.error ?? `HTTP ${res.status}`);
+    setSavingAction(true);
+    try {
+      const res = await fetch("/api/admin/visitors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicId: visitor.publicId,
+          mergeSourceVisitorId: mergeSourceId.trim(),
+        }),
+      });
+      if (res.ok) {
+        setMergeSourceId("");
+        setMergeStatus(dict.visitors.mergedSuccess);
+        await loadProfile();
+      } else {
+        const err = (await res.json().catch(() => ({ error: `HTTP ${res.status}` }))) as {
+          error?: string;
+        };
+        setMergeError(err.error ?? `HTTP ${res.status}`);
+      }
+    } catch (err) {
+      setMergeError(err instanceof Error ? err.message : dict.common.none);
+    } finally {
+      setSavingAction(false);
     }
   };
 

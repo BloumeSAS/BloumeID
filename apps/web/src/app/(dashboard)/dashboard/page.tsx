@@ -163,10 +163,8 @@ export default function DashboardPage() {
         const data = (await res.json()) as DashboardMetricsDTO;
         setMetrics(data);
       }
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
-        throw err;
-      }
+    } catch {
+      // Silently ignore transient network/abort errors; next refreshTick or filter change will retry
     }
   }, [timeRange, selectedSiteId]);
 
