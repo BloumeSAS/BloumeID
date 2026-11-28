@@ -118,14 +118,18 @@ export default function SettingsPage() {
 
   const handleLookupIp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/admin/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "lookup_ip", ipAddress: testIp }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as IpLookupPreviewResult;
-      setIpResult(data);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "lookup_ip", ipAddress: testIp }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as IpLookupPreviewResult;
+        setIpResult(data);
+      }
+    } catch {
+      // Ignore transient network errors on IP lookup
     }
   };
 
@@ -133,13 +137,17 @@ export default function SettingsPage() {
     const safeDays = Number.isFinite(retentionDays)
       ? Math.max(1, Math.min(3650, Math.round(retentionDays)))
       : 90;
-    const res = await fetch("/api/admin/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "purge_events", retentionDays: safeDays }),
-    });
-    if (res.ok) {
-      await loadSettings();
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "purge_events", retentionDays: safeDays }),
+      });
+      if (res.ok) {
+        await loadSettings();
+      }
+    } catch {
+      // Ignore transient network errors on event purge
     }
   };
 
